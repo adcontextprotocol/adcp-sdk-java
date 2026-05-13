@@ -3,8 +3,7 @@
 // `/types`, `/types/v2-5`, `/auth`, `/advanced`, `/schemas`.
 
 plugins {
-    id("adcp.java-library-conventions")
-    id("adcp.schema-bundle-conventions")
+    id("adcp.schema-codegen-conventions")
 }
 
 description = "AdCP Java SDK — caller, types, schema bundle"

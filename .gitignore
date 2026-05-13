@@ -19,6 +19,7 @@ npm-debug.log*
 # Coding-agent side channels (Conductor workspace state, etc.)
 .claude/
 .context/
+.local/
 
 # OS
 .DS_Store

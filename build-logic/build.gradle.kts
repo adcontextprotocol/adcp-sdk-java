@@ -12,4 +12,10 @@ dependencies {
     implementation(libs.plugins.kotlin.jvm.map {
         "org.jetbrains.kotlin:kotlin-gradle-plugin:${it.version}"
     })
+
+    // Used by the codegen task to emit Java source from JSON Schemas.
+    // Build-time only; never on the SDK's runtime classpath.
+    implementation(libs.javapoet)
+    implementation(libs.jackson.databind)
+    implementation(libs.jspecify)
 }

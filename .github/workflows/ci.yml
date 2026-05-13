@@ -28,5 +28,11 @@ jobs:
           # — the standard supply-chain check for OSS Java repos.
           validate-wrappers: true
 
+      - name: Install cosign
+        # Schema-bundle fetcher (per D4) shells out to `cosign verify-blob`
+        # against the AdCP release workflow's Sigstore signature. Building
+        # the adcp module triggers fetchSchemaBundle → cosign.
+        uses: sigstore/cosign-installer@v3
+
       - name: Build all modules
         run: ./gradlew build --stacktrace

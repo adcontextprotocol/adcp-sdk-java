@@ -23,6 +23,9 @@ mcp-sdk = "1.1.2"
 # prototype question: can it run without Jetty/Tomcat?).
 jakarta-servlet = "6.1.0"
 
+# Codegen (build-time only).
+javapoet = "0.7.0"
+
 # Test.
 junit = "5.11.4"
 
@@ -71,6 +74,9 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 
 # CLI runtime logging
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+
+# Codegen (build-time only — never on the SDK's runtime classpath)
+javapoet = { module = "com.palantir.javapoet:javapoet", version.ref = "javapoet" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
