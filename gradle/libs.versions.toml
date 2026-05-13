@@ -1,0 +1,87 @@
+# Version catalog for the AdCP Java SDK.
+# All artifact versions live here. Module build files reference by alias.
+# Bumping any version is a deliberate PR — D15 (spec-rev tracking) and D9
+# (MCP SDK pin) both depend on this being the single source of truth.
+
+[versions]
+# Toolchain (D2 — JDK 21 only).
+java = "21"
+kotlin = "2.1.10"
+
+# Core runtime.
+jackson = "2.18.2"
+slf4j = "2.0.16"
+jspecify = "1.0.0"
+
+# Schema validation (RFC §Schema validation).
+json-schema-validator = "1.5.6"
+
+# MCP SDK (D9 — pinned 1.1.2; plan a deliberate 2.x migration PR ~6 months out).
+mcp-sdk = "1.1.2"
+
+# Jakarta Servlet API — pulled in by mcp-core's HTTP server transport (D9 R1
+# prototype question: can it run without Jetty/Tomcat?).
+jakarta-servlet = "6.1.0"
+
+# Codegen (build-time only).
+javapoet = "0.7.0"
+
+# Test.
+junit = "5.11.4"
+
+# Spring Boot (D7 — Spring Boot 3.x / jakarta only).
+spring-boot = "3.4.4"
+
+# Reactor + Mutiny (D13 — both at GA, not fast-follow).
+reactor = "3.7.2"
+mutiny = "2.7.0"
+
+# Kotlin coroutines (D14 — co-released at v1.0 as a thin extension).
+kotlinx-coroutines = "1.10.1"
+
+[libraries]
+# Core
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+
+# Validation
+json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
+
+# MCP — depend on mcp-core (the framework-neutral substrate) + mcp-json-jackson2
+# (RFC §JSON pins Jackson 2.15+ floor). The `mcp` bundle artifact pulls
+# mcp-json-jackson3 by default; we deliberately swap to jackson2 to align
+# with the rest of the SDK's Jackson 2 dependency tree.
+# Findings: specs/mcp-prototype-findings.md
+mcp-core = { module = "io.modelcontextprotocol.sdk:mcp-core", version.ref = "mcp-sdk" }
+mcp-json-jackson2 = { module = "io.modelcontextprotocol.sdk:mcp-json-jackson2", version.ref = "mcp-sdk" }
+
+# Servlet (for mcp-core HTTP transport)
+jakarta-servlet-api = { module = "jakarta.servlet:jakarta.servlet-api", version.ref = "jakarta-servlet" }
+
+# Test
+junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
+junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+# Spring Boot starter machinery (used only by adcp-spring-boot-starter)
+spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure", version.ref = "spring-boot" }
+spring-boot-configuration-processor = { module = "org.springframework.boot:spring-boot-configuration-processor", version.ref = "spring-boot" }
+
+# Reactive bridges
+reactor-core = { module = "io.projectreactor:reactor-core", version.ref = "reactor" }
+mutiny = { module = "io.smallrye.reactive:mutiny", version.ref = "mutiny" }
+
+# Kotlin
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+
+# CLI runtime logging
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+
+# Codegen (build-time only — never on the SDK's runtime classpath)
+javapoet = { module = "com.palantir.javapoet:javapoet", version.ref = "javapoet" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

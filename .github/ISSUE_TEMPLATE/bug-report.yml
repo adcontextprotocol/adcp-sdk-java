@@ -1,0 +1,53 @@
+name: Bug report
+description: Report a defect in the SDK
+labels: ["bug"]
+body:
+  - type: input
+    id: sdk-version
+    attributes:
+      label: SDK version
+      description: Either a published `org.adcontextprotocol:adcp:X.Y.Z` coordinate or a commit SHA if you're on `main`.
+      placeholder: e.g. 0.1.0-SNAPSHOT (commit abc1234)
+    validations:
+      required: true
+  - type: input
+    id: jdk-version
+    attributes:
+      label: JDK version
+      description: Output of `java -version`. We baseline on JDK 21 per D2.
+      placeholder: e.g. openjdk 21.0.11
+    validations:
+      required: true
+  - type: input
+    id: framework
+    attributes:
+      label: Framework / runtime
+      description: Spring Boot, Quarkus, plain JVM, etc. Include the version.
+      placeholder: e.g. Spring Boot 3.4.4 / plain JVM
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Symptom you observed. Stack trace if you have one.
+    validations:
+      required: true
+  - type: textarea
+    id: what-expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: |
+        Smallest code (or `./gradlew` invocation) that demonstrates the bug. The bar: a maintainer should be able to paste it into a fresh checkout and reproduce in under 5 minutes.
+      render: java
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Context, hypotheses, related issues, anything that might help.

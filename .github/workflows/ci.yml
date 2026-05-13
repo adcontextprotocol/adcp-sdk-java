@@ -1,0 +1,38 @@
+name: build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ./gradlew build (JDK 21)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # Wrapper-validation guards against a tampered gradle-wrapper.jar
+          # — the standard supply-chain check for OSS Java repos.
+          validate-wrappers: true
+
+      - name: Install cosign
+        # Schema-bundle fetcher (per D4) shells out to `cosign verify-blob`
+        # against the AdCP release workflow's Sigstore signature. Building
+        # the adcp module triggers fetchSchemaBundle → cosign.
+        uses: sigstore/cosign-installer@v3
+
+      - name: Build all modules
+        run: ./gradlew build --stacktrace
