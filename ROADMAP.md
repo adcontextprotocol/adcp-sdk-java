@@ -6,7 +6,7 @@ This is a living document. Status updates land here; design decisions land in th
 
 ## Confirmed decisions
 
-Decisions made post-RFC that supersede or refine the merged text. Each will land as a numbered ADR under `docs/adr/` during the harness phase.
+Decisions made post-RFC that supersede or refine the merged text. The table below is the index. When a row needs more space to explain, it gets its own `specs/<topic>.md` (per D16) — by default the table row is the spec.
 
 | # | Decision | Resolution | Supersedes RFC |
 |---|---|---|---|
@@ -19,6 +19,18 @@ Decisions made post-RFC that supersede or refine the merged text. Each will land
 | D7 | `javax`/`jakarta` floor | **`jakarta` only**, Spring Boot 3.x floor. Single `adcp-spring-boot-starter` artifact, no compat starter, no community 2.7 port. Spring Boot 2.7 OSS support ended Nov 2025; anyone still on it has a vendor relationship. | Resolves RFC Open Question 6 in favor of option (a) |
 | D8 | Mock-server CI deployment | **Sidecar via `npx adcp mock-server`.** GitHub Actions Node step installs a pinned `@adcp/sdk` version, backgrounds one mock-server per specialism on a port range, Java tests hit `localhost`. The pinned `@adcp/sdk` version is the conformance oracle — bumping it is a deliberate PR. Promote to a published Docker image if multi-specialism orchestration becomes unwieldy. | Specifies D5's deployment |
 | D9 | MCP Java SDK | **`io.modelcontextprotocol.sdk:mcp` pinned `1.1.2`** at the core. Used by `adcp` (caller) and `adcp-server` (agent). The Spring AI MCP SDK was donated to the `modelcontextprotocol` org in Feb 2025 and rebranded as the official Java SDK; current `spring-ai-mcp-*` artifacts are now thin Spring Boot wrappers on top of `io.modelcontextprotocol.sdk` — no parallel implementation. **License: MIT** (compatible, flagged for foundation position). Two harness Week 1 prototype questions left open: (a) whether `mcp-core`'s servlet-based streamable-HTTP server transport is usable without pulling Jetty/Tomcat; (b) Jackson 2 vs. 3 module split — confirm `mcp-json-jackson2` is feature-equivalent. | Resolves RFC Open Question 2 |
+| D10 | A2A pre-1.0 type strategy | **Keep A2A types in-tree until `a2aproject/a2a-java` cuts a stable ≥ 1.0.0 release**, then migrate to the upstream client in one shot and deprecate the in-tree fallback in the next minor. As of the latest check, `a2a-java` is at `1.0.0.Beta1` (Apr 2026) — package layout still churning, so we don't hard-depend on it yet. | RFC default for Open Question 3 |
+| D11 | `TransitionGuard` narrowing protection | **Guards declare which spec edges they touch.** Conformance harness fails if a sandbox account's guards narrow any edge the storyboards exercise. Guards run after the spec edge check and can never relax a spec edge. | Resolves RFC Open Question 7 |
+| D12 | Spring Security integration depth | **Recipes-only at v1.0.** No separate `adcp-spring-boot-starter-security` artifact. Auth models vary too much to pre-bake; recipes age better than autoconfig. Revisit if v0.3 design-partner feedback demands it. | RFC default for Open Question 5 |
+| D13 | Reactor + Mutiny adapters | **At GA, not fast-follow.** `adcp-reactor` and `adcp-mutiny` both ship in v1.0. WebFlux shops left to wrap the sync API would own that complexity forever and we'd lose the canonical surface. | Confirms RFC §Async model |
+| D14 | Kotlin co-release | **At v1.0, thin extension artifact** (`adcp-kotlin`). Coroutine `suspend fun` wrappers + DSL builders. Not a parallel SDK. Defer and Kotlin shops fork. | Confirms RFC §Kotlin positioning |
+| D15 | Spec-rev tracking cadence | **≤ 2 weeks from AdCP spec rev to a Java SDK release that consumes it.** Same SLO TS and Python hold to. Slower than 2 weeks and JVM teams stop trusting the parity claim. | Specifies RFC §What kills adoption (item 1) |
+| D16 | Design-decision filing convention | **Match AdCP convention.** Longer-form design / decision docs live in `specs/<topic>.md` (the same place the Java SDK RFC itself lives in the spec repo). The Confirmed-decisions table in this ROADMAP is the at-a-glance index; a decision spins up its own `specs/` doc only when the table row isn't enough. No `docs/adr/`, no MADR template, no per-decision file by default. | (No RFC §; sets a repo convention) |
+| D17 | Branching model | **Trunk-based.** Short-lived feature branches → PR to `main`. Semver tags from `main`. No long-lived release branches. | (Sets a repo convention; matches TS SDK) |
+| D18 | Commits + changelog | **Conventional Commits enforced via commitlint; [Changesets](https://github.com/changesets/changesets) for the CHANGELOG.** Matches the TS SDK's workflow shape (same `.changeset/` directory pattern) so humans and tools read both SDKs' release notes the same way. | (Sets a repo convention; matches TS SDK) |
+| D19 | Contributor IPR | **Replicate the AAO IPR Bot pattern** used by adcp / adcp-client / adcp-client-python / adcp-go. Contributors agree by commenting `I have read the IPR Policy` on their first PR; the AAO IPR Bot (a GitHub App) enforces via a required status check. Harness Week 1 actions: (1) foundation admin adds `adcontextprotocol/adcp-sdk-java` to the App's installation scope and the `IPR_APP_ID` / `IPR_APP_PRIVATE_KEY` org-secret scope; (2) add the ~15-line caller workflow at `.github/workflows/ipr.yml` invoking `adcontextprotocol/adcp/.github/workflows/ipr-check-callable.yml@main`; (3) `CONTRIBUTING.md` mirrors the adcp wording and links to `IPR_POLICY.md` in the spec repo. **No DCO. No CLA.** | (Matches AAO standard) |
+| D20 | Sonatype OSSRH namespace claim | **Claim `org.adcontextprotocol` via DNS TXT verification.** Maven Central confirms the namespace is unclaimed (zero artifacts today). Requires the foundation to add one `TXT` record to `adcontextprotocol.org` proving control. Sonatype ticket + DNS record both kicked off harness Week 1; first publish waits for v0.3 (per D6). | Specifies D6 |
+| D21 | Branch protection on `main` | **Required: 1 code-owner approving review, required CI checks (`build`, `test`, `storyboard`, `IPR Policy / Signature`), no force-push, no direct push, no admin bypass.** Dependabot patch PRs auto-merge after green CI. Two-reviewer gate doesn't add safety with a founder pair; revisit when contributor base grows. | (Sets a repo convention) |
 
 ## Parity baseline (as of 2026-05-13)
 
@@ -108,8 +120,11 @@ Hard line: **scaffold the build, leave the rooms empty.** Don't pre-build L1 / L
 | Sonatype OSSRH namespace claim for `org.adcontextprotocol` + foundation GPG key + key-server publication | Slow-path ticket (1–5 business days); start Week 1 even though first publish waits for v0.3 (per D6). Don't block v0.3 on a stalled OSSRH ticket. | [`infra`](#track-1--build-repo-release-infra) |
 | SSRF-safe `HttpClient` wrapper skeleton (DNS pin, address-guards, redirect:manual, body cap) | Baseline 7.x security posture. JDK `HttpClient` doesn't pin natively; this needs a design doc + skeleton before contributors touch outbound HTTP. | [`transport`](#track-3--l0-transport-mcp--a2a) |
 | Storyboard CI gate shell: GitHub Actions on JDK 21, runs the runner against the `@adcp/sdk/mock-server`, even if the runner currently asserts only "we reached the server" | The v0.1 release gate is "storyboards green in CI." Standing it up empty and having it pass keeps contributors honest as L0 fills in — every PR is measured against the gate. | [`infra`](#track-1--build-repo-release-infra) + [`testing`](#track-9--testing--conformance) |
-| Repo conventions: `CONTRIBUTING.md` (track-claim flow), `.github/ISSUE_TEMPLATE/track-claim.md`, PR template, `CLAUDE.md` for agent contributors | The track-claim issue template is the actual contributor onboarding doc | [`docs`](#track-14--docs-migration-troubleshooting) |
-| ADR directory + first three ADRs (Java baseline, async model, MCP SDK choice) | RFC decisions captured in the format contributors expect to amend | [`docs`](#track-14--docs-migration-troubleshooting) |
+| Repo conventions: `CONTRIBUTING.md` (track-claim flow + IPR pointer per D19), `.github/ISSUE_TEMPLATE/track-claim.md`, PR template, `CLAUDE.md` for agent contributors | The track-claim issue template is the actual contributor onboarding doc | [`docs`](#track-14--docs-migration-troubleshooting) |
+| AAO IPR caller workflow at `.github/workflows/ipr.yml` (per D19) + foundation admin installs the IPR Bot on this repo + adds it to the `IPR_APP_ID` / `IPR_APP_PRIVATE_KEY` org-secret scope | Required-status check `IPR Policy / Signature` is the gate on every PR (per D21) — must be working before contributor PRs arrive | [`docs`](#track-14--docs-migration-troubleshooting) + [`infra`](#track-1--build-repo-release-infra) |
+| DNS TXT record on `adcontextprotocol.org` for Sonatype namespace verification (per D20) | Foundation-admin action; pairs with the OSSRH ticket. Without it the ticket stalls. | [`infra`](#track-1--build-repo-release-infra) |
+| Branch protection on `main` per D21 (required reviews, required checks, no force-push, no admin bypass) | Locks the trunk-based model (D17) before tracks open | [`infra`](#track-1--build-repo-release-infra) |
+| Commitlint + Changesets wiring (per D18) | Adopter expectations are set by `@adcp/sdk`'s release notes; matching the workflow shape means humans and tools read both SDKs' changelogs the same way | [`infra`](#track-1--build-repo-release-infra) + [`docs`](#track-14--docs-migration-troubleshooting) |
 
 ### Explicitly **not** in the harness
 
@@ -489,11 +504,14 @@ In priority order, from the RFC. Items marked **DONE** are locked in [Confirmed 
 5. ~~MCP Java SDK choice.~~ **DONE** — D9.
 6. **Cross-SDK lifecycle YAML buy-in.** TS + Python maintainers willing to consume a shared source. Decides `lifecycle` path 1 vs. path 2.
 7. ~~`javax` vs `jakarta` floor.~~ **DONE** — D7.
-8. **Reactor/Mutiny + Kotlin at GA vs. fast-follow** — RFC's position is "at GA"; WG can cut scope.
+8. ~~Reactor/Mutiny + Kotlin at GA vs. fast-follow.~~ **DONE** — D13 (Reactor + Mutiny at GA) and D14 (Kotlin at GA, thin extension).
 
 Additional decisions added post-RFC that remain open:
 
 9. **MIT-licensed dependency position.** D9 picked the MIT-licensed `io.modelcontextprotocol.sdk`. License is compatible with Apache 2.0 downstream use, but the foundation may want an explicit position on accepting MIT deps in officially supported SDKs.
+10. **Funding model shape.** RFC framing (contributed engineer at 50%+ for ~12 months + named maintainer + 2–3 design partners) is the right ask; whether it's pooled member funding, single-anchor-org contribution, or foundation grant is open.
+11. **Design partner outreach.** Anchor candidates by audience segment: one publisher running Spring Boot, one SSP, one broadcaster middleware team. Specific shops TBD.
+12. **WG vote timing.** Recommendation: hold the vote at v0.1 alpha milestone (concrete working code) rather than now (abstract commitment).
 
 ## What's not in this plan (yet)
 
