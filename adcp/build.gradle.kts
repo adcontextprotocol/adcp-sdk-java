@@ -4,6 +4,7 @@
 
 plugins {
     id("adcp.java-library-conventions")
+    id("adcp.schema-bundle-conventions")
 }
 
 description = "AdCP Java SDK — caller, types, schema bundle"
