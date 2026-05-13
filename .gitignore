@@ -3,6 +3,10 @@
 build/
 local.properties
 
+# Node — only for commitlint + Changesets tooling (per D18); the SDK itself is Java
+node_modules/
+npm-debug.log*
+
 # IDE
 .idea/
 *.iml

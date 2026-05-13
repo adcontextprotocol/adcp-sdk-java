@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "name": "adcp-sdk-java-tools",
+  "description": "Node-side tooling for the AdCP Java SDK repo — commitlint and Changesets. Not published; not the SDK.",
+  "scripts": {
+    "changeset": "changeset",
+    "commitlint": "commitlint"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.7",
+    "@commitlint/cli": "^19.6.0",
+    "@commitlint/config-conventional": "^19.6.0",
+    "conventional-changelog-conventionalcommits": "^8.0.0"
+  }
+}
