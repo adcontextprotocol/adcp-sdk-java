@@ -11,8 +11,14 @@ description = "AdCP Java SDK — server-side primitives, signing, async tasks, w
 
 dependencies {
     api(project(":adcp"))
-    api(libs.mcp)
-    // jakarta.servlet-api is pulled in by mcp-core's HTTP server transport.
-    // D9 R1 prototype question: can this run without Jetty/Tomcat?
+    // mcp-core ships HttpServletSseServerTransportProvider and
+    // HttpServletStreamableServerTransportProvider — framework-neutral
+    // (no Spring dependency). mcp-json-jackson2 pins us to the Jackson 2
+    // tree per RFC §JSON. See specs/mcp-prototype-findings.md.
+    api(libs.mcp.core)
+    api(libs.mcp.json.jackson2)
+    // The servlet transport classes use jakarta.servlet.* at compile time;
+    // the adopter brings their own Servlet container at runtime (Jetty,
+    // Tomcat, Undertow, embedded Spring Boot, etc.).
     compileOnly(libs.jakarta.servlet.api)
 }

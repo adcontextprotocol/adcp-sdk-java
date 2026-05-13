@@ -49,8 +49,13 @@ jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
 # Validation
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
 
-# MCP
-mcp = { module = "io.modelcontextprotocol.sdk:mcp", version.ref = "mcp-sdk" }
+# MCP — depend on mcp-core (the framework-neutral substrate) + mcp-json-jackson2
+# (RFC §JSON pins Jackson 2.15+ floor). The `mcp` bundle artifact pulls
+# mcp-json-jackson3 by default; we deliberately swap to jackson2 to align
+# with the rest of the SDK's Jackson 2 dependency tree.
+# Findings: specs/mcp-prototype-findings.md
+mcp-core = { module = "io.modelcontextprotocol.sdk:mcp-core", version.ref = "mcp-sdk" }
+mcp-json-jackson2 = { module = "io.modelcontextprotocol.sdk:mcp-json-jackson2", version.ref = "mcp-sdk" }
 
 # Servlet (for mcp-core HTTP transport)
 jakarta-servlet-api = { module = "jakarta.servlet:jakarta.servlet-api", version.ref = "jakarta-servlet" }
