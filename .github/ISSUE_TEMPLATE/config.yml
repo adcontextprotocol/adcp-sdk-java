@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: AdCP protocol questions
+    url: https://adcontextprotocol.org/
+    about: Questions about the protocol itself (not the Java SDK) belong on the protocol site.
+  - name: Working group discussion
+    url: https://adcontextprotocol.slack.com
+    about: Design discussion, RFCs, and cross-SDK coordination happen in the AdCP Slack.
+  - name: TypeScript SDK
+    url: https://github.com/adcontextprotocol/adcp-client
+    about: Bugs or questions about the TypeScript SDK belong there, not here.
+  - name: Python SDK
+    url: https://github.com/adcontextprotocol/adcp-client-python
+    about: Bugs or questions about the Python SDK belong there, not here.

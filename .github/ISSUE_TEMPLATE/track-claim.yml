@@ -1,0 +1,61 @@
+name: Claim a track
+description: Volunteer to own one of the 14 tracks from ROADMAP.md
+title: "[track:<id>] <your name> claims <track name>"
+labels: ["track-claim"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for offering to help build this SDK. Read [`ROADMAP.md`](https://github.com/adcontextprotocol/adcp-sdk-java/blob/main/ROADMAP.md) first — it covers the 14 tracks and their dependencies. Skim the [21 confirmed decisions](https://github.com/adcontextprotocol/adcp-sdk-java/blob/main/ROADMAP.md#confirmed-decisions) — they override the RFC where they differ.
+  - type: input
+    id: track
+    attributes:
+      label: Track ID
+      description: One of the 14 track IDs from ROADMAP.md (e.g. `signing`, `codegen`, `transport`, `spring`, `cli`, `kotlin`, `docs`, etc.)
+      placeholder: e.g. signing
+    validations:
+      required: true
+  - type: textarea
+    id: experience
+    attributes:
+      label: Relevant experience
+      description: |
+        Anything that informs whether this is a good fit — records, sealed types, Jackson, Spring Boot, RFC 9421 / JOSE signing, MCP, ad tech protocols, JVM publishing, etc. Be concrete; "5 years building publisher-facing JVM services with Spring Boot 3 + Postgres" beats "experienced Java developer."
+    validations:
+      required: true
+  - type: input
+    id: availability
+    attributes:
+      label: Estimated availability
+      description: Hours per week you can commit. Honest numbers help us plan dependencies.
+      placeholder: e.g. 10 hrs/week
+    validations:
+      required: true
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: First milestone you're committing to
+      description: The track may span several; pick the one you're aiming at first.
+      options:
+        - v0.1 alpha (M+2)
+        - v0.2 alpha (M+4)
+        - v0.3 alpha (M+6)
+        - v0.4 beta (M+9)
+        - v1.0 GA (M+12)
+    validations:
+      required: true
+  - type: dropdown
+    id: wg-sync
+    attributes:
+      label: Can you attend the AdCP working-group sync?
+      options:
+        - "Yes — regularly"
+        - "Sometimes"
+        - "No — async only"
+    validations:
+      required: true
+  - type: textarea
+    id: questions
+    attributes:
+      label: Open questions before you start
+      description: Anything you'd want clarified before claiming.

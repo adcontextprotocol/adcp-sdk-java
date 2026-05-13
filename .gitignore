@@ -11,6 +11,10 @@ local.properties
 .project
 .settings/
 
+# Coding-agent side channels (Conductor workspace state, etc.)
+.claude/
+.context/
+
 # OS
 .DS_Store
 
