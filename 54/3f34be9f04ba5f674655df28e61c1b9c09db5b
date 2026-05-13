@@ -1,0 +1,47 @@
+adcp-reactor/gradle.lockfile
+  s_98fcd7b2d57e70::t_2001eba943776d 1-26
+adcp-cli/gradle.lockfile
+  s_98fcd7b2d57e70::t_2001eba943776d 1-25
+CONTRIBUTING.md
+  s_98fcd7b2d57e70::t_a93eea9f19df16 44-56
+build-logic/src/main/kotlin/adcp.publishing-conventions.gradle.kts
+  s_98fcd7b2d57e70::t_6838d107c9cdb0 30-31
+  s_98fcd7b2d57e70::t_24526c104759ec 1-29,32-85
+adcp-testing/gradle.lockfile
+  s_98fcd7b2d57e70::t_2001eba943776d 1-24
+adcp/gradle.lockfile
+  s_98fcd7b2d57e70::t_2001eba943776d 1-24
+adcp-kotlin/gradle.lockfile
+  s_98fcd7b2d57e70::t_2001eba943776d 1-48
+build-logic/src/main/kotlin/adcp.java-base-conventions.gradle.kts
+  s_98fcd7b2d57e70::t_137bb376bdf9e2 73-78
+  s_98fcd7b2d57e70::t_a9784879362d2e 50-55
+adcp-mutiny/gradle.lockfile
+  s_98fcd7b2d57e70::t_2001eba943776d 1-27
+build-logic/src/main/kotlin/adcp.kotlin-library-conventions.gradle.kts
+  s_98fcd7b2d57e70::t_9c5484e004b0cb 4
+.github/workflows/release.yml
+  s_98fcd7b2d57e70::t_0379aaddab8680 1-77
+adcp-server/gradle.lockfile
+  s_98fcd7b2d57e70::t_2001eba943776d 1-29
+adcp-spring-boot-starter/gradle.lockfile
+  s_98fcd7b2d57e70::t_2001eba943776d 1-39
+build-logic/src/main/kotlin/adcp.java-library-conventions.gradle.kts
+  s_98fcd7b2d57e70::t_3bd91eefd0939c 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.7",
+  "base_commit_sha": "543f34be9f04ba5f674655df28e61c1b9c09db5b",
+  "prompts": {},
+  "sessions": {
+    "s_98fcd7b2d57e70": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d8465b27-fcaf-49fb-9136-9c9db44cc362",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
