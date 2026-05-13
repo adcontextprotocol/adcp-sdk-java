@@ -14,7 +14,11 @@ Decisions made post-RFC that supersede or refine the merged text. Each will land
 | D2 | Java baseline | **JDK 21 only.** Drops the 17 floor. Consequences: no `*Async` mirror surface (virtual threads make sync API scale natively), no platform-thread fallback executor in `WebhookEmitter`, `ScopedValue` directly for `UpstreamRecorder` per-principal scope, no Spring Boot 2.7 long-tail support. | RFC §Architecture / Java baseline (was "Java 17 LTS"); RFC §Async model (drops the 12-method `*Async` mirror) |
 | D3 | Maven coordinates | Group `org.adcontextprotocol`. Artifacts: `adcp` (main), `adcp-server`, `adcp-testing`, `adcp-spring-boot-starter`, `adcp-cli`, `adcp-reactor`, `adcp-mutiny`, `adcp-kotlin`. Base Java package `org.adcontextprotocol.adcp.*`. Sub-packages by surface (e.g. `.task`, `.server`, `.signing`, `.testing`). | RFC §Reference (named artifacts, didn't pin group / base package) |
 | D4 | Protocol tarball Sigstore | Confirmed signed. Harness schema-fetcher runs `cosign verify-blob` per RFC, no checksum-only fallback path. | Confirms RFC §Schema-bundle consumption assumption |
-| D5 | Reference mock-server | The `@adcp/sdk/mock-server` package — same mock-server TS uses. Storyboard CI either runs it as a Node-side-car service container or against a hosted instance. Decide deployment shape during harness Week 1. | Specifies RFC §`comply_test_controller` "shared reference mock-server" |
+| D5 | Reference mock-server | The `@adcp/sdk/mock-server` package — same mock-server TS uses. See D8 for CI deployment shape. | Specifies RFC §`comply_test_controller` "shared reference mock-server" |
+| D6 | Maven Central publish cadence | **Hold first publish until v0.3 alpha.** v0.1 and v0.2 ship as local Gradle artifacts / SNAPSHOT only. Sonatype OSSRH namespace claim + GPG key setup still happens harness Week 1 (slow path; 1–5 business-day ticket) — we just don't push artifacts until v0.3. | RFC §Build, distribution, governance (RFC said "Maven Central alpha from v0.1") |
+| D7 | `javax`/`jakarta` floor | **`jakarta` only**, Spring Boot 3.x floor. Single `adcp-spring-boot-starter` artifact, no compat starter, no community 2.7 port. Spring Boot 2.7 OSS support ended Nov 2025; anyone still on it has a vendor relationship. | Resolves RFC Open Question 6 in favor of option (a) |
+| D8 | Mock-server CI deployment | **Sidecar via `npx adcp mock-server`.** GitHub Actions Node step installs a pinned `@adcp/sdk` version, backgrounds one mock-server per specialism on a port range, Java tests hit `localhost`. The pinned `@adcp/sdk` version is the conformance oracle — bumping it is a deliberate PR. Promote to a published Docker image if multi-specialism orchestration becomes unwieldy. | Specifies D5's deployment |
+| D9 | MCP Java SDK | **`io.modelcontextprotocol.sdk:mcp` pinned `1.1.2`** at the core. Used by `adcp` (caller) and `adcp-server` (agent). The Spring AI MCP SDK was donated to the `modelcontextprotocol` org in Feb 2025 and rebranded as the official Java SDK; current `spring-ai-mcp-*` artifacts are now thin Spring Boot wrappers on top of `io.modelcontextprotocol.sdk` — no parallel implementation. **License: MIT** (compatible, flagged for foundation position). Two harness Week 1 prototype questions left open: (a) whether `mcp-core`'s servlet-based streamable-HTTP server transport is usable without pulling Jetty/Tomcat; (b) Jackson 2 vs. 3 module split — confirm `mcp-json-jackson2` is feature-equivalent. | Resolves RFC Open Question 2 |
 
 ## Parity baseline (as of 2026-05-13)
 
@@ -100,7 +104,8 @@ Hard line: **scaffold the build, leave the rooms empty.** Don't pre-build L1 / L
 | Gradle multi-module skeleton (5 published artifacts + 2 bridge modules `adcp-reactor` / `adcp-mutiny` as empty stubs) | Stable multi-module graph from day one; package names locked; contributors don't fight `settings.gradle.kts` reviews | [`infra`](#track-1--build-repo-release-infra) |
 | Schema-bundle fetcher Gradle task: download `{version}.tgz`, `cosign verify-blob`, extract to build dir | Codegen has something to point at; SSRF/signing posture established before any HTTP code lands | [`infra`](#track-1--build-repo-release-infra) |
 | Codegen MVP: emit records + builder records for **one or two** request/response pairs (e.g. `GetProductsRequest` / `GetProductsResponse`) | Proves the generator architecture, locks in the `*Request`/`*Response` naming invariant, gives contributors real Java to import. Full coverage stays in [`codegen`](#track-2--l0-types--codegen). | [`codegen`](#track-2--l0-types--codegen) |
-| MCP SDK decision resolved (Spring AI vs. official `io.modelcontextprotocol`) + recorded in an ADR | Blocks [`transport`](#track-3--l0-transport-mcp--a2a). Drift between releases is worse than picking the less-mature option and migrating. | [`transport`](#track-3--l0-transport-mcp--a2a) |
+| Prototype the two open MCP-SDK questions on `io.modelcontextprotocol.sdk:mcp:1.1.2` (per D9): can `mcp-core`'s servlet streamable-HTTP server transport run without Jetty/Tomcat? Is `mcp-json-jackson2` feature-equivalent to the Jackson 3 variant? | D9 picked the SDK; these two are the only unresolved bits before [`transport`](#track-3--l0-transport-mcp--a2a) opens for claim. | [`transport`](#track-3--l0-transport-mcp--a2a) |
+| Sonatype OSSRH namespace claim for `org.adcontextprotocol` + foundation GPG key + key-server publication | Slow-path ticket (1–5 business days); start Week 1 even though first publish waits for v0.3 (per D6). Don't block v0.3 on a stalled OSSRH ticket. | [`infra`](#track-1--build-repo-release-infra) |
 | SSRF-safe `HttpClient` wrapper skeleton (DNS pin, address-guards, redirect:manual, body cap) | Baseline 7.x security posture. JDK `HttpClient` doesn't pin natively; this needs a design doc + skeleton before contributors touch outbound HTTP. | [`transport`](#track-3--l0-transport-mcp--a2a) |
 | Storyboard CI gate shell: GitHub Actions on JDK 21, runs the runner against the `@adcp/sdk/mock-server`, even if the runner currently asserts only "we reached the server" | The v0.1 release gate is "storyboards green in CI." Standing it up empty and having it pass keeps contributors honest as L0 fills in — every PR is measured against the gate. | [`infra`](#track-1--build-repo-release-infra) + [`testing`](#track-9--testing--conformance) |
 | Repo conventions: `CONTRIBUTING.md` (track-claim flow), `.github/ISSUE_TEMPLATE/track-claim.md`, PR template, `CLAUDE.md` for agent contributors | The track-claim issue template is the actual contributor onboarding doc | [`docs`](#track-14--docs-migration-troubleshooting) |
@@ -145,9 +150,9 @@ Each track entry has:
 
 | Milestone | Target | Release gate |
 |---|---|---|
-| v0.1 alpha | M+2 | L0 surface compiles, storyboards green against reference mock-server in CI, Maven Central alpha published |
+| v0.1 alpha | M+2 | L0 surface compiles, storyboards green against reference mock-server in CI. Local Gradle artifacts only (per D6 — first Maven Central publish at v0.3). |
 | v0.2 alpha | M+4 | L1: RFC 9421 signing/verification, AWS+GCP KMS providers (lazy-init, per-`adcp_use`), webhook signing |
-| v0.3 alpha | M+6 | L2 + partial L3: account store, idempotency, async tasks, Spring Boot starter alpha |
+| v0.3 alpha | M+6 | L2 + partial L3: account store, idempotency, async tasks, Spring Boot starter alpha. **First Maven Central publish** (per D6). |
 | v0.4 beta | M+9 | Full L3: transition validators, webhook emission, `comply_test_controller`, A2A transport |
 | v1.0 GA | M+12 | L0–L3 parity, Reactor + Mutiny adapters, Kotlin co-release, Maven Central GA |
 
@@ -166,7 +171,7 @@ The RFC's M+12 target is the realistic line. Pre-committing M+9 and slipping is 
 - `Automatic-Module-Name` set on every JAR manifest.
 - Gradle reproducible-jar config, lockfiles checked in.
 - Codegen Gradle task that downloads the protocol tarball, verifies with `cosign verify-blob`, extracts schemas, hands off to [`codegen`](#track-2--l0-types--codegen).
-- Maven Central publish via Sonatype OSSRH, GPG-signed; Sigstore migration tracked as a follow-up.
+- Sonatype OSSRH namespace + GPG key set up harness Week 1; first Maven Central publish at v0.3 (per D6). Sigstore migration tracked as a follow-up.
 - GitHub Actions on JDK 21, run storyboard CI against `@adcp/sdk/mock-server` (the v0.1 gate; storyboard runner from [`testing`](#track-9--testing--conformance) plugs in).
 - JavaDoc + sources jars on every release.
 
@@ -174,7 +179,7 @@ The RFC's M+12 target is the realistic line. Pre-committing M+9 and slipping is 
 
 **Depends on:** nothing. This track unblocks everything else and should land in week 1.
 
-**Milestone targets:** v0.1 needs Gradle multi-module + Maven Central alpha publish + CI matrix. Sigstore signing migration can land any time before v1.0.
+**Milestone targets:** v0.1 needs Gradle multi-module + CI on JDK 21 + green storyboard runner against the sidecar `npx adcp mock-server`. v0.3 adds the first Maven Central publish (per D6). Sigstore signing migration can land any time before v1.0.
 
 ---
 
@@ -207,7 +212,7 @@ The RFC's M+12 target is the realistic line. Pre-committing M+9 and slipping is 
 
 **Scope:**
 
-- **MCP:** pick between Spring AI's MCP SDK and the official `io.modelcontextprotocol` (Open Question 2 in the RFC). Decide before v0.1 cut; drift between releases is worse than picking the less-mature one and migrating later. Wrap the chosen SDK with the AdCP transport surface.
+- **MCP:** depend on `io.modelcontextprotocol.sdk:mcp` pinned `1.1.2` (per D9). Used by both `adcp` (caller) and `adcp-server` (agent). Plan a deliberate 2.x migration PR ~6 months out (the 2.0 line removes sealed interfaces from message types, replaces `JsonSchema` with `Map`, flips the tool-input-validation default, removes server-transport builder methods). License is MIT — flagged for foundation position. Two open prototype questions land harness Week 1: whether the servlet-based streamable-HTTP server transport works without pulling Jetty/Tomcat, and whether `mcp-json-jackson2` is feature-equivalent to the Jackson 3 module.
 - **A2A pre-1.0:** minimal SSE consumer + JSON-RPC framer in `adcp-server`. Default: keep types in-tree until `a2a-java` cuts its first stable release (≥ 1.0.0), then migrate in one shot (RFC Open Question 3).
 - **A2A post-1.0:** swap transport to `a2aproject/a2a-java`; deprecate the in-tree fallback in the next minor.
 - HTTP transport on `java.net.http.HttpClient`. No third-party HTTP client in the core.
@@ -362,7 +367,7 @@ The RFC's M+12 target is the realistic line. Pre-committing M+9 and slipping is 
 - Actuator `AdcpHealthIndicator` **if on classpath** — reports signing-key reachability + account-store reachability.
 - Spring properties for tunables: `adcp.jackson.max-string-length`, etc.
 - Spring Security integration as a **documented recipe**, not autoconfig (RFC §Server framework integration). Decision on `adcp-spring-boot-starter-security` deferred to v0.3 feedback.
-- **`javax` vs `jakarta` decision** (RFC Open Question 6): default recommendation is floor at Spring Boot 3.x (`jakarta`). Confirm before v0.3 alpha — starter package layout depends on it.
+- `jakarta` only, Spring Boot 3.x floor (per D7). Document the floor in the README so SB 2.7 shops don't burn an hour on the first import.
 
 **Out of scope:** Quarkus / Micronaut / Servlet adapters (post-v1.0 on demand).
 
@@ -475,16 +480,20 @@ A single contributor can claim multiple non-conflicting tracks (e.g. `cli` + `do
 
 ## Decisions wanted (blockers before scaling contributor count)
 
-In priority order, from the RFC:
+In priority order, from the RFC. Items marked **DONE** are locked in [Confirmed decisions](#confirmed-decisions); kept here as numbered references so RFC readers can map across.
 
 1. **Funding / staffing.** A contributed engineer at 50%+ for ~12 months, plus a named WG maintainer with merge rights, plus 2–3 design partners committed v0.1 → v0.4. Without all three, the RFC says decline and revisit at next major.
 2. **Design partners.** 2–3 JVM shops with letters of intent to ship on the SDK in 2026.
 3. **WG vote** on Java as the fourth officially supported language.
 4. **Maintainer.** Named owner with merge rights post-GA.
-5. **MCP Java SDK choice.** Spring AI vs. official `io.modelcontextprotocol`. Blocks `transport`.
+5. ~~MCP Java SDK choice.~~ **DONE** — D9.
 6. **Cross-SDK lifecycle YAML buy-in.** TS + Python maintainers willing to consume a shared source. Decides `lifecycle` path 1 vs. path 2.
-7. **`javax` vs `jakarta` floor.** Decides `spring` artifact layout.
+7. ~~`javax` vs `jakarta` floor.~~ **DONE** — D7.
 8. **Reactor/Mutiny + Kotlin at GA vs. fast-follow** — RFC's position is "at GA"; WG can cut scope.
+
+Additional decisions added post-RFC that remain open:
+
+9. **MIT-licensed dependency position.** D9 picked the MIT-licensed `io.modelcontextprotocol.sdk`. License is compatible with Apache 2.0 downstream use, but the foundation may want an explicit position on accepting MIT deps in officially supported SDKs.
 
 ## What's not in this plan (yet)
 
