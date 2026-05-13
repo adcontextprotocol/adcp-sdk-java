@@ -1,6 +1,7 @@
 // Kotlin library module (adcp-kotlin per D14 — thin extension at v1.0).
 plugins {
     id("adcp.java-base-conventions")
+    id("adcp.publishing-conventions")
     id("org.jetbrains.kotlin.jvm")
 }
 

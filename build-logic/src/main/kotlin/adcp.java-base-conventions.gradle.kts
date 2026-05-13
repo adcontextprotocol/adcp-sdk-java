@@ -47,6 +47,12 @@ tasks.withType<Test>().configureEach {
     }
 }
 
+// Reproducible builds: deterministic ordering and no timestamps in archives.
+tasks.withType<AbstractArchiveTask>().configureEach {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+}
+
 tasks.withType<Jar>().configureEach {
     manifest {
         attributes(
@@ -63,4 +69,10 @@ val libs = the<org.gradle.accessors.dm.LibrariesForLibs>()
 
 dependencies {
     "compileOnly"(libs.jspecify)
+}
+
+// Dependency locking — checked-in lockfiles guard against transitive drift.
+// Regenerate with: ./gradlew dependencies --write-locks
+dependencyLocking {
+    lockAllConfigurations()
 }

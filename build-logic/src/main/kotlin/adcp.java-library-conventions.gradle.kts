@@ -1,6 +1,7 @@
 // Java library modules (everything except adcp-cli and adcp-kotlin).
 plugins {
     id("adcp.java-base-conventions")
+    id("adcp.publishing-conventions")
     `java-library`
 }
 
