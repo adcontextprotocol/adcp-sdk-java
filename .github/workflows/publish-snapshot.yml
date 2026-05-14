@@ -46,9 +46,11 @@ jobs:
       - name: Publish SNAPSHOT
         # vanniktech routes -SNAPSHOT versions to the Central Portal snapshot
         # repository (central.sonatype.com/repository/maven-snapshots/)
-        # automatically — no staging/release step needed.
+        # automatically when publishToMavenCentral is run — no staging/release
+        # step needed. Per vanniktech docs, publishToMavenCentral is the
+        # correct task for both snapshot and manual-release publishing.
         if: steps.version-check.outputs.is_snapshot == 'true'
-        run: ./gradlew publish --no-configuration-cache
+        run: ./gradlew publishToMavenCentral --no-configuration-cache
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.SONATYPE_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.SONATYPE_PASSWORD }}

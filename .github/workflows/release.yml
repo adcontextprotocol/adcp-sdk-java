@@ -65,4 +65,10 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SECRET_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.GPG_KEY_ID }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
-        run: ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache
+        # publishToMavenCentral stages to Central Portal without auto-releasing
+        # (automaticRelease = false in adcp.publishing-conventions). A human
+        # must go to central.sonatype.com/publishing/deployments and click
+        # "Publish" after reviewing the staged bundle.  Once we have done one
+        # or two clean publishes, flip automaticRelease = true and switch this
+        # to publishAndReleaseToMavenCentral.
+        run: ./gradlew publishToMavenCentral --no-configuration-cache
