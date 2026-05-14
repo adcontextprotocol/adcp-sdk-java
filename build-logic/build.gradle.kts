@@ -13,6 +13,12 @@ dependencies {
         "org.jetbrains.kotlin:kotlin-gradle-plugin:${it.version}"
     })
 
+    // Needed by adcp.publishing-conventions to apply the vanniktech plugin
+    // (Central Portal support — replaces legacy OSSRH s01 endpoint).
+    implementation(libs.plugins.vanniktech.maven.publish.map {
+        "com.vanniktech:gradle-maven-publish-plugin:${it.version}"
+    })
+
     // Used by the codegen task to emit Java source from JSON Schemas.
     // Build-time only; never on the SDK's runtime classpath.
     implementation(libs.javapoet)
