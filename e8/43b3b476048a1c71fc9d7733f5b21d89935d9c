@@ -1,0 +1,23 @@
+build.gradle.kts
+  s_98fcd7b2d57e70::t_e881dd5ca8dc69 17-22
+.github/workflows/publish-snapshot.yml
+  s_98fcd7b2d57e70::t_acca5877e1f31e 57-59
+CONTRIBUTING.md
+  s_98fcd7b2d57e70::t_b4d22352c399cb 52-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "e843b3b476048a1c71fc9d7733f5b21d89935d9c",
+  "prompts": {},
+  "sessions": {
+    "s_98fcd7b2d57e70": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d8465b27-fcaf-49fb-9136-9c9db44cc362",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
