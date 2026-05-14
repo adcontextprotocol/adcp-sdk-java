@@ -14,9 +14,12 @@ allprojects {
 // adcp.java-base-conventions) that resolves every resolvable configuration
 // within that project's own context — required by Gradle 9's project-
 // isolation rules.  This root task aggregates them so callers only need
-// one command.  Gradle also rewrites settings-gradle.lockfile automatically
-// when --write-locks is active (it re-resolves the settings classpath on
-// every invocation regardless of which task is run).
+// one command.
+//
+// NOTE: `settings-gradle.lockfile` is NOT updated by this task.  It tracks
+// the settings classpath (version-catalog imports only in this project) and
+// must be regenerated separately:
+//   rm settings-gradle.lockfile && ./gradlew help --write-locks
 tasks.register("updateLocks") {
     group = "help"
     description = "Regenerate gradle.lockfile for every module. Run: ./gradlew updateLocks --write-locks"
