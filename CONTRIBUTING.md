@@ -41,6 +41,16 @@ Local build:
 
 CI runs the same command on every PR (`build` workflow, JDK 21 Temurin). The build is **green** if your PR passes.
 
+### Dependency lockfiles
+
+Lockfiles are checked in per module. If you add or bump a dependency, regenerate them with:
+
+```bash
+./gradlew updateLocks --write-locks
+```
+
+CI verifies lockfiles are up to date on every PR — the `Verify lockfiles are up to date` step will fail if you forget. Commit the updated `gradle.lockfile` files alongside your dependency change.
+
 ## Code conventions
 
 - **Java 21 baseline** (D2). Use records, sealed types, pattern matching, virtual threads. No `Optional<T>` returns — use `@Nullable T` (JSpecify) instead.

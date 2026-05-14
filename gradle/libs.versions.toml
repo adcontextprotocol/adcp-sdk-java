@@ -85,3 +85,5 @@ javapoet = { module = "com.palantir.javapoet:javapoet", version.ref = "javapoet"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+# Central Portal publishing (replaces legacy OSSRH s01 endpoint per bokelley review).
+vanniktech-maven-publish = { id = "com.vanniktech.maven.publish", version = "0.30.0" }
