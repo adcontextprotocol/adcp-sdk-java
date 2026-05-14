@@ -1,0 +1,20 @@
+.github/workflows/publish-snapshot.yml
+  s_98fcd7b2d57e70::t_5467f5cc811868 7-13
+  s_98fcd7b2d57e70::t_8e805cc06edbe1 49-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "8b8f032fca49659fffed0bdc84c27e631712f9e6",
+  "prompts": {},
+  "sessions": {
+    "s_98fcd7b2d57e70": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d8465b27-fcaf-49fb-9136-9c9db44cc362",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
