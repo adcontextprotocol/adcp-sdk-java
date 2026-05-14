@@ -36,3 +36,11 @@ jobs:
 
       - name: Build all modules
         run: ./gradlew build --stacktrace
+
+      - name: Verify lockfiles are up to date
+        # Regenerate all lockfiles and fail the build if any file changed.
+        # Keeps checked-in lockfiles from drifting when dependencies are bumped
+        # without running `./gradlew updateLocks --write-locks`.
+        run: |
+          ./gradlew updateLocks --write-locks --no-configuration-cache -q
+          git diff --exit-code -- '**/gradle.lockfile' settings-gradle.lockfile

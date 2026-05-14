@@ -43,16 +43,13 @@ CI runs the same command on every PR (`build` workflow, JDK 21 Temurin). The bui
 
 ### Dependency lockfiles
 
-Lockfiles are checked in per module. If you add or bump a dependency, regenerate them:
+Lockfiles are checked in per module. If you add or bump a dependency, regenerate them with:
 
 ```bash
-./gradlew :adcp:dependencies :adcp-server:dependencies :adcp-testing:dependencies \
-  :adcp-spring-boot-starter:dependencies :adcp-cli:dependencies \
-  :adcp-reactor:dependencies :adcp-mutiny:dependencies :adcp-kotlin:dependencies \
-  --write-locks
+./gradlew updateLocks --write-locks
 ```
 
-Commit the updated `gradle.lockfile` files alongside your dependency change.
+CI verifies lockfiles are up to date on every PR — the `Verify lockfiles are up to date` step will fail if you forget. Commit the updated `gradle.lockfile` files alongside your dependency change.
 
 ## Code conventions
 
