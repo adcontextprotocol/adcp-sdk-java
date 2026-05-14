@@ -1,0 +1,31 @@
+build-logic/src/main/kotlin/adcp.publishing-conventions.gradle.kts
+  s_98fcd7b2d57e70::t_aa482d108b793e 29
+CONTRIBUTING.md
+  s_98fcd7b2d57e70::t_63788c1fc318ef 46,52-54
+build-logic/src/main/kotlin/adcp.java-base-conventions.gradle.kts
+  s_98fcd7b2d57e70::t_80f546ef497dfe 75,79-95
+.github/workflows/publish-snapshot.yml
+  s_98fcd7b2d57e70::t_c2a661d751ec9e 1-31,46-49,51-57
+  s_98fcd7b2d57e70::t_714185486ac69e 32-45,50
+build.gradle.kts
+  s_98fcd7b2d57e70::t_b5689c7c3571fb 9,13-19,23
+  s_98fcd7b2d57e70::t_90a1dda05ab2f6 11,22
+.github/workflows/ci.yml
+  s_98fcd7b2d57e70::t_07383635d7b4b5 42-44,48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "882c03b09e2b7f4b3f308740eeb1e136065cb983",
+  "prompts": {},
+  "sessions": {
+    "s_98fcd7b2d57e70": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d8465b27-fcaf-49fb-9136-9c9db44cc362",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
