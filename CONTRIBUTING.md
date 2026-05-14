@@ -43,13 +43,21 @@ CI runs the same command on every PR (`build` workflow, JDK 21 Temurin). The bui
 
 ### Dependency lockfiles
 
-Lockfiles are checked in per module. If you add or bump a dependency, regenerate them with:
+Lockfiles are checked in per module (`gradle.lockfile`) and at the settings layer (`settings-gradle.lockfile`). If you add or bump a dependency, regenerate them with:
 
 ```bash
 ./gradlew updateLocks --write-locks
 ```
 
-CI verifies lockfiles are up to date on every PR — the `Verify lockfiles are up to date` step will fail if you forget. Commit the updated `gradle.lockfile` files alongside your dependency change.
+The `updateLocks` task resolves every resolvable configuration in every subproject at execution time (the official Gradle `resolveAndLockAll` pattern) and rewrites `gradle.lockfile` for each module.
+
+`settings-gradle.lockfile` tracks the settings classpath (version-catalog imports only in this project). It is **not** updated by `updateLocks`. If it drifts, regenerate it by deleting it and running any Gradle task with `--write-locks`:
+
+```bash
+rm settings-gradle.lockfile && ./gradlew help --write-locks
+```
+
+CI verifies lockfiles are up to date on every PR — the `Verify lockfiles are up to date` step will fail if you forget. Commit all updated lockfiles alongside your dependency change.
 
 ## Code conventions
 

@@ -39,8 +39,11 @@ jobs:
 
       - name: Verify lockfiles are up to date
         # Regenerate all lockfiles and fail the build if any file changed.
+        # updateLocks resolves every resolvable configuration in every subproject
+        # (official resolveAndLockAll pattern from Gradle docs). Gradle also
+        # rewrites settings-gradle.lockfile when --write-locks is active.
         # Keeps checked-in lockfiles from drifting when dependencies are bumped
         # without running `./gradlew updateLocks --write-locks`.
         run: |
-          ./gradlew updateLocks --write-locks --no-configuration-cache -q
+          ./gradlew updateLocks --write-locks -q
           git diff --exit-code -- '**/gradle.lockfile' settings-gradle.lockfile

@@ -72,7 +72,25 @@ dependencies {
 }
 
 // Dependency locking — checked-in lockfiles guard against transitive drift.
-// Regenerate with: ./gradlew dependencies --write-locks
+// Regenerate with: ./gradlew updateLocks --write-locks
 dependencyLocking {
     lockAllConfigurations()
+}
+
+// Per-project task that resolves every resolvable configuration and writes
+// lock state when --write-locks is active.  Must live here (in each
+// subproject's own build context) because Gradle 9 disallows cross-project
+// configuration resolution.  The root updateLocks task aggregates these.
+tasks.register("resolveAndLockAll") {
+    notCompatibleWithConfigurationCache("Filters configurations at execution time to write lock state")
+    doFirst {
+        require(gradle.startParameter.isWriteDependencyLocks) {
+            "${path} must be run with the --write-locks flag: ./gradlew updateLocks --write-locks"
+        }
+    }
+    doLast {
+        configurations
+            .filter { it.isCanBeResolved }
+            .forEach { it.resolve() }
+    }
 }
