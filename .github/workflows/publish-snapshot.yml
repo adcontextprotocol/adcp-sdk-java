@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
 
+# Prevent concurrent SNAPSHOT uploads of the same coordinates to Central Portal.
+# cancel-in-progress: false — a half-uploaded artifact from a cancelled job is
+# worse than queuing and letting the second run complete cleanly.
+concurrency:
+  group: publish-snapshot
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -25,10 +32,6 @@ jobs:
         with:
           validate-wrappers: true
 
-      - name: Install cosign
-        # Schema-bundle fetcher (per D4) shells out to `cosign verify-blob`.
-        uses: sigstore/cosign-installer@v3
-
       - name: Check version is a SNAPSHOT
         # D6: v0.1 and v0.2 ship as SNAPSHOT only. Skip publish if main has
         # been bumped to a release version (release.yml handles that path).
@@ -42,6 +45,12 @@ jobs:
             echo "is_snapshot=false" >> "$GITHUB_OUTPUT"
             echo "Version $VERSION is not a SNAPSHOT — skipping snapshot publish."
           fi
+
+      - name: Install cosign
+        # Schema-bundle fetcher (per D4) shells out to `cosign verify-blob`.
+        # Only needed when the publish step will actually run.
+        if: steps.version-check.outputs.is_snapshot == 'true'
+        uses: sigstore/cosign-installer@v3
 
       - name: Publish SNAPSHOT
         # vanniktech routes -SNAPSHOT versions to the Central Portal snapshot
