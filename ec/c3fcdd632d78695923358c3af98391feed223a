@@ -1,0 +1,29 @@
+build-logic/src/main/kotlin/adcp.publishing-conventions.gradle.kts
+  s_98fcd7b2d57e70::t_28f2e26983c907 22
+  s_98fcd7b2d57e70::t_ffaf0a933d0b73 3-6,8-9,11-15,17-20,25,28
+  s_98fcd7b2d57e70::t_a1c4467f242b70 29-42,46-50,54-59
+.github/workflows/release.yml
+  s_98fcd7b2d57e70::t_5ea6a5d5d689e2 4-6,9,12-16,48-51,61-68
+gradle/libs.versions.toml
+  s_98fcd7b2d57e70::t_25399b3d371da2 88-89
+build-logic/build.gradle.kts
+  s_98fcd7b2d57e70::t_471f24a52eaf7e 16-21
+settings-gradle.lockfile
+  s_98fcd7b2d57e70::t_74f619e458cc80 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "ecc3fcdd632d78695923358c3af98391feed223a",
+  "prompts": {},
+  "sessions": {
+    "s_98fcd7b2d57e70": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d8465b27-fcaf-49fb-9136-9c9db44cc362",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
