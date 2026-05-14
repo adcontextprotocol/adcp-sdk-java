@@ -1,0 +1,24 @@
+.github/workflows/ci.yml
+  s_98fcd7b2d57e70::t_147aa39fc38eff 39-46
+build.gradle.kts
+  s_98fcd7b2d57e70::t_85f786ed35b89c 8-12,18-19,21-22
+  s_98fcd7b2d57e70::t_32b927533ffbaf 13-17,20
+CONTRIBUTING.md
+  s_98fcd7b2d57e70::t_271b44f2a33476 46,49,52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "9a982abcaff61be03bb99b2ab04b2b91737ff030",
+  "prompts": {},
+  "sessions": {
+    "s_98fcd7b2d57e70": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d8465b27-fcaf-49fb-9136-9c9db44cc362",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
