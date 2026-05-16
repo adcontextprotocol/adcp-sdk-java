@@ -1,196 +1,123 @@
 package codegen
 
-import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.palantir.javapoet.AnnotationSpec
 import com.palantir.javapoet.ClassName
-import com.palantir.javapoet.FieldSpec
-import com.palantir.javapoet.JavaFile
-import com.palantir.javapoet.MethodSpec
-import com.palantir.javapoet.ParameterSpec
-import com.palantir.javapoet.ParameterizedTypeName
-import com.palantir.javapoet.TypeName
-import com.palantir.javapoet.TypeSpec
-import org.jspecify.annotations.Nullable
 import java.io.File
 import java.nio.file.Path
-import javax.lang.model.element.Modifier
 
 /**
- * Schema codegen — MVP scope (per the harness §Pre-contributor table in
- * ROADMAP). Generates one record per JSON Schema file. Two output shapes:
+ * Thin orchestrator that wires focused generators together and drives
+ * the codegen pipeline. All generation logic lives in dedicated classes:
  *
- * - `*Request` types → record + nested `Builder` ([D2] / RFC §Type
- *   generation: `*Request` types always have builders).
- * - `*Response` types → record only, no builder.
+ * - [RecordGenerator] — Java records + builders
+ * - [EnumGenerator] — Java enums with `@JsonValue`/`@JsonCreator`
+ * - [SealedInterfaceGenerator] — sealed interfaces for `oneOf` unions
+ * - [PropertyResolver] — JSON Schema → Java type resolution
+ * - [SchemaUtils] — schema walking (collectProperties, mergeAllOf, etc.)
  *
- * The MVP supports flat objects with scalar fields (string, integer,
- * boolean) and `additionalProperties: false`. Polymorphism (`oneOf` with
- * `discriminator`), arrays, nested objects, and refs to other schemas
- * land on the codegen track ([Track 2 — L0 types & codegen](../../../../../../ROADMAP.md#track-2--l0-types--codegen)).
+ * Shared state (sealed-interface index, inline-type collector, file I/O)
+ * lives in [CodegenContext].
  */
-class SchemaCodegen(private val basePackage: String) {
+class SchemaCodegen(
+    private val basePackage: String,
+    private val schemaRegistry: SchemaRegistry? = null,
+    private val typeRegistry: TypeRegistry? = null,
+    private val preprocessor: SchemaPreprocessor? = null
+) {
 
-    private val mapper = ObjectMapper()
+    private val ctx = CodegenContext(basePackage, schemaRegistry, typeRegistry, preprocessor)
+    private val resolver = PropertyResolver(ctx)
+    private val recordGen = RecordGenerator(ctx, resolver)
+    private val enumGen = EnumGenerator(ctx)
+    private val sealedGen = SealedInterfaceGenerator(ctx, resolver, recordGen)
 
-    /**
-     * Generates a Java record from one schema file. Writes the result to
-     * `outputDir/<package-path>/<ClassName>.java`. Returns the generated
-     * file path.
-     */
+    init {
+        resolver.onInlineRecord = recordGen::generateInline
+        resolver.onInlineUnion = sealedGen::generateInline
+    }
+
+    fun generateAll(outputDir: File): List<Path> {
+        val reg = typeRegistry ?: error("TypeRegistry required for generateAll")
+        val generated = mutableListOf<Path>()
+        val packages = mutableSetOf<String>()
+
+        buildSealedInterfaceMap(reg)
+
+        for ((path, className) in reg.allGeneratableEntries()) {
+            val schema = schemaRegistry?.get(path) ?: continue
+            val processed = preprocessor?.preprocess(schema) ?: schema
+            val category = reg.getCategory(path) ?: continue
+
+            try {
+                val files = when (category) {
+                    TypeRegistry.TypeCategory.RECORD,
+                    TypeRegistry.TypeCategory.COMPOSED -> recordGen.generate(path, processed, className, outputDir)
+                    TypeRegistry.TypeCategory.ENUM -> enumGen.generate(processed, className, outputDir)
+                    TypeRegistry.TypeCategory.POLYMORPHIC -> sealedGen.generate(path, processed, className, outputDir)
+                    else -> emptyList()
+                }
+                generated.addAll(files)
+                packages.add(className.packageName())
+            } catch (e: Exception) {
+                System.err.println("WARN: Failed to generate $path (${className.simpleName()}): ${e.message}")
+            }
+        }
+
+        for (pkg in packages) {
+            generated.add(ctx.writePackageInfo(pkg, outputDir))
+        }
+
+        return generated
+    }
+
+    /** Legacy single-file API used by MVP test path. */
     fun generate(schemaFile: File, outputDir: File): Path {
+        val mapper = ObjectMapper()
         val schema = mapper.readTree(schemaFile)
         val title = schema.required("title").asText()
-        val className = toClassName(title)
-        val isRequest = className.endsWith("Request")
-        val requiredFields = schema.path("required").mapNotNull { it.asText() }.toSet()
+        val className = NamingConventions.toClassName(title)
+        val packageName = "$basePackage.${NamingConventions.jsonPackagePath(schemaFile)}"
+        val cn = ClassName.get(packageName, className)
+        return recordGen.generate(schemaFile.name, schema, cn, outputDir).first()
+    }
 
-        val properties = schema.path("properties")
-        val recordComponents = mutableListOf<ParameterSpec>()
-        val fieldDocs = StringBuilder()
-        properties.fields().forEach { (jsonName, propSchema) ->
-            val javaName = toCamelCase(jsonName)
-            val type = jsonSchemaToJavaType(propSchema)
-            val required = jsonName in requiredFields
+    // ── Pre-pass: sealed interface membership index ──────────────────
 
-            val paramBuilder = ParameterSpec.builder(type, javaName)
-            if (!required) {
-                paramBuilder.addAnnotation(Nullable::class.java)
+    private fun buildSealedInterfaceMap(reg: TypeRegistry) {
+        ctx.sealedIndex.clear()
+
+        for ((path, className) in reg.allGeneratableEntries()) {
+            val category = reg.getCategory(path) ?: continue
+            if (category != TypeRegistry.TypeCategory.POLYMORPHIC) continue
+
+            val schema = schemaRegistry?.get(path) ?: continue
+            val processed = preprocessor?.preprocess(schema) ?: schema
+            val oneOf = processed.path("oneOf")
+            if (!oneOf.isArray || oneOf.isEmpty) continue
+
+            val ownProps = processed.path("properties")
+            if (ownProps.size() > 0 && !processed.has("discriminator") &&
+                !DiscriminatorDetector.hasBranchDiscriminator(oneOf, ctx::resolveBranch)
+            ) continue
+
+            val discriminatorProp = DiscriminatorDetector.findDiscriminatorProperty(
+                processed, oneOf, ctx::resolveBranch
+            )
+
+            for ((index, branch) in oneOf.withIndex()) {
+                if (branch.has("\$ref")) {
+                    val canonicalPath = schemaRegistry?.toCanonicalPath(branch.get("\$ref").asText())
+                    if (canonicalPath != null) {
+                        ctx.sealedIndex.register(canonicalPath, className)
+                    }
+                } else {
+                    val (variantSimpleName, _) = SealedInterfaceGenerator.deriveVariantName(
+                        branch, discriminatorProp, className.simpleName(), index
+                    )
+                    val variantFqn = "${className.packageName()}.$variantSimpleName"
+                    ctx.sealedIndex.registerByName(variantFqn, className)
+                }
             }
-            // JsonProperty maps the snake_case wire name back to the
-            // camelCase record component.
-            paramBuilder.addAnnotation(
-                AnnotationSpec.builder(
-                    ClassName.get("com.fasterxml.jackson.annotation", "JsonProperty")
-                ).addMember("value", "\$S", jsonName).build()
-            )
-            recordComponents.add(paramBuilder.build())
-
-            val descr = propSchema.path("description").asText("")
-            if (descr.isNotBlank()) {
-                fieldDocs.append("@param $javaName ${escape(descr)}\n")
-            }
-        }
-
-        val recordCtor = MethodSpec.constructorBuilder()
-            .addModifiers(Modifier.PUBLIC)
-            .addParameters(recordComponents)
-            .build()
-
-        val typeBuilder = TypeSpec.recordBuilder(className)
-            .addModifiers(Modifier.PUBLIC)
-            .addJavadoc(schema.path("description").asText("(no description)") + "\n\n")
-            .addJavadoc(fieldDocs.toString())
-            .addAnnotation(generatedAnnotation(schemaFile))
-            .recordConstructor(recordCtor)
-
-        if (isRequest) {
-            typeBuilder.addType(buildBuilder(className, recordComponents))
-            typeBuilder.addMethod(
-                MethodSpec.methodBuilder("builder")
-                    .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                    .returns(ClassName.bestGuess("Builder"))
-                    .addStatement("return new Builder()")
-                    .build()
-            )
-        }
-
-        val packageName = "$basePackage.${jsonPackagePath(schemaFile)}"
-        val javaFile = JavaFile.builder(packageName, typeBuilder.build())
-            .skipJavaLangImports(true)
-            .indent("    ")
-            .build()
-
-        val targetDir = outputDir.toPath().resolve(packageName.replace('.', '/'))
-        targetDir.toFile().mkdirs()
-        val targetFile = targetDir.resolve("$className.java")
-        targetFile.toFile().writeText(javaFile.toString())
-        return targetFile
-    }
-
-    private fun buildBuilder(
-        recordClassName: String,
-        components: List<ParameterSpec>
-    ): TypeSpec {
-        val builderType = ClassName.bestGuess("Builder")
-        val recordType = ClassName.bestGuess(recordClassName)
-
-        val builder = TypeSpec.classBuilder("Builder")
-            .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-            .addJavadoc("Fluent builder for {@link \$T}. Per RFC §Type generation: " +
-                    "*Request types always have builders; *Response types are records " +
-                    "and never do.\n", recordType)
-
-        components.forEach { c ->
-            builder.addField(
-                FieldSpec.builder(c.type(), c.name(), Modifier.PRIVATE)
-                    .addAnnotation(Nullable::class.java)
-                    .build()
-            )
-        }
-        components.forEach { c ->
-            builder.addMethod(
-                MethodSpec.methodBuilder(c.name())
-                    .addModifiers(Modifier.PUBLIC)
-                    .returns(builderType)
-                    .addParameter(c.type(), c.name())
-                    .addStatement("this.\$N = \$N", c.name(), c.name())
-                    .addStatement("return this")
-                    .build()
-            )
-        }
-        builder.addMethod(
-            MethodSpec.methodBuilder("build")
-                .addModifiers(Modifier.PUBLIC)
-                .returns(recordType)
-                .addStatement(
-                    "return new \$T(${components.joinToString(", ") { it.name() }})",
-                    recordType
-                )
-                .build()
-        )
-        return builder.build()
-    }
-
-    private fun jsonSchemaToJavaType(prop: JsonNode): TypeName {
-        return when (prop.path("type").asText("")) {
-            "string" -> ClassName.get("java.lang", "String")
-            "integer" -> ClassName.get("java.lang", "Integer")
-            "boolean" -> ClassName.get("java.lang", "Boolean")
-            "number" -> ClassName.get("java.lang", "Double")
-            "array" -> ParameterizedTypeName.get(
-                ClassName.get("java.util", "List"),
-                jsonSchemaToJavaType(prop.path("items"))
-            )
-            else -> ClassName.get("java.lang", "Object")
         }
     }
-
-    private fun generatedAnnotation(source: File): AnnotationSpec {
-        return AnnotationSpec.builder(
-            ClassName.get("javax.annotation.processing", "Generated")
-        )
-            .addMember("value", "\$S", "org.adcontextprotocol.adcp.codegen.SchemaCodegen")
-            .addMember("comments", "\$S", "from ${source.name}")
-            .build()
-    }
-
-    private fun jsonPackagePath(schemaFile: File): String {
-        // schemas/core/pagination-request.json -> "core"
-        // schemas/media-buy/get-products-request.json -> "media_buy"
-        val parent = schemaFile.parentFile.name
-        return parent.replace('-', '_').lowercase()
-    }
-
-    private fun toClassName(title: String): String =
-        title.split(" ", "-", "_").joinToString("") { it.replaceFirstChar(Char::uppercaseChar) }
-
-    private fun toCamelCase(jsonName: String): String {
-        val parts = jsonName.split("_")
-        return parts.first() + parts.drop(1).joinToString("") {
-            it.replaceFirstChar(Char::uppercaseChar)
-        }
-    }
-
-    private fun escape(text: String): String = text.replace("\$", "\$\$")
 }
