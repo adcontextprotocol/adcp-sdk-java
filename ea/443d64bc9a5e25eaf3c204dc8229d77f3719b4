@@ -1,0 +1,27 @@
+build-logic/src/main/kotlin/codegen/TypeRegistry.kt
+  s_20e459ffae51fe::t_595a4ea8e3a571 71-72
+build-logic/src/main/kotlin/codegen/NamingConventions.kt
+  s_20e459ffae51fe::t_e2a2787c57d617 1-80
+build-logic/src/main/kotlin/codegen/SchemaCodegen.kt
+  ai_agent 20-21,24-28,30-32,47-48,53-54,89-100,104,115-117,119-121,125,131,140,143-146,152-153,161-179,186,192-194,197-203,206-208,227-228,247-248,250,265,270-271,274,279,291-317,329-331,339-342,346,349-350,353-355,367-368,372-378,382-383,385-390,392-394,396-405,407-409,411-419,421-426,428-447,450-459,462-463,465-468,470-476,479-481,489-490,496-497,501,504,508,511-516,518-523,525-526,528-530,532,534-537,540-631,637,661-663,673-674,683-686,734,736-742,744-747,749-762,764-767,769,771-772,774,776-786,788,790-793,795-796,798-800,802-804,806-813,815-817,820-824,839-840,875
+build-logic/src/main/kotlin/codegen/Annotations.kt
+  s_20e459ffae51fe::t_8ebce79a9db8de 1-37
+build-logic/src/main/kotlin/codegen/DiscriminatorDetector.kt
+  s_20e459ffae51fe::t_aec0c309f8a5ec 1-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "ea443d64bc9a5e25eaf3c204dc8229d77f3719b4",
+  "prompts": {},
+  "sessions": {
+    "s_20e459ffae51fe": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "08415453-3719-42a1-af4a-0f66899fb986",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
