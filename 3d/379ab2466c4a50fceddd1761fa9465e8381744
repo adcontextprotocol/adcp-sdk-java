@@ -1,0 +1,31 @@
+build-logic/src/main/kotlin/codegen/RecordGenerator.kt
+  s_20e459ffae51fe::t_f483525f2da0f5 1-185
+build-logic/src/main/kotlin/codegen/EnumGenerator.kt
+  s_20e459ffae51fe::t_e36dfc56f5ea5f 1-108
+build-logic/src/main/kotlin/codegen/PropertyResolver.kt
+  s_20e459ffae51fe::t_d931ba4531a4b1 1-138
+build-logic/src/main/kotlin/codegen/CodegenContext.kt
+  s_20e459ffae51fe::t_a3156af11d3c38 1-107
+build-logic/src/main/kotlin/codegen/SchemaCodegen.kt
+  s_20e459ffae51fe::t_c932d963073750 9-10,12-16,18-19,28-32,34-37,54-56,67,75,81,84,87,100,104,111,114,118
+build-logic/src/main/kotlin/codegen/SchemaUtils.kt
+  s_20e459ffae51fe::t_ba2ecb4f6fc887 1-104
+build-logic/src/main/kotlin/codegen/SealedInterfaceGenerator.kt
+  s_20e459ffae51fe::t_c832b9cd07a90d 1-293
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "3d379ab2466c4a50fceddd1761fa9465e8381744",
+  "prompts": {},
+  "sessions": {
+    "s_20e459ffae51fe": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "08415453-3719-42a1-af4a-0f66899fb986",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
