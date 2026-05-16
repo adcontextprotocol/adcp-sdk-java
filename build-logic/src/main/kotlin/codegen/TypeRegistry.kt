@@ -68,8 +68,8 @@ class TypeRegistry(
             // Only generate a Java type for records, enums, polymorphic, and composed
             if (category in setOf(TypeCategory.RECORD, TypeCategory.ENUM,
                     TypeCategory.POLYMORPHIC, TypeCategory.COMPOSED)) {
-                val className = deriveClassName(path, title)
-                val packageName = derivePackageName(path)
+                val className = NamingConventions.deriveClassName(path, title)
+                val packageName = NamingConventions.derivePackageName(basePackage, path)
                 typeMap[path] = ClassName.get(packageName, className)
             }
         }
@@ -117,28 +117,6 @@ class TypeRegistry(
                 else JavaTypeInfo.OBJECT
             else -> JavaTypeInfo.OBJECT
         }
-    }
-
-    private fun deriveClassName(path: String, title: String?): String {
-        val raw = title ?: fileNameToTitle(path)
-        // Strip parenthetical suffixes: "Format Reference (Structured Object)" → "Format Reference"
-        val cleaned = raw.replace(Regex("\\s*\\([^)]*\\)\\s*"), " ").trim()
-        return cleaned.split(" ", "-", "_")
-            .filter { it.isNotBlank() }
-            .joinToString("") { it.replaceFirstChar(Char::uppercaseChar) }
-    }
-
-    private fun derivePackageName(path: String): String {
-        val dir = java.io.File(path).parent ?: ""
-        if (dir.isEmpty()) return "$basePackage.generated"
-        val subPackage = dir.replace('-', '_').replace('/', '.').lowercase()
-        return "$basePackage.generated.$subPackage"
-    }
-
-    private fun fileNameToTitle(path: String): String {
-        return java.io.File(path).nameWithoutExtension
-            .replace('-', ' ')
-            .replace('_', ' ')
     }
 
     /** Encapsulates a resolved Java type — either a ClassName or a primitive. */
