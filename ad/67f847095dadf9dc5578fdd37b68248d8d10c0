@@ -1,0 +1,29 @@
+ROADMAP.md
+  s_20e459ffae51fe::t_fa7cccf816c11b 211
+build-logic/src/test/kotlin/codegen/SchemaRegistryTest.kt
+  s_20e459ffae51fe::t_27dffa5c1189ed 155-156,158-191
+build-logic/src/main/kotlin/adcp.schema-codegen-conventions.gradle.kts
+  s_20e459ffae51fe::t_40396dfc8ad05b 9-12
+  s_20e459ffae51fe::t_c5d31d6ad92fa1 103-120,124,130,145-154,157
+build-logic/src/main/kotlin/adcp.schema-bundle-conventions.gradle.kts
+  s_20e459ffae51fe::t_f01232fdf31d65 130-219,242-253
+build-logic/src/main/kotlin/codegen/SchemaRegistry.kt
+  s_20e459ffae51fe::t_59cf3ed80429eb 51-52,54,60-64
+  s_20e459ffae51fe::t_95d6135a6c47e9 137-140,143-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "ad67f847095dadf9dc5578fdd37b68248d8d10c0",
+  "prompts": {},
+  "sessions": {
+    "s_20e459ffae51fe": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "08415453-3719-42a1-af4a-0f66899fb986",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
