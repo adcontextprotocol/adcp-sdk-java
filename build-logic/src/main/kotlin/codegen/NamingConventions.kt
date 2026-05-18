@@ -66,11 +66,12 @@ object NamingConventions {
     }
 
     /** Derives the Java package name for a schema at the given relative path. */
-    fun derivePackageName(basePackage: String, path: String): String {
+    fun derivePackageName(basePackage: String, path: String, versionNamespace: String? = null): String {
         val dir = File(path).parent ?: ""
-        if (dir.isEmpty()) return "$basePackage.generated"
+        val versionSegment = if (!versionNamespace.isNullOrBlank()) ".$versionNamespace" else ""
+        if (dir.isEmpty()) return "$basePackage.generated$versionSegment"
         val subPackage = dir.replace('-', '_').replace('/', '.').lowercase()
-        return "$basePackage.generated.$subPackage"
+        return "$basePackage.generated$versionSegment.$subPackage"
     }
 
     /** Derives a sub-package from a schema file's parent directory. */

@@ -38,7 +38,9 @@ class EnumGenerator(private val ctx: CodegenContext) {
         val enumBuilder = TypeSpec.enumBuilder(className.simpleName())
             .addModifiers(Modifier.PUBLIC)
             .addJavadoc("${NamingConventions.escape(description)}\n")
-            .addAnnotation(Annotations.generated(sourcePath))
+        val extensionDocs = SchemaUtils.schemaExtensionJavadoc(schema)
+        if (extensionDocs.isNotBlank()) enumBuilder.addJavadoc(extensionDocs)
+        enumBuilder.addAnnotation(Annotations.generated(sourcePath))
 
         enumBuilder.addField(
             FieldSpec.builder(ClassName.get("java.lang", "String"), "value", Modifier.PRIVATE, Modifier.FINAL)

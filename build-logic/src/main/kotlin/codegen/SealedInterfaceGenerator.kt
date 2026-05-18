@@ -82,8 +82,9 @@ class SealedInterfaceGenerator(
 
         val allSamePackage = variantNames.all { it.second.packageName() == className.packageName() }
         val description = schema.path("description").asText("(no description)")
+        val extensionDocs = SchemaUtils.schemaExtensionJavadoc(schema)
         val interfaceSpec = buildSealedInterface(
-            className.simpleName(), sourcePath, description,
+            className.simpleName(), sourcePath, description, extensionDocs,
             discriminatorProp, variantNames, canBeSealed = allSamePackage
         )
         generated.add(ctx.writeJavaFile(className.packageName(), interfaceSpec, outputDir))
@@ -171,7 +172,7 @@ class SealedInterfaceGenerator(
         ctx.inlineTypes.add(
             parentClass.packageName(),
             buildSealedInterface(
-                interfaceName, contextPath, "(no description)",
+                interfaceName, contextPath, "(no description)", "",
                 discriminatorProp, variantNames, canBeSealed
             )
         )
@@ -184,6 +185,7 @@ class SealedInterfaceGenerator(
         interfaceName: String,
         sourcePath: String,
         description: String,
+        extensionDocs: String,
         discriminatorProp: String?,
         variantNames: List<Pair<String, ClassName>>,
         canBeSealed: Boolean
@@ -191,7 +193,8 @@ class SealedInterfaceGenerator(
         val builder = TypeSpec.interfaceBuilder(interfaceName)
             .addModifiers(Modifier.PUBLIC)
             .addJavadoc("${NamingConventions.escape(description)}\n")
-            .addAnnotation(Annotations.generated(sourcePath))
+        if (extensionDocs.isNotBlank()) builder.addJavadoc(extensionDocs)
+        builder.addAnnotation(Annotations.generated(sourcePath))
 
         if (canBeSealed) builder.addModifiers(Modifier.SEALED)
 
@@ -251,7 +254,9 @@ class SealedInterfaceGenerator(
         val typeBuilder = TypeSpec.interfaceBuilder(className.simpleName())
             .addModifiers(Modifier.PUBLIC)
             .addJavadoc("${NamingConventions.escape(description)}\n")
-            .addAnnotation(Annotations.generated(sourcePath))
+        val extensionDocs = SchemaUtils.schemaExtensionJavadoc(schema)
+        if (extensionDocs.isNotBlank()) typeBuilder.addJavadoc(extensionDocs)
+        typeBuilder.addAnnotation(Annotations.generated(sourcePath))
         return listOf(ctx.writeJavaFile(className.packageName(), typeBuilder.build(), outputDir))
     }
 

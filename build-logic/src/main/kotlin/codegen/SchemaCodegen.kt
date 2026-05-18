@@ -22,7 +22,8 @@ class SchemaCodegen(
     private val basePackage: String,
     private val schemaRegistry: SchemaRegistry? = null,
     private val typeRegistry: TypeRegistry? = null,
-    private val preprocessor: SchemaPreprocessor? = null
+    private val preprocessor: SchemaPreprocessor? = null,
+    private val versionNamespace: String? = null
 ) {
 
     private val ctx = CodegenContext(basePackage, schemaRegistry, typeRegistry, preprocessor)

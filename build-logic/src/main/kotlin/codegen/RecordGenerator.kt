@@ -70,6 +70,9 @@ class RecordGenerator(
             .addModifiers(Modifier.PUBLIC)
             .addJavadoc("${NamingConventions.escape(description)}\n\n")
             .addJavadoc(result.javadoc)
+        val extensionDocs = SchemaUtils.schemaExtensionJavadoc(schema)
+        if (extensionDocs.isNotBlank()) typeBuilder.addJavadoc(extensionDocs)
+        typeBuilder
             .addAnnotation(Annotations.generated(sourcePath))
             .recordConstructor(recordCtor)
 

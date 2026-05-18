@@ -101,4 +101,22 @@ object SchemaUtils {
         }
         return false
     }
+
+    /**
+     * Builds extra Javadoc lines from schema-level extension fields:
+     * - `x-status: "experimental"` → `@apiNote` warning
+     * - `x-mutates-state: true` → `@apiNote` warning
+     */
+    fun schemaExtensionJavadoc(schema: JsonNode): String {
+        val sb = StringBuilder()
+        val status = schema.path("x-status").asText(null)
+        if (status == "experimental") {
+            sb.append("\n@apiNote Experimental: this type is part of the experimental AdCP surface")
+            sb.append(" and may change or be removed in future protocol versions.\n")
+        }
+        if (schema.path("x-mutates-state").asBoolean(false)) {
+            sb.append("\n@apiNote This operation mutates server state.\n")
+        }
+        return sb.toString()
+    }
 }

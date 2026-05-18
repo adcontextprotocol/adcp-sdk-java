@@ -16,7 +16,8 @@ import com.palantir.javapoet.ClassName
  */
 class TypeRegistry(
     private val basePackage: String,
-    private val registry: SchemaRegistry
+    private val registry: SchemaRegistry,
+    private val versionNamespace: String? = null
 ) {
 
     /** Maps canonical schema path → Java ClassName. */
@@ -69,7 +70,7 @@ class TypeRegistry(
             if (category in setOf(TypeCategory.RECORD, TypeCategory.ENUM,
                     TypeCategory.POLYMORPHIC, TypeCategory.COMPOSED)) {
                 val className = NamingConventions.deriveClassName(path, title)
-                val packageName = NamingConventions.derivePackageName(basePackage, path)
+                val packageName = NamingConventions.derivePackageName(basePackage, path, versionNamespace)
                 typeMap[path] = ClassName.get(packageName, className)
             }
         }

@@ -19,6 +19,10 @@ plugins {
 
 abstract class GenerateSchemas : DefaultTask() {
 
+    @get:org.gradle.api.tasks.Input
+    @get:org.gradle.api.tasks.Optional
+    abstract val versionNamespace: org.gradle.api.provider.Property<String>
+
     @get:org.gradle.api.tasks.InputDirectory
     abstract val schemaRoot: org.gradle.api.file.DirectoryProperty
 
@@ -43,14 +47,16 @@ abstract class GenerateSchemas : DefaultTask() {
 
         if (fullMode.getOrElse(true) && root.exists()) {
             // Full mode: generate all schemas via registry
+            val ns = versionNamespace.orNull
             val registry = SchemaRegistry(root)
-            val typeRegistry = TypeRegistry(basePackage.get(), registry)
+            val typeRegistry = TypeRegistry(basePackage.get(), registry, ns)
             val preprocessor = SchemaPreprocessor()
             val codegen = SchemaCodegen(
                 basePackage = basePackage.get(),
                 schemaRegistry = registry,
                 typeRegistry = typeRegistry,
-                preprocessor = preprocessor
+                preprocessor = preprocessor,
+                versionNamespace = ns
             )
 
             val generated = codegen.generateAll(out)
