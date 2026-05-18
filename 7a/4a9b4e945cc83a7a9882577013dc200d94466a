@@ -1,0 +1,91 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/package-info.java
+  s_5a10c71ca4b03f::t_4f1720c789419d 1-5
+adcp/src/main/java/org/adcontextprotocol/adcp/error/ValidationError.java
+  s_5a10c71ca4b03f::t_5c753327600c59 1-7,11-21
+  s_5a10c71ca4b03f::t_d745c17c153fc9 8-10
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/WwwAuthenticateParser.java
+  s_5a10c71ca4b03f::t_be954a9af7afce 1-82
+adcp/src/main/java/org/adcontextprotocol/adcp/error/IdempotencyConflictError.java
+  s_5a10c71ca4b03f::t_f7e83e357152c8 1-5,9-12
+  s_5a10c71ca4b03f::t_6ae5195c3bbabf 6-8
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/AuthChallengeInfo.java
+  s_5a10c71ca4b03f::t_9d178682d3f1f9 1-23
+adcp/src/main/java/org/adcontextprotocol/adcp/error/AdcpError.java
+  s_5a10c71ca4b03f::t_42344a77f0ffe5 1-28,32,34-58
+  s_5a10c71ca4b03f::t_48a929e137842d 29-31,33
+adcp/src/test/java/org/adcontextprotocol/adcp/http/AdcpHttpClientTest.java
+  s_5a10c71ca4b03f::t_12e2caae642c4d 1-96
+ROADMAP.md
+  s_5a10c71ca4b03f::t_86679e3b304d6e 226,531
+adcp/src/test/java/org/adcontextprotocol/adcp/error/AdcpErrorTest.java
+  s_5a10c71ca4b03f::t_7cabd61cb25240 1-178
+adcp/src/main/java/org/adcontextprotocol/adcp/http/SsrfBlockedException.java
+  s_5a10c71ca4b03f::t_40262e3e3af454 1-11,15-33
+  s_5a10c71ca4b03f::t_3556fcdce5cbf4 12-14
+adcp/src/main/java/org/adcontextprotocol/adcp/error/AuthenticationRequiredError.java
+  s_5a10c71ca4b03f::t_53510a5516bed3 15-17,19,21
+  s_5a10c71ca4b03f::t_a6c5cb40308ab3 1-14,18,20,22-56
+adcp/src/main/java/org/adcontextprotocol/adcp/error/VersionUnsupportedError.java
+  s_5a10c71ca4b03f::t_f27133b042ac81 1-9,13-49
+  s_5a10c71ca4b03f::t_99cf80f7caaade 10-12
+adcp/src/test/java/org/adcontextprotocol/adcp/http/DnsPinResolverTest.java
+  s_5a10c71ca4b03f::t_3f6a90cfe1c524 1-73
+adcp/src/main/java/org/adcontextprotocol/adcp/http/AdcpHttpResponse.java
+  s_5a10c71ca4b03f::t_e95cac0e7f38d9 1-36
+adcp/src/main/java/org/adcontextprotocol/adcp/error/FeatureUnsupportedError.java
+  s_5a10c71ca4b03f::t_a34a4193b406d7 8-11,13
+  s_5a10c71ca4b03f::t_fe91d74a6dc2f8 1-7,12,14-33
+adcp/src/main/java/org/adcontextprotocol/adcp/error/TaskTimeoutError.java
+  s_5a10c71ca4b03f::t_07c29971d1c258 1-7,11-30
+  s_5a10c71ca4b03f::t_3416e8b2b842da 8-10
+adcp/src/main/java/org/adcontextprotocol/adcp/error/package-info.java
+  s_5a10c71ca4b03f::t_cb81ea38cb6796 1-5
+adcp/src/main/java/org/adcontextprotocol/adcp/error/ResponseTooLargeError.java
+  s_5a10c71ca4b03f::t_5819abf824742e 10-12
+  s_5a10c71ca4b03f::t_b5ecf527730944 1-9,13-38
+adcp/src/main/java/org/adcontextprotocol/adcp/error/UnsupportedTaskError.java
+  s_5a10c71ca4b03f::t_89eadd1b3feb87 1-5,9-21
+  s_5a10c71ca4b03f::t_4b6541df26b419 6-8
+adcp/src/main/java/org/adcontextprotocol/adcp/error/ProtocolError.java
+  s_5a10c71ca4b03f::t_a890627083b59e 8-10
+  s_5a10c71ca4b03f::t_70af1512706a1c 1-7,11-22
+adcp/src/main/java/org/adcontextprotocol/adcp/http/AdcpHttpClient.java
+  s_5a10c71ca4b03f::t_c7a688a9f73dfb 1-310
+adcp/src/main/java/org/adcontextprotocol/adcp/error/TaskAbortedError.java
+  s_5a10c71ca4b03f::t_6ae0b6fca7ee5e 8-10
+  s_5a10c71ca4b03f::t_24f5998fe7e3b9 1-7,11-24
+adcp/src/main/java/org/adcontextprotocol/adcp/http/DnsPinResolver.java
+  s_5a10c71ca4b03f::t_4fb50f5ce92b7a 1-61
+adcp/src/test/java/org/adcontextprotocol/adcp/auth/WwwAuthenticateParserTest.java
+  s_5a10c71ca4b03f::t_cbad9a46014a3b 1-92
+adcp/src/main/java/org/adcontextprotocol/adcp/error/IdempotencyExpiredError.java
+  s_5a10c71ca4b03f::t_0738912f4685cd 6-8
+  s_5a10c71ca4b03f::t_58d1d49374557b 1-5,9-12
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/OAuthMetadataInfo.java
+  s_5a10c71ca4b03f::t_ff67bbfabaecf5 1-19
+adcp/src/main/java/org/adcontextprotocol/adcp/error/AgentNotFoundError.java
+  s_5a10c71ca4b03f::t_fdd820834a0950 1-7,11,13-31
+  s_5a10c71ca4b03f::t_4d5dcb08414d2d 8-10,12
+adcp/src/main/java/org/adcontextprotocol/adcp/error/ConfigurationError.java
+  s_5a10c71ca4b03f::t_f1b34f2c15a884 8-10
+  s_5a10c71ca4b03f::t_39391228afbf48 1-7,11-21
+adcp/src/main/java/org/adcontextprotocol/adcp/error/DeferredTaskError.java
+  s_5a10c71ca4b03f::t_28d508c85a817e 6-8
+  s_5a10c71ca4b03f::t_19ae4cae0f7fb8 1-5,9-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "7a4a9b4e945cc83a7a9882577013dc200d94466a",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
