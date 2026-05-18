@@ -1,0 +1,25 @@
+adcp-testing/build.gradle.kts
+  s_5a10c71ca4b03f::t_464ab07e4af2d8 19-21
+adcp-testing/gradle.lockfile
+  s_5a10c71ca4b03f::t_464ab07e4af2d8 4-21,32-35
+adcp-testing/src/test/java/org/adcontextprotocol/adcp/testing/ServerBuilderRoundTripTest.java
+  s_5a10c71ca4b03f::t_8c65bdc677f85b 1-182
+adcp-testing/src/test/java/org/adcontextprotocol/adcp/testing/AdcpClientIntegrationTest.java
+  s_5a10c71ca4b03f::t_11645ee2df7de5 1-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "729e4924a980c57cecabe56db4392adec8c1af68",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
