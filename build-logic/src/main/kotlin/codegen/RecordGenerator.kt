@@ -43,17 +43,27 @@ class RecordGenerator(
         val result = resolver.buildComponents(mergedProperties, requiredFields, className, sourcePath)
         val components = result.specs.toMutableList()
 
+        // Track whether this record has an open additionalProperties map, so we can
+        // emit a paired @JsonAnyGetter accessor after the record constructor.
+        var additionalPropsMapType: ParameterizedTypeName? = null
         if (parentInterface == null) {
             val additionalProps = schema.path("additionalProperties")
             if (additionalProps.isBoolean && additionalProps.asBoolean()) {
-                val mapType = ParameterizedTypeName.get(
+                additionalPropsMapType = ParameterizedTypeName.get(
                     ClassName.get("java.util", "Map"),
                     ClassName.get("java.lang", "String"),
                     ClassName.get("com.fasterxml.jackson.databind", "JsonNode")
                 )
                 components.add(
-                    ParameterSpec.builder(mapType, "additionalProperties")
+                    ParameterSpec.builder(additionalPropsMapType, "additionalProperties")
                         .addAnnotation(Nullable::class.java)
+                        // WRITE_ONLY suppresses named-field serialization; @JsonAnyGetter
+                        // on the override method handles spreading during serialization.
+                        .addAnnotation(
+                            AnnotationSpec.builder(Annotations.JSON_PROPERTY)
+                                .addMember("access", "\$T.WRITE_ONLY", Annotations.JSON_PROPERTY_ACCESS)
+                                .build()
+                        )
                         .addAnnotation(AnnotationSpec.builder(Annotations.JSON_ANY_SETTER).build())
                         .build()
                 )
@@ -75,6 +85,22 @@ class RecordGenerator(
         typeBuilder
             .addAnnotation(Annotations.generated(sourcePath))
             .recordConstructor(recordCtor)
+
+        // Emit an explicit @JsonAnyGetter override so Jackson spreads the map entries
+        // back into the parent object during serialization (round-trip correctness).
+        if (additionalPropsMapType != null) {
+            typeBuilder.addMethod(
+                MethodSpec.methodBuilder("additionalProperties")
+                    .addAnnotation(AnnotationSpec.builder(Annotations.JSON_ANY_GETTER).build())
+                    .addModifiers(Modifier.PUBLIC)
+                    .returns(additionalPropsMapType)
+                    .addStatement(
+                        "return additionalProperties != null ? additionalProperties : \$T.of()",
+                        ClassName.get("java.util", "Map")
+                    )
+                    .build()
+            )
+        }
 
         if (parentInterface != null) {
             typeBuilder.addSuperinterface(parentInterface)

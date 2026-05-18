@@ -18,6 +18,8 @@ object Annotations {
     val JSON_VALUE: ClassName = ClassName.get("com.fasterxml.jackson.annotation", "JsonValue")
     val JSON_CREATOR: ClassName = ClassName.get("com.fasterxml.jackson.annotation", "JsonCreator")
     val JSON_ANY_SETTER: ClassName = ClassName.get("com.fasterxml.jackson.annotation", "JsonAnySetter")
+    val JSON_ANY_GETTER: ClassName = ClassName.get("com.fasterxml.jackson.annotation", "JsonAnyGetter")
+    val JSON_PROPERTY_ACCESS: ClassName = ClassName.get("com.fasterxml.jackson.annotation", "JsonProperty", "Access")
 
     // javax
     val GENERATED: ClassName = ClassName.get("javax.annotation.processing", "Generated")

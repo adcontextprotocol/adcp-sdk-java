@@ -1,5 +1,7 @@
 package org.adcontextprotocol.adcp.generated;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.adcontextprotocol.adcp.generated.core.FormatAssetsItem;
 import org.adcontextprotocol.adcp.generated.core.IndividualImageAsset;
@@ -78,4 +80,50 @@ class InlineUnionDiscriminatorTest {
         assertTrue(reserialized.contains("\"asset_type\":\"image\""));
         assertTrue(reserialized.contains("\"asset_id\":\"logo\""));
     }
+
+    /**
+     * Simulates the multi-uncovered-variant fix: a polymorphic interface where two
+     * variants have no discriminator const (so neither maps to a named @JsonSubTypes.Type).
+     * The codegen fix picks the first uncovered variant as {@code defaultImpl}, so any
+     * JSON whose discriminator value doesn't match a named variant must deserialize as
+     * that first uncovered variant rather than throwing a mapping exception.
+     */
+    @Test
+    void multi_uncovered_variants_uses_first_as_default() throws Exception {
+        // Hand-crafted interface that mirrors what codegen emits when there are 2
+        // uncovered variants (VariantA is first → defaultImpl).
+        String json = """
+            { "kind": "completely_unknown_value", "name": "test" }
+            """;
+        MultiUncoveredUnion result = mapper.readValue(json, MultiUncoveredUnion.class);
+        // Must deserialize as VariantA (the defaultImpl / first uncovered), not throw.
+        assertInstanceOf(VariantA.class, result,
+                "Unknown discriminator value must fall back to the first uncovered variant");
+        assertEquals("test", ((VariantA) result).name());
+    }
+
+    @Test
+    void multi_uncovered_named_variant_still_discriminates() throws Exception {
+        // The named variant 'b' must still resolve correctly alongside the defaultImpl.
+        String json = """
+            { "kind": "b", "value": "hello" }
+            """;
+        MultiUncoveredUnion result = mapper.readValue(json, MultiUncoveredUnion.class);
+        assertInstanceOf(VariantB.class, result);
+        assertEquals("hello", ((VariantB) result).value());
+    }
+
+    // ── Synthetic types used by the multi-uncovered tests ───────────────────
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "kind", defaultImpl = VariantA.class)
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = VariantB.class, name = "b"),
+            @JsonSubTypes.Type(value = VariantA.class),   // uncovered #1 → defaultImpl
+            @JsonSubTypes.Type(value = VariantC.class)    // uncovered #2 → not defaultImpl
+    })
+    sealed interface MultiUncoveredUnion permits VariantA, VariantB, VariantC {}
+
+    record VariantA(String kind, String name) implements MultiUncoveredUnion {}
+    record VariantB(String kind, String value) implements MultiUncoveredUnion {}
+    record VariantC(String kind, String extra) implements MultiUncoveredUnion {}
 }

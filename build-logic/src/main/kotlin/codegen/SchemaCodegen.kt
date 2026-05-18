@@ -60,8 +60,10 @@ class SchemaCodegen(
                 generated.addAll(files)
                 packages.add(className.packageName())
             } catch (e: Exception) {
-                System.err.println("WARN: Failed to generate $path (${className.simpleName()}): ${e.message}")
-                e.printStackTrace(System.err)
+                throw RuntimeException(
+                    "Codegen failed for $path (${className.simpleName()}): ${e.message}",
+                    e
+                )
             }
         }
 

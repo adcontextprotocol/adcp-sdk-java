@@ -24,6 +24,20 @@ class PropertyResolver(private val ctx: CodegenContext) {
     companion object {
         /** Fallback type for unresolvable schema types — preserves JSON structure. */
         private val JSON_NODE = ClassName.get("com.fasterxml.jackson.databind", "JsonNode")
+
+        /**
+         * Monetary field name patterns: exact names or names ending with a monetary
+         * suffix. These are mapped to [BigDecimal] rather than [Double] to preserve
+         * precision for price/budget/CPM fields in storyboard equality checks.
+         */
+        private val MONETARY_SUFFIXES = setOf("price", "amount", "budget", "cost", "fee", "cpm", "bid")
+
+        private fun isMonetaryField(name: String): Boolean {
+            val lower = name.lowercase()
+            return MONETARY_SUFFIXES.any { term ->
+                lower == term || lower.endsWith("_$term") || lower.startsWith("${term}_")
+            } || lower == "credit_limit"
+        }
     }
 
     fun resolve(
@@ -72,11 +86,22 @@ class PropertyResolver(private val ctx: CodegenContext) {
             return ParameterizedTypeName.get(ClassName.get("java.util", "List"), itemType)
         }
 
+        val format = propSchema.path("format").asText("")
         return when (type) {
-            "string" -> ClassName.get("java.lang", "String")
+            "string" -> when (format) {
+                "date-time" -> ClassName.get("java.time", "OffsetDateTime")
+                "date"      -> ClassName.get("java.time", "LocalDate")
+                "uri", "uri-template" -> ClassName.get("java.net", "URI")
+                "uuid"      -> ClassName.get("java.util", "UUID")
+                else        -> ClassName.get("java.lang", "String")
+            }
             "integer" -> ClassName.get("java.lang", "Integer")
             "boolean" -> ClassName.get("java.lang", "Boolean")
-            "number" -> ClassName.get("java.lang", "Double")
+            "number"  -> when {
+                format == "decimal" || isMonetaryField(propertyName) ->
+                    ClassName.get("java.math", "BigDecimal")
+                else -> ClassName.get("java.lang", "Double")
+            }
             else -> inferFromConst(propSchema)
         }
     }

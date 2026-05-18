@@ -6,6 +6,7 @@ import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SchemaValidatorsConfig;
 import com.networknt.schema.SpecVersion;
 import com.networknt.schema.ValidationMessage;
+import com.networknt.schema.resource.ClasspathSchemaLoader;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,6 +26,10 @@ import java.util.concurrent.ConcurrentMap;
  * <p>Schema URIs follow the pattern {@code "/schemas/3.0.11/core/brand-ref.json"}.
  * The leading slash is stripped to form the classpath resource path
  * {@code "schemas/3.0.11/core/brand-ref.json"}.
+ *
+ * <p><b>Security:</b> the factory is configured to resolve {@code $ref}s only
+ * from the classpath. Network {@code http(s)://} and {@code file:} references
+ * are never fetched, preventing SSRF via schema loading.
  */
 public final class AdcpSchemaValidator {
 
@@ -32,7 +37,17 @@ public final class AdcpSchemaValidator {
     private final JsonSchemaFactory factory;
 
     public AdcpSchemaValidator() {
-        this.factory = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V7);
+        // Restrict $ref resolution to classpath only — no network or file-system
+        // URIs will ever be fetched, even if a future schema accidentally introduces one.
+        this.factory = JsonSchemaFactory.getInstance(
+                SpecVersion.VersionFlag.V7,
+                builder -> builder.schemaLoaders(loaders ->
+                        loaders.values(list -> {
+                            list.clear();
+                            list.add(new ClasspathSchemaLoader());
+                        })
+                )
+        );
     }
 
     /**
@@ -70,8 +85,7 @@ public final class AdcpSchemaValidator {
         }
 
         try (stream) {
-            SchemaValidatorsConfig config = SchemaValidatorsConfig.builder()
-                    .build();
+            SchemaValidatorsConfig config = SchemaValidatorsConfig.builder().build();
             return factory.getSchema(stream, config);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to load schema: " + resourcePath, e);

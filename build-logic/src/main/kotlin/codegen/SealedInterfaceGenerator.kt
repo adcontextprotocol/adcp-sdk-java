@@ -198,7 +198,7 @@ class SealedInterfaceGenerator(
 
         if (canBeSealed) builder.addModifiers(Modifier.SEALED)
 
-        addPolymorphicAnnotations(builder, discriminatorProp, variantNames)
+        addPolymorphicAnnotations(builder, sourcePath, discriminatorProp, variantNames)
 
         if (canBeSealed) {
             for ((_, variantClass) in variantNames) {
@@ -211,6 +211,7 @@ class SealedInterfaceGenerator(
 
     private fun addPolymorphicAnnotations(
         builder: TypeSpec.Builder,
+        sourcePath: String,
         discriminatorProp: String?,
         variantNames: List<Pair<String, ClassName>>
     ) {
@@ -220,11 +221,38 @@ class SealedInterfaceGenerator(
                 .addMember("use", "\$T.NAME", Annotations.JSON_TYPE_INFO_ID)
                 .addMember("property", "\$S", discriminatorProp)
                 .addMember("visible", "true")
-            if (uncoveredVariants.size == 1) {
-                annotBuilder.addMember("defaultImpl", "\$T.class", uncoveredVariants[0].second)
+
+            // Pick a defaultImpl for any payload whose discriminator value does not
+            // match a named @JsonSubTypes.Type. When there are multiple uncovered
+            // variants (branches that carry no const discriminator), we use the first
+            // by stable insertion order and emit a warning so it is visible at build
+            // time rather than silently failing at runtime.
+            val defaultVariant: ClassName? = when {
+                uncoveredVariants.size == 1 -> uncoveredVariants[0].second
+                uncoveredVariants.size > 1  -> {
+                    System.err.println(
+                        "WARN codegen: $sourcePath has ${uncoveredVariants.size} uncovered " +
+                        "variants without a discriminator const; using " +
+                        "${uncoveredVariants[0].second.simpleName()} as defaultImpl (first-wins). " +
+                        "Consider adding explicit discriminator values to the schema."
+                    )
+                    uncoveredVariants[0].second
+                }
+                else -> null
+            }
+            if (defaultVariant != null) {
+                annotBuilder.addMember("defaultImpl", "\$T.class", defaultVariant)
             }
             builder.addAnnotation(annotBuilder.build())
         } else {
+            // No discriminator detected; Jackson will attempt DEDUCTION (shape-based
+            // inference). This works only when every variant's required field set is
+            // disjoint. If branches share required fields, Jackson may silently pick
+            // the wrong variant at runtime.
+            System.err.println(
+                "WARN codegen: No discriminator detected for union at $sourcePath — " +
+                "using DEDUCTION mode. Ensure variant required-field sets are disjoint."
+            )
             builder.addAnnotation(
                 AnnotationSpec.builder(Annotations.JSON_TYPE_INFO)
                     .addMember("use", "\$T.DEDUCTION", Annotations.JSON_TYPE_INFO_ID)
