@@ -1,0 +1,50 @@
+build-logic/src/main/kotlin/codegen/SchemaUtils.kt
+  s_20e459ffae51fe::t_3347217a7002aa 39,44
+adcp/src/main/java/org/adcontextprotocol/adcp/schema/ValidationResult.java
+  s_20e459ffae51fe::t_1f916745f70472 15-19
+build-logic/src/main/kotlin/codegen/NamingConventions.kt
+  s_20e459ffae51fe::t_732f6d6e973ff2 48,50-51
+build-logic/src/main/kotlin/codegen/TypeRegistry.kt
+  s_20e459ffae51fe::t_1df4af66f824e2 132
+adcp/src/main/java/org/adcontextprotocol/adcp/schema/SchemaBundle.java
+  s_20e459ffae51fe::t_1b05bddd0a8efe 18
+build-logic/src/main/kotlin/codegen/SchemaCodegen.kt
+  s_20e459ffae51fe::t_3ca72fc290cb0b 55
+  s_20e459ffae51fe::t_28464df7e182de 63
+build-logic/src/main/kotlin/codegen/CodegenContext.kt
+  s_20e459ffae51fe::t_da45491f08fd60 95-100
+adcp/src/main/java/org/adcontextprotocol/adcp/schema/AdcpSchemaValidator.java
+  s_20e459ffae51fe::t_231b4742e35656 10,12
+  s_20e459ffae51fe::t_37f8bf3f0f5d01 72-78
+build-logic/src/main/kotlin/codegen/EnumGenerator.kt
+  s_20e459ffae51fe::t_c6eb709f4b3b21 22,41
+adcp/src/test/java/org/adcontextprotocol/adcp/schema/AdcpObjectMapperFactoryTest.java
+  s_20e459ffae51fe::t_e8353b5ee53336 8-9,20-21,23-46
+  s_20e459ffae51fe::t_3a2fa71bb84596 22
+build-logic/src/main/kotlin/codegen/SealedInterfaceGenerator.kt
+  s_20e459ffae51fe::t_d371aa2e879437 146
+build-logic/src/main/kotlin/codegen/RecordGenerator.kt
+  s_20e459ffae51fe::t_e080f7bb250d4a 52
+  s_20e459ffae51fe::t_1a4e44aae33f50 41
+build-logic/src/main/kotlin/codegen/PropertyResolver.kt
+  s_20e459ffae51fe::t_0fdc0844223cb6 24-28,37,61,68,127,135,138
+adcp/src/main/java/org/adcontextprotocol/adcp/schema/AdcpObjectMapperFactory.java
+  s_20e459ffae51fe::t_dde56881b5b33d 39-40,48-50
+  s_20e459ffae51fe::t_f55e19bad73a16 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "6926b177ef05bd44c712ed15e09e80d644c1afd4",
+  "prompts": {},
+  "sessions": {
+    "s_20e459ffae51fe": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "08415453-3719-42a1-af4a-0f66899fb986",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
