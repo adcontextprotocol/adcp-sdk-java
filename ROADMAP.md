@@ -208,7 +208,7 @@ The RFC's M+12 target is the realistic line. Pre-committing M+9 and slipping is 
 - Generator invariant: `*Request` types always have builders; `*Response` types are records and never do (RFC §Type generation).
 - Polymorphic envelope handling (Jackson `@JsonTypeInfo` / `@JsonSubTypes`).
 - `x-adcp-*` annotation post-processors mirroring `scripts/generate-types.ts` in `adcp-client`.
-- Version pinning support (`adcp-v2-5` co-existence namespace).
+- ~~Version pinning support (`adcp-v2-5` co-existence namespace).~~ Deferred: the `versionNamespace` Gradle task parameter is implemented (plumbing is ~80% complete) but no live consumer requires a frozen prior-major namespace today. Both TS and Python reference SDKs add the legacy namespace only when there is a concrete consumer need. This item will be picked up as a follow-on when the 3.1 schema ships. Track the work in [`transport`](#track-3--l0-transport-mcp--a2a) or open a dedicated issue at that time.
 - JSpecify `@Nullable` annotations on every public type. No `Optional<T>` returns.
 - Schema validator wrapper around `com.networknt:json-schema-validator`.
 - Schema-bundle accessor (runtime, resources jar; build-time loader lives in [`infra`](#track-1--build-repo-release-infra)).
