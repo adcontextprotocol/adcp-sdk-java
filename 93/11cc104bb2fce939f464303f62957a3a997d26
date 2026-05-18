@@ -1,0 +1,38 @@
+build-logic/src/main/kotlin/codegen/SchemaCodegen.kt
+  s_20e459ffae51fe::t_d2bda49097dfe7 25-26
+build-logic/src/main/kotlin/codegen/SchemaUtils.kt
+  s_20e459ffae51fe::t_e44f1624e62da6 104-121
+build-logic/src/main/kotlin/codegen/RecordGenerator.kt
+  s_20e459ffae51fe::t_32a9bf279b6266 73-75
+build-logic/src/main/kotlin/codegen/NamingConventions.kt
+  s_20e459ffae51fe::t_822d9c1701cf6b 69,71-72,74
+build-logic/src/main/kotlin/codegen/EnumGenerator.kt
+  s_20e459ffae51fe::t_4f17ea0399e470 41-43
+build-logic/src/main/kotlin/codegen/SealedInterfaceGenerator.kt
+  s_20e459ffae51fe::t_727d0ac9ef0f27 85,87
+  s_20e459ffae51fe::t_5e28e96c88cbf0 257-259
+  s_20e459ffae51fe::t_37bb937e1bfda4 188,196-197
+  s_20e459ffae51fe::t_cd01c7a3afb230 175
+build-logic/src/main/kotlin/adcp.schema-codegen-conventions.gradle.kts
+  s_20e459ffae51fe::t_c705167f5b1c77 22-25
+  s_20e459ffae51fe::t_9738c5f96208a2 50,52,58-59
+build-logic/src/main/kotlin/codegen/TypeRegistry.kt
+  s_20e459ffae51fe::t_4430a79d2240eb 73
+  s_20e459ffae51fe::t_be219aa8630539 19-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "9311cc104bb2fce939f464303f62957a3a997d26",
+  "prompts": {},
+  "sessions": {
+    "s_20e459ffae51fe": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "08415453-3719-42a1-af4a-0f66899fb986",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
