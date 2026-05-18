@@ -12,6 +12,11 @@ import java.util.Set;
  */
 public record ValidationResult(Set<ValidationMessage> errors) {
 
+    /** Compact constructor — defensively copies to prevent external mutation. */
+    public ValidationResult {
+        errors = Set.copyOf(errors);
+    }
+
     /**
      * Returns {@code true} if the instance is valid against the schema.
      */

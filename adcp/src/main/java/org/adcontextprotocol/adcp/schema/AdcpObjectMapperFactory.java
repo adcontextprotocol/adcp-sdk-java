@@ -2,8 +2,8 @@ package org.adcontextprotocol.adcp.schema;
 
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.StreamWriteConstraints;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
@@ -36,15 +36,18 @@ public final class AdcpObjectMapperFactory {
      * <p>Configuration includes:
      * <ul>
      *   <li>Java Time module for ISO-8601 date handling</li>
+     *   <li>ISO-8601 string serialization (not numeric timestamps)</li>
+     *   <li>Tolerant of unknown properties (forward compatibility with newer protocol versions)</li>
      *   <li>Widened {@link StreamReadConstraints} for creative payloads (string length + nesting depth)</li>
      *   <li>Widened {@link StreamWriteConstraints#maxNestingDepth()} for deep catalogs</li>
-     *   <li>Strict unknown-property handling to catch schema mismatches early</li>
      * </ul>
      */
     public static ObjectMapper create() {
         ObjectMapper mapper = JsonMapper.builder()
                 .addModule(new JavaTimeModule())
-                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                // Intentionally NOT enabling FAIL_ON_UNKNOWN_PROPERTIES —
+                // SDK must tolerate fields added in newer protocol versions.
                 .build();
 
         // Widen stream constraints for AdCP creative payloads and deep catalogs

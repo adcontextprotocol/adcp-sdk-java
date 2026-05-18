@@ -38,7 +38,7 @@ class RecordGenerator(
         ctx.inlineTypes.clear()
 
         val mergedProperties = SchemaUtils.collectProperties(schema, sourcePath, ctx.schemaRegistry)
-        val requiredFields = SchemaUtils.collectRequired(schema, ctx.schemaRegistry)
+        val requiredFields = SchemaUtils.collectRequired(schema, ctx.schemaRegistry, sourcePath)
         val isRequest = className.simpleName().endsWith("Request")
         val result = resolver.buildComponents(mergedProperties, requiredFields, className, sourcePath)
         val components = result.specs.toMutableList()
@@ -49,7 +49,7 @@ class RecordGenerator(
                 val mapType = ParameterizedTypeName.get(
                     ClassName.get("java.util", "Map"),
                     ClassName.get("java.lang", "String"),
-                    ClassName.get("java.lang", "Object")
+                    ClassName.get("com.fasterxml.jackson.databind", "JsonNode")
                 )
                 components.add(
                     ParameterSpec.builder(mapType, "additionalProperties")

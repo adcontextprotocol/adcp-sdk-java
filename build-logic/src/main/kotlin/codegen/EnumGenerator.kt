@@ -19,6 +19,7 @@ import javax.lang.model.element.Modifier
 class EnumGenerator(private val ctx: CodegenContext) {
 
     fun generate(
+        sourcePath: String,
         schema: JsonNode,
         className: ClassName,
         outputDir: File
@@ -37,7 +38,7 @@ class EnumGenerator(private val ctx: CodegenContext) {
         val enumBuilder = TypeSpec.enumBuilder(className.simpleName())
             .addModifiers(Modifier.PUBLIC)
             .addJavadoc("${NamingConventions.escape(description)}\n")
-            .addAnnotation(Annotations.generated(className.simpleName()))
+            .addAnnotation(Annotations.generated(sourcePath))
 
         enumBuilder.addField(
             FieldSpec.builder(ClassName.get("java.lang", "String"), "value", Modifier.PRIVATE, Modifier.FINAL)

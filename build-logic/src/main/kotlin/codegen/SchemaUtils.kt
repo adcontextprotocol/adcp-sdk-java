@@ -36,12 +36,12 @@ object SchemaUtils {
     }
 
     /** Collects required field names, resolving `$ref` in allOf branches. */
-    fun collectRequired(schema: JsonNode, registry: SchemaRegistry?): Set<String> {
+    fun collectRequired(schema: JsonNode, registry: SchemaRegistry?, contextPath: String? = null): Set<String> {
         val required = mutableSetOf<String>()
         schema.path("required").forEach { required.add(it.asText()) }
         schema.path("allOf").forEach { branch ->
             val resolved = if (branch.has("\$ref") && registry != null) {
-                registry.resolve(branch.path("\$ref").asText()) ?: branch
+                registry.resolve(branch.path("\$ref").asText(), contextPath) ?: branch
             } else branch
             resolved.path("required").forEach { required.add(it.asText()) }
         }

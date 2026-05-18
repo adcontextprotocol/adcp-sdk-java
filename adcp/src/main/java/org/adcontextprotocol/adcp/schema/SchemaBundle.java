@@ -15,6 +15,7 @@ import java.io.UncheckedIOException;
  */
 public final class SchemaBundle {
 
+    // Thread-safe: no reconfiguration after init. Do not add mapper.configure() calls in methods.
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String SCHEMA_PREFIX = "schemas/";
 

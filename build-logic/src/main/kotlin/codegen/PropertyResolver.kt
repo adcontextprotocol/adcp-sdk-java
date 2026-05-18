@@ -21,6 +21,11 @@ class PropertyResolver(private val ctx: CodegenContext) {
     internal lateinit var onInlineRecord: (JsonNode, ClassName, String, String) -> ClassName
     internal lateinit var onInlineUnion: (JsonNode, ClassName, String, String) -> ClassName
 
+    companion object {
+        /** Fallback type for unresolvable schema types — preserves JSON structure. */
+        private val JSON_NODE = ClassName.get("com.fasterxml.jackson.databind", "JsonNode")
+    }
+
     fun resolve(
         propSchema: JsonNode,
         parentClass: ClassName,
@@ -29,8 +34,7 @@ class PropertyResolver(private val ctx: CodegenContext) {
     ): TypeName {
         val ref = propSchema.path("\$ref").asText(null)
         if (ref != null) {
-            return ctx.typeRegistry?.resolveRefType(ref)?.className
-                ?: ClassName.get("java.lang", "Object")
+            return ctx.typeRegistry?.resolveRefType(ref)?.className ?: JSON_NODE
         }
 
         val type = propSchema.path("type").asText("")
@@ -54,14 +58,14 @@ class PropertyResolver(private val ctx: CodegenContext) {
             return ParameterizedTypeName.get(
                 ClassName.get("java.util", "Map"),
                 ClassName.get("java.lang", "String"),
-                ClassName.get("java.lang", "Object")
+                JSON_NODE
             )
         }
 
         if (type == "array") {
             val itemsSchema = propSchema.path("items")
             val itemType = if (itemsSchema.isMissingNode || itemsSchema.isEmpty) {
-                ClassName.get("java.lang", "Object")
+                JSON_NODE
             } else {
                 resolve(itemsSchema, parentClass, propertyName + "Item", contextPath)
             }
@@ -120,7 +124,7 @@ class PropertyResolver(private val ctx: CodegenContext) {
         return ComponentsResult(specs, docs.toString())
     }
 
-    private fun inferFromConst(propSchema: JsonNode): ClassName {
+    private fun inferFromConst(propSchema: JsonNode): TypeName {
         if (propSchema.has("const")) {
             val v = propSchema.path("const")
             return when {
@@ -128,10 +132,10 @@ class PropertyResolver(private val ctx: CodegenContext) {
                 v.isInt -> ClassName.get("java.lang", "Integer")
                 v.isBoolean -> ClassName.get("java.lang", "Boolean")
                 v.isDouble || v.isFloat -> ClassName.get("java.lang", "Double")
-                else -> ClassName.get("java.lang", "Object")
+                else -> JSON_NODE
             }
         }
-        return ClassName.get("java.lang", "Object")
+        return JSON_NODE
     }
 }
 

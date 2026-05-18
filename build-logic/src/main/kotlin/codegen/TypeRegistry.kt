@@ -129,7 +129,7 @@ class TypeRegistry(
             val INTEGER = JavaTypeInfo(ClassName.get("java.lang", "Integer"), true)
             val DOUBLE = JavaTypeInfo(ClassName.get("java.lang", "Double"), true)
             val BOOLEAN = JavaTypeInfo(ClassName.get("java.lang", "Boolean"), true)
-            val OBJECT = JavaTypeInfo(ClassName.get("java.lang", "Object"), true)
+            val OBJECT = JavaTypeInfo(ClassName.get("com.fasterxml.jackson.databind", "JsonNode"), true)
         }
     }
 }

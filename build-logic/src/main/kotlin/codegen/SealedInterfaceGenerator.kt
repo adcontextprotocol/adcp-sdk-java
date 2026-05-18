@@ -143,7 +143,7 @@ class SealedInterfaceGenerator(
 
             // Build inline variant record
             val mergedProperties = SchemaUtils.collectProperties(mergedBranch, contextPath, ctx.schemaRegistry)
-            val requiredFields = SchemaUtils.collectRequired(mergedBranch, ctx.schemaRegistry)
+            val requiredFields = SchemaUtils.collectRequired(mergedBranch, ctx.schemaRegistry, contextPath)
             val result = resolver.buildComponents(mergedProperties, requiredFields, variantClassName, contextPath)
 
             val recordCtor = MethodSpec.constructorBuilder()

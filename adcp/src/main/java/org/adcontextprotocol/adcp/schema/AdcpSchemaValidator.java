@@ -7,7 +7,9 @@ import com.networknt.schema.SchemaValidatorsConfig;
 import com.networknt.schema.SpecVersion;
 import com.networknt.schema.ValidationMessage;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -67,8 +69,12 @@ public final class AdcpSchemaValidator {
             throw new IllegalArgumentException("Schema not found on classpath: " + resourcePath);
         }
 
-        SchemaValidatorsConfig config = SchemaValidatorsConfig.builder()
-                .build();
-        return factory.getSchema(stream, config);
+        try (stream) {
+            SchemaValidatorsConfig config = SchemaValidatorsConfig.builder()
+                    .build();
+            return factory.getSchema(stream, config);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to load schema: " + resourcePath, e);
+        }
     }
 }

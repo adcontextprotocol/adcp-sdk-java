@@ -45,8 +45,10 @@ object NamingConventions {
             .replace('-', '_')
             .replace(' ', '_')
             .replace(Regex("[^A-Z0-9_]"), "_")
+        if (raw.isBlank()) return "_UNKNOWN"
         val cleaned = if (raw.firstOrNull()?.isDigit() == true) "_$raw" else raw
-        return cleaned.replace(Regex("_+"), "_").trimEnd('_')
+        val result = cleaned.replace(Regex("_+"), "_").trimEnd('_')
+        return if (result.isEmpty()) "_UNKNOWN" else result
     }
 
     /** Escapes dollar signs for JavaPoet string literals. */

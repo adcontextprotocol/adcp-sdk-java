@@ -92,6 +92,12 @@ class InlineTypeCollector {
     private val pending = mutableListOf<GeneratedType>()
 
     fun add(packageName: String, typeSpec: TypeSpec) {
+        val fqn = "$packageName.${typeSpec.name()}"
+        val collision = pending.find { "${it.packageName}.${it.typeSpec.name()}" == fqn }
+        if (collision != null) {
+            System.err.println("WARN: Inline type name collision detected: $fqn (skipping duplicate)")
+            return
+        }
         pending.add(GeneratedType(packageName, typeSpec))
     }
 

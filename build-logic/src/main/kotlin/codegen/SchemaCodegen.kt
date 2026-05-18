@@ -52,7 +52,7 @@ class SchemaCodegen(
                 val files = when (category) {
                     TypeRegistry.TypeCategory.RECORD,
                     TypeRegistry.TypeCategory.COMPOSED -> recordGen.generate(path, processed, className, outputDir)
-                    TypeRegistry.TypeCategory.ENUM -> enumGen.generate(processed, className, outputDir)
+                    TypeRegistry.TypeCategory.ENUM -> enumGen.generate(path, processed, className, outputDir)
                     TypeRegistry.TypeCategory.POLYMORPHIC -> sealedGen.generate(path, processed, className, outputDir)
                     else -> emptyList()
                 }
@@ -60,6 +60,7 @@ class SchemaCodegen(
                 packages.add(className.packageName())
             } catch (e: Exception) {
                 System.err.println("WARN: Failed to generate $path (${className.simpleName()}): ${e.message}")
+                e.printStackTrace(System.err)
             }
         }
 
