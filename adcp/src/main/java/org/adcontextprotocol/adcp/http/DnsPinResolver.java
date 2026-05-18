@@ -17,7 +17,7 @@ import java.util.stream.Stream;
  * resolves via this class before each request and pins the connection
  * to the validated IP.
  */
-final class DnsPinResolver {
+public final class DnsPinResolver {
 
     private DnsPinResolver() {}
 
@@ -28,7 +28,7 @@ final class DnsPinResolver {
      * @throws SsrfBlockedException if any resolved address is denied
      * @throws UnknownHostException if the host cannot be resolved
      */
-    static InetAddress resolveAndPin(String host, SsrfPolicy policy) throws IOException {
+    public static InetAddress resolveAndPin(String host, SsrfPolicy policy) throws IOException {
         InetAddress[] addresses = InetAddress.getAllByName(host);
         if (addresses.length == 0) {
             throw new UnknownHostException("No addresses resolved for: " + host);
@@ -51,7 +51,7 @@ final class DnsPinResolver {
      *
      * @throws SsrfBlockedException if the address is denied
      */
-    static void validateAddress(InetAddress address, SsrfPolicy policy) {
+    public static void validateAddress(InetAddress address, SsrfPolicy policy) {
         SsrfDecision decision = policy.evaluate(address);
         if (decision instanceof SsrfDecision.Deny deny) {
             throw new SsrfBlockedException(
