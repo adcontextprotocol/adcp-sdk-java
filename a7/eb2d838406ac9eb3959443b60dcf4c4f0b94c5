@@ -1,0 +1,40 @@
+build-logic/build.gradle.kts
+  s_20e459ffae51fe::t_d1ea0cb4fcbbdf 31-35
+  s_20e459ffae51fe::t_db670f60d5f190 5-8
+build-logic/src/test/kotlin/codegen/DiscriminatorDetectorTest.kt
+  s_20e459ffae51fe::t_569af775849f11 15-21
+  s_20e459ffae51fe::t_4b5df639ac0f8c 122-123,125,127-128
+  s_20e459ffae51fe::t_42182da4155d06 1-14,22-121,124,126,129-132
+build-logic/src/test/kotlin/codegen/SchemaRegistryTest.kt
+  s_20e459ffae51fe::t_174e4c53956a38 114,117
+  s_20e459ffae51fe::t_88128fc9a26b34 1-16,24-71,73-85,87-98,100-113,115-116,118-125,128-138,140-147,149-175
+  s_20e459ffae51fe::t_9f1873a7fe67df 126-127
+  s_20e459ffae51fe::t_f46bc658b873a7 86
+  s_20e459ffae51fe::t_e203bc44c58685 72
+  s_20e459ffae51fe::t_4f8e9a19d61d60 17-23
+  s_20e459ffae51fe::t_528ba8009b2bd3 139,148
+  s_20e459ffae51fe::t_20128a66b2ceec 99
+.github/workflows/ci.yml
+  s_20e459ffae51fe::t_53fa37869c06b0 38
+build-logic/src/test/kotlin/codegen/SchemaPreprocessorTest.kt
+  s_20e459ffae51fe::t_2a00372d1b1772 1-20,23,29-31,34-37,39,45-47,50-155
+  s_20e459ffae51fe::t_783e41cc3ca16e 21-22,24-28,32-33,38,40-44,48-49
+build-logic/src/test/kotlin/codegen/NamingConventionsTest.kt
+  s_20e459ffae51fe::t_c320dbcc0cc7fc 1-151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "a7eb2d838406ac9eb3959443b60dcf4c4f0b94c5",
+  "prompts": {},
+  "sessions": {
+    "s_20e459ffae51fe": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "08415453-3719-42a1-af4a-0f66899fb986",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
