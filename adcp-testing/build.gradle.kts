@@ -16,4 +16,7 @@ dependencies {
     // JUnit Jupiter is part of the public surface — adopters write tests against
     // AdcpAgentExtension on the api scope.
     api(libs.junit.jupiter.api)
+
+    // Server module is needed for integration tests (AdcpPlatform + AdcpServerBuilder)
+    testImplementation(project(":adcp-server"))
 }
