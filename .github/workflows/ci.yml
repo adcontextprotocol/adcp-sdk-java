@@ -35,7 +35,7 @@ jobs:
         uses: sigstore/cosign-installer@v3
 
       - name: Build all modules
-        run: ./gradlew build --stacktrace
+        run: ./gradlew build :build-logic:test --stacktrace
 
       - name: Verify lockfiles are up to date
         # Regenerate all lockfiles and fail the build if any file changed.
