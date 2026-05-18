@@ -1,0 +1,19 @@
+ROADMAP.md
+  s_20e459ffae51fe::t_8d736c370fc29c 211
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "62b2d0d47d2ae4106553a416785bf6d1284c3655",
+  "prompts": {},
+  "sessions": {
+    "s_20e459ffae51fe": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "08415453-3719-42a1-af4a-0f66899fb986",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
