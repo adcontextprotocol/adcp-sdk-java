@@ -152,10 +152,43 @@ class SchemaRegistryTest {
     }
 
     @Test
-    fun registry_toCanonicalPath_returnsNull_withoutVersionLoaded(@TempDir tempDir: File) {
-        // Empty dir — no $id to detect version from
+    fun registry_toCanonicalPath_worksWithoutSchemaLoaded(@TempDir tempDir: File) {
+        // New implementation uses regex — works purely on the ref string
         val registry = SchemaRegistry(tempDir)
-        assertNull(registry.toCanonicalPath("/schemas/3.0.11/core/foo.json"))
+        assertEquals("core/foo.json", registry.toCanonicalPath("/schemas/3.0.11/core/foo.json"))
+    }
+
+    @Test
+    fun registry_toCanonicalPath_handlesV2xUnversionedRefs(@TempDir tempDir: File) {
+        // v2.x refs: /schemas/core/foo.json — no version segment
+        val registry = SchemaRegistry(tempDir)
+        assertEquals("core/foo.json", registry.toCanonicalPath("/schemas/core/foo.json"))
+        assertEquals("enums/delivery-type.json", registry.toCanonicalPath("/schemas/enums/delivery-type.json"))
+    }
+
+    @Test
+    fun registry_detectsAdcpVersion_fromIndexJsonAdcpVersionField(@TempDir tempDir: File) {
+        // v2.x: $id has no version segment; adcp_version field carries the version
+        File(tempDir, "index.json").writeText(
+            """{"$ID":"/schemas/index.json","adcp_version":"2.5.1","type":"object"}"""
+        )
+        val registry = SchemaRegistry(tempDir)
+        assertEquals("2.5.1", registry.adcpVersion())
+    }
+
+    @Test
+    fun registry_resolvesV2xRefs_viaIdIndex(@TempDir tempDir: File) {
+        // v2.x schemas: $id has no version segment
+        val coreDir = File(tempDir, "core").also { it.mkdirs() }
+        File(coreDir, "product.json").writeText(
+            """{"$ID":"/schemas/core/product.json","type":"object","properties":{"product_id":{"type":"string"}}}"""
+        )
+        File(tempDir, "index.json").writeText("""{"$ID":"/schemas/index.json","adcp_version":"2.5.1"}""")
+
+        val registry = SchemaRegistry(tempDir)
+        val resolved = registry.resolve("/schemas/core/product.json")
+        assertNotNull(resolved, "v2.x ref should resolve via idIndex")
+        assertTrue(resolved!!.path("properties").has("product_id"))
     }
 
     @Test

@@ -6,6 +6,10 @@
 // Two generation modes:
 // 1. Full mode (default): generates all schemas via SchemaRegistry
 // 2. Legacy mode: generates specific files by path (MVP compat)
+//
+// Two schema versions are generated:
+// - Primary (v3.x): org.adcontextprotocol.adcp.generated.*
+// - Co-existence (v2.5): org.adcontextprotocol.adcp.generated.v2_5.*
 
 import codegen.SchemaCodegen
 import codegen.SchemaPreprocessor
@@ -96,16 +100,34 @@ val generateTask = tasks.register<GenerateSchemas>("generateSchemas") {
     outputDir.set(project.layout.buildDirectory.dir("generated/sources/codegen/main/java"))
 }
 
-// Wire generated sources into the main source set so compileJava picks
-// them up.
+// Generate frozen v2.5.1 types under the v2_5 co-existence namespace.
+// These land in org.adcontextprotocol.adcp.generated.v2_5.* so both
+// versions can coexist on the same classpath (per ROADMAP adcp-v2-5).
+val generateV25Task = tasks.register<GenerateSchemas>("generateSchemasV25") {
+    description = "Generate v2.5.1 co-existence types under the v2_5 namespace."
+    group = "build setup"
+    dependsOn("fetchSchemaBundleV25")
+
+    schemaRoot.set(project.layout.buildDirectory.dir("schemas-v25"))
+    basePackage.set("org.adcontextprotocol.adcp")
+    versionNamespace.set("v2_5")
+    schemaFiles.set(listOf())
+    fullMode.set(true)
+    outputDir.set(project.layout.buildDirectory.dir("generated/sources/codegen-v25/main/java"))
+}
+
+// Wire both generated source trees into the main source set so compileJava
+// picks them up — primary (v3.x) and co-existence (v2.5) types compile together.
 extensions.configure<SourceSetContainer>("sourceSets") {
     named("main") {
         java.srcDir(generateTask.map { it.outputDir })
+        java.srcDir(generateV25Task.map { it.outputDir })
     }
 }
 
 tasks.named("compileJava") {
     dependsOn(generateTask)
+    dependsOn(generateV25Task)
 }
 
 // Copy schema files into the JAR so they're available on the classpath at runtime.
@@ -120,8 +142,19 @@ val copySchemaResources = tasks.register<Copy>("copySchemaResources") {
     into(project.layout.buildDirectory.dir("resources/main/schemas/$adcpVersion"))
 }
 
+// Copy v2.5.1 schemas into the JAR for runtime access alongside v3.x schemas.
+val copySchemaResourcesV25 = tasks.register<Copy>("copySchemaResourcesV25") {
+    description = "Copies v2.5.1 AdCP schemas into build resources for runtime access."
+    group = "build setup"
+    dependsOn("fetchSchemaBundleV25")
+
+    from(project.layout.buildDirectory.dir("schemas-v25"))
+    into(project.layout.buildDirectory.dir("resources/main/schemas/2.5.1"))
+}
+
 tasks.named<ProcessResources>("processResources") {
     dependsOn(copySchemaResources)
+    dependsOn(copySchemaResourcesV25)
 }
 
 // Jackson annotations referenced by the generated classes need to be on

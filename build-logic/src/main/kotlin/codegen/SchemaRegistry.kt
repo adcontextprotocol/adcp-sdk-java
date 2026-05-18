@@ -48,13 +48,20 @@ class SchemaRegistry(private val schemaRoot: File) {
                 val id = schema.path("\$id").asText(null)
                 if (id != null) {
                     idIndex[id] = relativePath
-                    // Extract version from first $id seen
+                    // Extract version from first $id that contains a semver segment
+                    // (v3.x: "/schemas/3.0.12/core/..."; v2.x: "/schemas/core/..." — no version)
                     if (adcpVersion == null) {
-                        val match = Regex("^/schemas/([^/]+)/").find(id)
+                        val match = Regex("^/schemas/(\\d+\\.\\d+\\.\\d+(?:-[^/]+)?)/").find(id)
                         if (match != null) {
                             adcpVersion = match.groupValues[1]
                         }
                     }
+                }
+                // For v2.x schemas the $id has no version segment; fall back to
+                // the adcp_version field in index.json (if present).
+                if (relativePath == "index.json" && adcpVersion == null) {
+                    val indexVersion = schema.path("adcp_version").asText(null)
+                    if (indexVersion != null) adcpVersion = indexVersion
                 }
             }
     }
@@ -127,20 +134,20 @@ class SchemaRegistry(private val schemaRoot: File) {
 
     /**
      * Converts an absolute `$ref` or `$id` to the canonical relative path.
-     * E.g. `/schemas/3.0.11/core/brand-ref.json` → `core/brand-ref.json`
+     *
+     * Handles two schema formats:
+     * - v3.x: `/schemas/3.0.12/core/brand-ref.json` → `core/brand-ref.json`
+     * - v2.x: `/schemas/core/brand-ref.json` → `core/brand-ref.json`
      */
     fun toCanonicalPath(ref: String): String? {
-        // Strip the /schemas/{version}/ prefix
-        val version = adcpVersion ?: return null
-        val prefix = "/schemas/$version/"
-        if (ref.startsWith(prefix)) {
-            return ref.removePrefix(prefix)
-        }
-        // Also handle refs without leading slash
-        val altPrefix = "schemas/$version/"
-        if (ref.startsWith(altPrefix)) {
-            return ref.removePrefix(altPrefix)
-        }
+        // Versioned prefix: /schemas/{semver}/path  (e.g. 3.0.12)
+        val semverMatch = Regex("^/?schemas/\\d+\\.\\d+\\.\\d+(?:-[^/]+)?/(.+)$").find(ref)
+        if (semverMatch != null) return semverMatch.groupValues[1]
+
+        // Unversioned prefix: /schemas/path  (v2.x — no version segment in $id)
+        val unversionedMatch = Regex("^/?schemas/(.+)$").find(ref)
+        if (unversionedMatch != null) return unversionedMatch.groupValues[1]
+
         return null
     }
 
