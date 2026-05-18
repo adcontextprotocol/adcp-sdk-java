@@ -1,0 +1,44 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/schema/AdcpSchemaValidator.java
+  s_20e459ffae51fe::t_04047a4be0804c 9,29-32,40-50,88
+adcp/src/test/java/org/adcontextprotocol/adcp/generated/CodegenRoundTripTest.java
+  s_20e459ffae51fe::t_fea9bfbdea53cc 104-113,115-138
+  s_20e459ffae51fe::t_32842eb5d17472 114
+  s_20e459ffae51fe::t_faea80e0dd0b6b 6
+  s_20e459ffae51fe::t_cf572d60f2d906 31-32
+  s_20e459ffae51fe::t_74d0eec65eb0cc 11
+build-logic/src/main/kotlin/codegen/SchemaCodegen.kt
+  s_20e459ffae51fe::t_54d636a10b00dd 63-66
+build-logic/src/main/kotlin/codegen/PropertyResolver.kt
+  s_20e459ffae51fe::t_47ce1163595170 89,91-97,100-104
+  s_20e459ffae51fe::t_8265645e1b45e2 27-40
+build-logic/src/main/kotlin/codegen/SealedInterfaceGenerator.kt
+  s_20e459ffae51fe::t_30ad1f960db76f 201
+  s_20e459ffae51fe::t_facab84507685d 214
+  s_20e459ffae51fe::t_734224c2f120b2 224-244,248-255
+build-logic/src/main/kotlin/codegen/Annotations.kt
+  s_20e459ffae51fe::t_71d635cfa455d4 21-22
+adcp/src/test/java/org/adcontextprotocol/adcp/generated/InlineUnionDiscriminatorTest.java
+  s_20e459ffae51fe::t_f50d3af8f727a8 3-4
+  s_20e459ffae51fe::t_99f54827638a7b 83-128
+adcp/src/test/java/org/adcontextprotocol/adcp/schema/AdcpSchemaValidatorTest.java
+  s_20e459ffae51fe::t_d2f7ae443430bd 6-8,11-12,14
+  s_20e459ffae51fe::t_2d357c7bc51663 88-132
+build-logic/src/main/kotlin/codegen/RecordGenerator.kt
+  s_20e459ffae51fe::t_ada4fbf43b68e3 46-48,52,58,60-66,89-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "b5e8f2d7144ef1afec4883d6ec74e97610565f11",
+  "prompts": {},
+  "sessions": {
+    "s_20e459ffae51fe": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "08415453-3719-42a1-af4a-0f66899fb986",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
