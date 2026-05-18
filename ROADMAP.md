@@ -208,7 +208,7 @@ The RFC's M+12 target is the realistic line. Pre-committing M+9 and slipping is 
 - Generator invariant: `*Request` types always have builders; `*Response` types are records and never do (RFC §Type generation).
 - Polymorphic envelope handling (Jackson `@JsonTypeInfo` / `@JsonSubTypes`).
 - `x-adcp-*` annotation post-processors mirroring `scripts/generate-types.ts` in `adcp-client`.
-- Version pinning support (`adcp-v2-5` co-existence namespace).
+- Version pinning support (`adcp-v2-5` co-existence namespace): generates frozen v2.5.1 types under `org.adcontextprotocol.adcp.generated.v2_5.*` alongside the primary v3.x types. Both namespaces coexist on the classpath. v2.5.1 schemas fetched from the GitHub source archive (`adcontextprotocol/adcp@v2.5.1/static/schemas/source`) since pre-3.0 bundles were never published to the CDN.
 - JSpecify `@Nullable` annotations on every public type. No `Optional<T>` returns.
 - Schema validator wrapper around `com.networknt:json-schema-validator`.
 - Schema-bundle accessor (runtime, resources jar; build-time loader lives in [`infra`](#track-1--build-repo-release-infra)).

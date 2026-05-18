@@ -1,0 +1,167 @@
+package codegen
+
+import com.fasterxml.jackson.databind.JsonNode
+import com.palantir.javapoet.AnnotationSpec
+import com.palantir.javapoet.ClassName
+import com.palantir.javapoet.ParameterSpec
+import com.palantir.javapoet.ParameterizedTypeName
+import com.palantir.javapoet.TypeName
+import org.jspecify.annotations.Nullable
+
+/**
+ * Resolves JSON Schema property types to Java types. When a property
+ * contains an inline object or oneOf/anyOf, delegates to registered
+ * inline generators via [onInlineRecord] and [onInlineUnion].
+ *
+ * The callbacks are set by [SchemaCodegen] after construction to break
+ * the circular dependency between type resolution and code generation.
+ */
+class PropertyResolver(private val ctx: CodegenContext) {
+
+    internal lateinit var onInlineRecord: (JsonNode, ClassName, String, String) -> ClassName
+    internal lateinit var onInlineUnion: (JsonNode, ClassName, String, String) -> ClassName
+
+    companion object {
+        /** Fallback type for unresolvable schema types — preserves JSON structure. */
+        private val JSON_NODE = ClassName.get("com.fasterxml.jackson.databind", "JsonNode")
+
+        /**
+         * Monetary field name patterns: exact names or names ending with a monetary
+         * suffix. These are mapped to [BigDecimal] rather than [Double] to preserve
+         * precision for price/budget/CPM fields in storyboard equality checks.
+         */
+        private val MONETARY_SUFFIXES = setOf("price", "amount", "budget", "cost", "fee", "cpm", "bid")
+
+        private fun isMonetaryField(name: String): Boolean {
+            val lower = name.lowercase()
+            return MONETARY_SUFFIXES.any { term ->
+                lower == term || lower.endsWith("_$term") || lower.startsWith("${term}_")
+            } || lower == "credit_limit"
+        }
+    }
+
+    fun resolve(
+        propSchema: JsonNode,
+        parentClass: ClassName,
+        propertyName: String,
+        contextPath: String
+    ): TypeName {
+        val ref = propSchema.path("\$ref").asText(null)
+        if (ref != null) {
+            return ctx.typeRegistry?.resolveRefType(ref)?.className ?: JSON_NODE
+        }
+
+        val type = propSchema.path("type").asText("")
+
+        if (type == "string" && propSchema.has("enum")) {
+            return ClassName.get("java.lang", "String")
+        }
+
+        val unionBranches = listOf("oneOf", "anyOf")
+            .map { propSchema.path(it) }
+            .firstOrNull { it.isArray && !it.isEmpty }
+        if (unionBranches != null && SchemaUtils.hasStructuralBranches(unionBranches)) {
+            return onInlineUnion(unionBranches, parentClass, propertyName, contextPath)
+        }
+
+        if (type == "object" && propSchema.has("properties") && propSchema.path("properties").size() > 0) {
+            return onInlineRecord(propSchema, parentClass, propertyName, contextPath)
+        }
+
+        if (type == "object") {
+            return ParameterizedTypeName.get(
+                ClassName.get("java.util", "Map"),
+                ClassName.get("java.lang", "String"),
+                JSON_NODE
+            )
+        }
+
+        if (type == "array") {
+            val itemsSchema = propSchema.path("items")
+            val itemType = if (itemsSchema.isMissingNode || itemsSchema.isEmpty) {
+                JSON_NODE
+            } else {
+                resolve(itemsSchema, parentClass, propertyName + "Item", contextPath)
+            }
+            return ParameterizedTypeName.get(ClassName.get("java.util", "List"), itemType)
+        }
+
+        val format = propSchema.path("format").asText("")
+        return when (type) {
+            "string" -> when (format) {
+                "date-time" -> ClassName.get("java.time", "OffsetDateTime")
+                "date"      -> ClassName.get("java.time", "LocalDate")
+                "uri", "uri-template" -> ClassName.get("java.net", "URI")
+                "uuid"      -> ClassName.get("java.util", "UUID")
+                else        -> ClassName.get("java.lang", "String")
+            }
+            "integer" -> ClassName.get("java.lang", "Integer")
+            "boolean" -> ClassName.get("java.lang", "Boolean")
+            "number"  -> when {
+                format == "decimal" || isMonetaryField(propertyName) ->
+                    ClassName.get("java.math", "BigDecimal")
+                else -> ClassName.get("java.lang", "Double")
+            }
+            else -> inferFromConst(propSchema)
+        }
+    }
+
+    /**
+     * Builds ParameterSpecs from schema properties with `@JsonProperty`,
+     * `@Nullable`, and `@XEntity` annotations.
+     */
+    fun buildComponents(
+        properties: Map<String, JsonNode>,
+        requiredFields: Set<String>,
+        parentClass: ClassName,
+        contextPath: String
+    ): ComponentsResult {
+        val specs = mutableListOf<ParameterSpec>()
+        val docs = StringBuilder()
+
+        for ((jsonName, propSchema) in properties) {
+            val javaName = NamingConventions.toCamelCase(jsonName)
+            val type = resolve(propSchema, parentClass, jsonName, contextPath)
+            val required = jsonName in requiredFields
+
+            val param = ParameterSpec.builder(type, javaName)
+            if (!required) param.addAnnotation(Nullable::class.java)
+            param.addAnnotation(
+                AnnotationSpec.builder(Annotations.JSON_PROPERTY)
+                    .addMember("value", "\$S", jsonName).build()
+            )
+
+            val xEntity = propSchema.path("x-entity").asText(null)
+            if (xEntity != null) {
+                param.addAnnotation(
+                    AnnotationSpec.builder(Annotations.xEntity(ctx.basePackage))
+                        .addMember("value", "\$S", xEntity).build()
+                )
+            }
+
+            specs.add(param.build())
+            val descr = propSchema.path("description").asText("")
+            if (descr.isNotBlank()) {
+                docs.append("@param $javaName ${NamingConventions.escape(descr)}\n")
+            }
+        }
+
+        return ComponentsResult(specs, docs.toString())
+    }
+
+    private fun inferFromConst(propSchema: JsonNode): TypeName {
+        if (propSchema.has("const")) {
+            val v = propSchema.path("const")
+            return when {
+                v.isTextual -> ClassName.get("java.lang", "String")
+                v.isInt -> ClassName.get("java.lang", "Integer")
+                v.isBoolean -> ClassName.get("java.lang", "Boolean")
+                v.isDouble || v.isFloat -> ClassName.get("java.lang", "Double")
+                else -> JSON_NODE
+            }
+        }
+        return JSON_NODE
+    }
+}
+
+data class ComponentsResult(val specs: List<ParameterSpec>, val javadoc: String)

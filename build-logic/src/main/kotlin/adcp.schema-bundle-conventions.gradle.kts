@@ -127,6 +127,96 @@ abstract class FetchSchemaBundle : DefaultTask() {
     }
 }
 
+/**
+ * Downloads a schema bundle for a specific version directly from the
+ * adcontextprotocol/adcp GitHub repository archive. Used for versions that
+ * predate the CDN distribution (e.g., v2.5.1 which has no signed tarball).
+ *
+ * The schemas are extracted from the GitHub source archive at the given tag,
+ * using [schemasSubpath] to locate the schemas directory inside the archive.
+ * Cosign verification is intentionally omitted — pre-3.0 schemas were never
+ * published with Sigstore signatures.
+ */
+abstract class FetchSchemaBundleFromGitHub : DefaultTask() {
+
+    @get:org.gradle.api.tasks.Input
+    abstract val githubRepo: org.gradle.api.provider.Property<String>
+
+    @get:org.gradle.api.tasks.Input
+    abstract val githubTag: org.gradle.api.provider.Property<String>
+
+    /** Path inside the archive (relative to the repo root) that contains schemas. */
+    @get:org.gradle.api.tasks.Input
+    abstract val schemasSubpath: org.gradle.api.provider.Property<String>
+
+    @get:org.gradle.api.tasks.OutputDirectory
+    abstract val outputDir: org.gradle.api.file.DirectoryProperty
+
+    @org.gradle.api.tasks.TaskAction
+    fun fetch() {
+        val repo = githubRepo.get()
+        val tag = githubTag.get()
+        val subpath = schemasSubpath.get()
+        val out = outputDir.get().asFile
+        out.deleteRecursively()
+        out.mkdirs()
+
+        val tmpDir = java.io.File(out, ".tmp")
+        tmpDir.mkdirs()
+
+        val archiveUrl = "https://github.com/$repo/archive/refs/tags/$tag.tar.gz"
+        val tarball = java.io.File(tmpDir, "$tag.tar.gz")
+        downloadFollowingRedirects(archiveUrl, tarball)
+
+        extractAll(tarball, tmpDir)
+
+        // GitHub archives extract to <repoName>-<cleanTag>/
+        val repoName = repo.substringAfterLast('/')
+        val cleanTag = tag.removePrefix("v")
+        val archiveRoot = java.io.File(tmpDir, "$repoName-$cleanTag")
+        val schemasDir = java.io.File(archiveRoot, subpath)
+        check(schemasDir.exists()) {
+            "Expected schemas at $schemasDir but not found after extracting $archiveUrl"
+        }
+
+        schemasDir.copyRecursively(out, overwrite = true)
+        tmpDir.deleteRecursively()
+        logger.lifecycle("v$cleanTag schemas extracted to ${out.absolutePath}")
+    }
+
+    private fun downloadFollowingRedirects(url: String, target: java.io.File) {
+        logger.info("Downloading $url")
+        var connection = java.net.URI.create(url).toURL().openConnection() as java.net.HttpURLConnection
+        connection.instanceFollowRedirects = false
+        var redirects = 0
+        while (connection.responseCode in 300..399 && redirects < 10) {
+            val location = connection.getHeaderField("Location")
+            connection.disconnect()
+            connection = java.net.URI.create(location).toURL().openConnection() as java.net.HttpURLConnection
+            connection.instanceFollowRedirects = false
+            redirects++
+        }
+        check(connection.responseCode == 200) {
+            "Failed to download $url: HTTP ${connection.responseCode}"
+        }
+        connection.inputStream.use { input ->
+            target.outputStream().use { output -> input.copyTo(output) }
+        }
+        connection.disconnect()
+    }
+
+    private fun extractAll(tarball: java.io.File, dest: java.io.File) {
+        val process = ProcessBuilder("tar", "xzf", tarball.absolutePath, "-C", dest.absolutePath)
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().readText()
+        val exitCode = process.waitFor()
+        check(exitCode == 0) {
+            "tar extraction failed (exit $exitCode):\n$output"
+        }
+    }
+}
+
 // Register a top-level `fetchSchemaBundle` task on every module that applies
 // this convention. Today the adcp module is the consumer; if other modules
 // need raw schema access later they can depend on adcp's output directory.
@@ -148,4 +238,17 @@ tasks.register<FetchSchemaBundle>("fetchSchemaBundle") {
     // Override with -PskipCosign=true only for offline development. Never
     // for release builds.
     skipCosign = (project.findProperty("skipCosign") as String?)?.toBoolean() ?: false
+}
+
+// Fetches the v2.5.1 schemas directly from the GitHub source archive.
+// These schemas are namespaced under org.adcontextprotocol.adcp.generated.v2_5.*
+// and generated alongside the primary v3.x types for co-existence support.
+// No cosign verification: pre-3.0 schema bundles were never Sigstore-signed.
+tasks.register<FetchSchemaBundleFromGitHub>("fetchSchemaBundleV25") {
+    description = "Downloads v2.5.1 AdCP schemas from the GitHub source archive."
+    group = "build setup"
+    githubRepo = "adcontextprotocol/adcp"
+    githubTag = "v2.5.1"
+    schemasSubpath = "static/schemas/source"
+    outputDir = project.layout.buildDirectory.dir("schemas-v25")
 }
