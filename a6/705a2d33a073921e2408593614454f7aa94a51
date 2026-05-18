@@ -1,0 +1,43 @@
+adcp/src/test/java/org/adcontextprotocol/adcp/transport/mcp/McpConnectionManagerTest.java
+  s_5a10c71ca4b03f::t_164dca3d3d6358 1-43
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/VersionEnvelope.java
+  s_5a10c71ca4b03f::t_e3f1449cd4d48c 1-3,5-30,32-50,52-56
+  s_5a10c71ca4b03f::t_d5a6ba79c37c25 4,31,51
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpConnectionManager.java
+  s_5a10c71ca4b03f::t_d06b844f879811 1-174
+adcp/build.gradle.kts
+  s_5a10c71ca4b03f::t_f35d02e5a3dc11 19,21-23
+  s_5a10c71ca4b03f::t_decec13fc72a53 17-18,20
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/CallToolOptions.java
+  s_5a10c71ca4b03f::t_357fd0f7987e70 1-53
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/package-info.java
+  s_5a10c71ca4b03f::t_43ca9a8a87276e 1-2
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpCaller.java
+  s_5a10c71ca4b03f::t_e6e29bf663ebf2 1-87
+adcp/gradle.lockfile
+  s_5a10c71ca4b03f::t_81c1ec6e6c0a2c 5-10,12-14,25,27
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/package-info.java
+  s_5a10c71ca4b03f::t_777369eaea9a46 1-2
+adcp/src/test/java/org/adcontextprotocol/adcp/transport/VersionEnvelopeTest.java
+  s_5a10c71ca4b03f::t_cccfcec1a50c07 1-63
+adcp/src/main/java/org/adcontextprotocol/adcp/http/DnsPinResolver.java
+  s_5a10c71ca4b03f::t_68c14c2b9ca1e1 20,31,54
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/ProtocolClient.java
+  s_5a10c71ca4b03f::t_cf2fcda2055d3a 1-152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "a6705a2d33a073921e2408593614454f7aa94a51",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
