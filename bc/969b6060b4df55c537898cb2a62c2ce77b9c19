@@ -1,0 +1,41 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/Protocol.java
+  s_5a10c71ca4b03f::t_6b59fb6476d4d5 1-19
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/OAuthTokens.java
+  s_5a10c71ca4b03f::t_3fd3d3a43af28c 1-49
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/AuthTokenResolver.java
+  s_5a10c71ca4b03f::t_865accc5150f16 1-56
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/OAuthClientCredentials.java
+  s_5a10c71ca4b03f::t_59517f145e3226 3-4,19
+  s_5a10c71ca4b03f::t_abe946bf7a08ba 1-2,5-18,20-33
+adcp/src/test/java/org/adcontextprotocol/adcp/auth/AuthTokenResolverTest.java
+  s_5a10c71ca4b03f::t_42e537201d4cfa 1-84
+adcp/src/test/java/org/adcontextprotocol/adcp/AdcpVersionTest.java
+  s_5a10c71ca4b03f::t_a35eb4250e7fac 1-42
+adcp/src/main/java/org/adcontextprotocol/adcp/AdcpVersion.java
+  s_5a10c71ca4b03f::t_61efa3bd25aa4e 3-4,15
+  s_5a10c71ca4b03f::t_4b7d20da16e5f0 1-2,5-14,16-28
+adcp/src/test/java/org/adcontextprotocol/adcp/auth/CredentialsTest.java
+  s_5a10c71ca4b03f::t_593e65a3b5a7d2 1-87
+adcp/src/main/java/org/adcontextprotocol/adcp/AgentConfig.java
+  s_5a10c71ca4b03f::t_7a91de3b8d08e9 1-193
+adcp/src/test/java/org/adcontextprotocol/adcp/AgentConfigTest.java
+  s_5a10c71ca4b03f::t_737b8d959069d6 1-162
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/BasicCredentials.java
+  s_5a10c71ca4b03f::t_5f4875d9a37f37 1-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "bc969b6060b4df55c537898cb2a62c2ce77b9c19",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
