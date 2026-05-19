@@ -223,7 +223,7 @@ The RFC's M+12 target is the realistic line. Pre-committing M+9 and slipping is 
 
 ### Track 3 — L0 transport: MCP + A2A
 
-**ID:** `transport` | **Owner:** TBD | **Size:** 1.5 person-months
+**ID:** `transport` | **Owner:** @MichielDean (#17) | **Size:** 1.5 person-months
 
 **Scope:**
 
@@ -528,6 +528,6 @@ Additional decisions added post-RFC that remain open:
 | Implementation plan drafted | ✅ (this doc) |
 | Confirmed decisions D1–D21 locked | ✅ |
 | Funding / staffing confirmed | ⏳ Decision pending |
-| Tracks claimed | 0 / 14 |
+| Tracks claimed | 3 / 14 — `infra` (Track 1, #2), `codegen` (Track 2, #11), `transport` (Track 3, #17) |
 | Pre-contributor harness | 🟡 In progress — Gradle skeleton, codegen MVP, SSRF skeleton, schema fetcher, mock-server CI gate, IPR workflow, commitlint, changesets, MCP prototype findings all landed. Foundation admin actions outstanding: IPR Bot install, DNS TXT for Sonatype, @MichielDean collaborator. |
 | v0.1 alpha | Not Started |

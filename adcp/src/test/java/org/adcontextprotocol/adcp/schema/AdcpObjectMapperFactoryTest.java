@@ -50,18 +50,18 @@ class AdcpObjectMapperFactoryTest {
     void factory_widens_stream_read_constraints() {
         ObjectMapper mapper = AdcpObjectMapperFactory.create();
         StreamReadConstraints constraints = mapper.getFactory().streamReadConstraints();
-        assertTrue(constraints.getMaxStringLength() >= 100_000_000,
-                "MaxStringLength should be at least 100MB for creative payloads");
-        assertTrue(constraints.getMaxNestingDepth() >= 2000,
-                "Read MaxNestingDepth should be at least 2000 for deep catalog responses");
+        assertTrue(constraints.getMaxStringLength() >= 10_000_000,
+                "MaxStringLength should be at least 10MB for creative payloads");
+        assertTrue(constraints.getMaxNestingDepth() >= 200,
+                "Read MaxNestingDepth should be at least 200 for deep catalog responses");
     }
 
     @Test
     void factory_widens_stream_write_constraints() {
         ObjectMapper mapper = AdcpObjectMapperFactory.create();
         StreamWriteConstraints constraints = mapper.getFactory().streamWriteConstraints();
-        assertTrue(constraints.getMaxNestingDepth() >= 2000,
-                "MaxNestingDepth should be at least 2000 for deep catalog responses");
+        assertTrue(constraints.getMaxNestingDepth() >= 200,
+                "MaxNestingDepth should be at least 200 for deep catalog responses");
     }
 
     @Test

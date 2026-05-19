@@ -53,32 +53,51 @@ final class StrictSsrfPolicy implements SsrfPolicy {
                 return new SsrfDecision.Deny("reserved (240.0.0.0/4)");
             }
         }
-        if (effective instanceof Inet6Address v6 && isIpv6UniqueLocal(v6)) {
-            return new SsrfDecision.Deny("IPv6 unique local (fc00::/7)");
+        if (effective instanceof Inet6Address v6) {
+            if (isIpv6UniqueLocal(v6)) {
+                return new SsrfDecision.Deny("IPv6 unique local (fc00::/7)");
+            }
+            if (is6to4(v6)) {
+                return new SsrfDecision.Deny("6to4 relay (2002::/16) embedding private IPv4");
+            }
+            if (isTeredo(v6)) {
+                return new SsrfDecision.Deny("Teredo (2001:0000::/32) embedding private IPv4");
+            }
+            if (isNat64(v6)) {
+                return new SsrfDecision.Deny("NAT64 well-known (64:ff9b::/96) embedding private IPv4");
+            }
         }
         return SsrfDecision.ALLOW;
     }
 
     private static InetAddress unmapIpv4Mapped(InetAddress address) {
-        // ::ffff:0:0/96 — an IPv4 address tunneled inside an IPv6 address.
-        // The JDK's range methods evaluate the v6 form, not the embedded v4,
-        // so we unwrap to apply the v4 ranges (RFC 1918 etc.) to the
-        // effective destination.
-        //
-        // Note: Inet6Address.isIPv4CompatibleAddress() checks the legacy
-        // "::a.b.c.d" form (which also matches ::1), not the IPv4-mapped
-        // "::ffff:a.b.c.d" form we want. We test the bytes directly.
+        // Unwrap both IPv4-mapped (::ffff:a.b.c.d) and IPv4-compatible
+        // (::a.b.c.d) IPv6 addresses so that the embedded IPv4 address
+        // gets evaluated against the IPv4 block ranges. The compatible
+        // form is deprecated (RFC 4291 §2.5.5.1) but still parsed by
+        // JDK's InetAddress, and JDK's range methods (isLoopback, etc.)
+        // return false for these addresses — making them an SSRF vector.
         if (!(address instanceof Inet6Address v6)) {
             return address;
         }
         byte[] addr = v6.getAddress();
-        // First 80 bits zero, next 16 bits 0xFFFF — the IPv4-mapped form.
+        // First 80 bits must be zero (common to both forms)
         for (int i = 0; i < 10; i++) {
             if (addr[i] != 0) {
                 return address;
             }
         }
-        if ((addr[10] & 0xFF) != 0xFF || (addr[11] & 0xFF) != 0xFF) {
+        // IPv4-mapped: bytes 10-11 = 0xFF, 0xFF
+        boolean isMapped = (addr[10] & 0xFF) == 0xFF && (addr[11] & 0xFF) == 0xFF;
+        // IPv4-compatible: bytes 10-11 = 0x00, 0x00 (and not all-zeros/::1)
+        boolean isCompat = addr[10] == 0 && addr[11] == 0;
+        if (!isMapped && !isCompat) {
+            return address;
+        }
+        // Guard: don't unwrap :: (all zeros) or ::1 — those are already
+        // handled by isAnyLocalAddress() / isLoopbackAddress()
+        if (isCompat && addr[12] == 0 && addr[13] == 0
+                && addr[14] == 0 && (addr[15] == 0 || addr[15] == 1)) {
             return address;
         }
         byte[] v4Bytes = new byte[]{addr[12], addr[13], addr[14], addr[15]};
@@ -117,5 +136,70 @@ final class StrictSsrfPolicy implements SsrfPolicy {
         int firstByte = v6.getAddress()[0] & 0xFF;
         // fc00::/7 — the first byte is 0xFC or 0xFD.
         return firstByte == 0xFC || firstByte == 0xFD;
+    }
+
+    /**
+     * 6to4 (2002::/16) — embeds an IPv4 address in bytes 2-5.
+     * A 6to4 address embedding a private IPv4 (e.g. 2002:7f00:0001:: → 127.0.0.1)
+     * is an SSRF vector.
+     */
+    private boolean is6to4(Inet6Address v6) {
+        byte[] b = v6.getAddress();
+        if ((b[0] & 0xFF) != 0x20 || (b[1] & 0xFF) != 0x02) {
+            return false;
+        }
+        // Extract embedded IPv4 from bytes 2-5
+        byte[] embedded = new byte[]{b[2], b[3], b[4], b[5]};
+        try {
+            InetAddress embeddedV4 = InetAddress.getByAddress(embedded);
+            return evaluate(embeddedV4) instanceof SsrfDecision.Deny;
+        } catch (Exception e) {
+            return true; // fail-closed
+        }
+    }
+
+    /**
+     * Teredo (2001:0000::/32) — embeds an obfuscated IPv4 in the last 4 bytes
+     * (XOR'd with 0xFF). Block if the decoded IPv4 is private.
+     */
+    private boolean isTeredo(Inet6Address v6) {
+        byte[] b = v6.getAddress();
+        if ((b[0] & 0xFF) != 0x20 || (b[1] & 0xFF) != 0x01
+                || b[2] != 0 || b[3] != 0) {
+            return false;
+        }
+        // Teredo client IPv4 is in bytes 12-15, XOR'd with 0xFF
+        byte[] embedded = new byte[]{
+                (byte) (~b[12] & 0xFF), (byte) (~b[13] & 0xFF),
+                (byte) (~b[14] & 0xFF), (byte) (~b[15] & 0xFF)};
+        try {
+            InetAddress embeddedV4 = InetAddress.getByAddress(embedded);
+            return evaluate(embeddedV4) instanceof SsrfDecision.Deny;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /**
+     * NAT64 well-known prefix (64:ff9b::/96) — embeds an IPv4 in the
+     * last 4 bytes. Block if the embedded IPv4 is private.
+     */
+    private boolean isNat64(Inet6Address v6) {
+        byte[] b = v6.getAddress();
+        // 64:ff9b:: → 0x00, 0x64, 0xff, 0x9b, then 8 zero bytes
+        if (b[0] != 0x00 || (b[1] & 0xFF) != 0x64
+                || (b[2] & 0xFF) != 0xFF || (b[3] & 0xFF) != 0x9B) {
+            return false;
+        }
+        for (int i = 4; i < 12; i++) {
+            if (b[i] != 0) return false;
+        }
+        byte[] embedded = new byte[]{b[12], b[13], b[14], b[15]};
+        try {
+            InetAddress embeddedV4 = InetAddress.getByAddress(embedded);
+            return evaluate(embeddedV4) instanceof SsrfDecision.Deny;
+        } catch (Exception e) {
+            return true;
+        }
     }
 }
