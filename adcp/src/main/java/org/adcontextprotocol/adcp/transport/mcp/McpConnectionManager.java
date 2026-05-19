@@ -16,33 +16,46 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Manages cached MCP client connections with LRU eviction.
  *
- * <p>Cache key: {@code agentUrl::tokenHash}. Max 20 entries.
+ * <p>Cache key: {@code agentUrl::tokenHash}. Max {@value #MAX_CACHE_SIZE} entries.
  * Implements StreamableHTTP → SSE fallback per TS SDK behavior.
  *
- * <p>Thread-safe: all cache operations are protected by an explicit
- * lock. The lock is held during connection establishment (blocking
- * network call) to prevent duplicate connections for the same key.
+ * <p>Thread-safe: cache reads/writes use {@code cacheLock} (short-held, never
+ * during I/O). Connection establishment uses a fixed-size striped
+ * {@link Semaphore} pool so that: (a) only one thread connects per stripe,
+ * (b) different stripes proceed in parallel, and (c) virtual threads are not
+ * pinned during blocking network I/O.
+ *
+ * <p><strong>LRU eviction note:</strong> An in-use client may be evicted by
+ * another thread's connection if the cache is full. The evicted client's
+ * in-flight call will fail with an IOException, which
+ * {@link org.adcontextprotocol.adcp.transport.ProtocolClient} handles via
+ * evict-and-retry. This matches the TS SDK's behavior.
  */
 public final class McpConnectionManager implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(McpConnectionManager.class);
     static final int MAX_CACHE_SIZE = 20;
+    private static final int STRIPE_COUNT = 32;
 
     private final LinkedHashMap<String, McpSyncClient> cache =
             new LinkedHashMap<>(16, 0.75f, true);
-    // Global lock only for short cache reads/writes; never held during I/O
+    // Short-held lock for cache reads/writes; never held during I/O
     private final ReentrantLock cacheLock = new ReentrantLock();
-    // Per-key locks so that connecting to one agent doesn't block others
-    private final java.util.concurrent.ConcurrentHashMap<String, ReentrantLock> keyLocks =
-            new java.util.concurrent.ConcurrentHashMap<>();
-    private final java.util.concurrent.ConcurrentHashMap.KeySetView<String, Boolean>
-            knownStreamableKeys = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    // Fixed-size striped semaphore pool for connection establishment.
+    // Semaphores are virtual-thread-friendly (no carrier pinning) and
+    // the fixed pool eliminates the cleanup/race issues of per-key locks.
+    private final Semaphore[] connectStripes;
+    private final ConcurrentHashMap.KeySetView<String, Boolean>
+            knownStreamableKeys = ConcurrentHashMap.newKeySet();
     private final Duration connectTimeout;
+    private final Duration requestTimeout;
     private volatile boolean closed;
 
     public McpConnectionManager() {
@@ -50,7 +63,16 @@ public final class McpConnectionManager implements AutoCloseable {
     }
 
     public McpConnectionManager(Duration connectTimeout) {
+        this(connectTimeout, Duration.ofSeconds(30));
+    }
+
+    public McpConnectionManager(Duration connectTimeout, Duration requestTimeout) {
         this.connectTimeout = connectTimeout;
+        this.requestTimeout = requestTimeout;
+        this.connectStripes = new Semaphore[STRIPE_COUNT];
+        for (int i = 0; i < STRIPE_COUNT; i++) {
+            connectStripes[i] = new Semaphore(1);
+        }
     }
 
     /**
@@ -84,12 +106,19 @@ public final class McpConnectionManager implements AutoCloseable {
             cacheLock.unlock();
         }
 
-        // Slow path: acquire per-key lock so only one thread connects per key.
-        // Other keys remain unblocked.
-        ReentrantLock keyLock = keyLocks.computeIfAbsent(cacheKey, k -> new ReentrantLock());
-        keyLock.lock();
+        // Slow path: acquire striped semaphore so that only one thread
+        // connects per stripe. Different stripes proceed in parallel.
+        // Semaphore.acquire() is virtual-thread-friendly (no carrier pinning).
+        int stripe = (cacheKey.hashCode() & 0x7FFFFFFF) % STRIPE_COUNT;
+        Semaphore sem = connectStripes[stripe];
         try {
-            // Double-check after acquiring key lock
+            sem.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ProtocolError("mcp", "Interrupted while connecting to " + agentUri, e);
+        }
+        try {
+            // Double-check after acquiring stripe semaphore
             cacheLock.lock();
             try {
                 if (closed) {
@@ -103,7 +132,7 @@ public final class McpConnectionManager implements AutoCloseable {
                 cacheLock.unlock();
             }
 
-            // Network I/O happens here — only blocks threads for the same key
+            // Network I/O happens here — only blocks threads in the same stripe
             McpSyncClient client = connectWithFallback(agentUri, headers, cacheKey);
 
             cacheLock.lock();
@@ -119,14 +148,7 @@ public final class McpConnectionManager implements AutoCloseable {
             }
             return client;
         } finally {
-            keyLock.unlock();
-            // Only remove the per-key lock if no other thread is queued on it.
-            // Eager removal while another thread holds/waits on this lock lets
-            // a third thread create a new lock for the same key, breaking
-            // mutual exclusion and causing duplicate connections.
-            if (!keyLock.hasQueuedThreads()) {
-                keyLocks.remove(cacheKey, keyLock);
-            }
+            sem.release();
         }
     }
 
@@ -155,7 +177,6 @@ public final class McpConnectionManager implements AutoCloseable {
             cache.values().forEach(this::closeQuietly);
             cache.clear();
             knownStreamableKeys.clear();
-            keyLocks.clear();
         } finally {
             cacheLock.unlock();
         }
@@ -222,15 +243,18 @@ public final class McpConnectionManager implements AutoCloseable {
 
     private McpSyncClient buildAndInit(String url, Map<String, String> headers,
                                         boolean useStreamable) {
+        var reqBuilder = java.net.http.HttpRequest.newBuilder().timeout(requestTimeout);
         McpClientTransport transport = useStreamable
                 ? HttpClientStreamableHttpTransport.builder(url)
                         .connectTimeout(connectTimeout)
+                        .requestBuilder(reqBuilder)
                         .customizeClient(cb -> cb.followRedirects(HttpClient.Redirect.NEVER))
                         .httpRequestCustomizer((rb, method, uri, body, ctx) ->
                                 headers.forEach(rb::header))
                         .build()
                 : HttpClientSseClientTransport.builder(url)
                         .connectTimeout(connectTimeout)
+                        .requestBuilder(reqBuilder)
                         .customizeClient(cb -> cb.followRedirects(HttpClient.Redirect.NEVER))
                         .httpRequestCustomizer((rb, method, uri, body, ctx) ->
                                 headers.forEach(rb::header))
