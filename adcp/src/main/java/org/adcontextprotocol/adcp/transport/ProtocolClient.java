@@ -170,15 +170,21 @@ public final class ProtocolClient implements AutoCloseable {
     }
 
     private void validateUrl(AgentConfig agent) {
+        String scheme = agent.agentUri().getScheme();
+        if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+            throw new ProtocolError("mcp",
+                    "Agent URI scheme must be http or https: " + agent.agentUri(), null);
+        }
         String host = agent.agentUri().getHost();
         if (host == null) {
             throw new ProtocolError("mcp",
                     "Agent URI has no host: " + agent.agentUri(), null);
         }
         // Resolve DNS and validate all addresses against SSRF policy.
-        // Note: The MCP transport uses its own HttpClient which re-resolves
-        // DNS independently (TOCTOU limitation), but this check blocks the
-        // common case of misconfigured URIs pointing at private addresses.
+        // Probes are routed through AdcpHttpClient (which re-validates),
+        // but the MCP transport's underlying HttpClient still re-resolves
+        // DNS independently (TOCTOU limitation). This early check blocks
+        // the common case of misconfigured URIs pointing at private addresses.
         try {
             java.net.InetAddress[] addresses = java.net.InetAddress.getAllByName(host);
             for (java.net.InetAddress addr : addresses) {

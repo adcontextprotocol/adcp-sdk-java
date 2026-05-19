@@ -2,6 +2,7 @@ package org.adcontextprotocol.adcp;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.adcontextprotocol.adcp.error.ConfigurationError;
+import org.adcontextprotocol.adcp.http.AdcpHttpClient;
 import org.adcontextprotocol.adcp.http.SsrfPolicy;
 import org.adcontextprotocol.adcp.schema.AdcpObjectMapperFactory;
 import org.adcontextprotocol.adcp.transport.CallToolOptions;
@@ -11,6 +12,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 
@@ -37,6 +39,7 @@ public final class AdcpClient implements AutoCloseable {
 
     private final AgentConfig agent;
     private final ProtocolClient protocolClient;
+    private final AdcpHttpClient adcpHttpClient;
     private final ObjectMapper objectMapper;
     private final @Nullable AdcpVersion adcpVersion;
 
@@ -55,7 +58,11 @@ public final class AdcpClient implements AutoCloseable {
                 ? builder.ssrfPolicy
                 : SsrfPolicy.strict();
 
-        McpConnectionManager connectionManager = new McpConnectionManager();
+        this.adcpHttpClient = AdcpHttpClient.builder()
+                .ssrfPolicy(ssrfPolicy)
+                .build();
+        McpConnectionManager connectionManager = new McpConnectionManager(
+                Duration.ofSeconds(10), builder.requestTimeout, adcpHttpClient);
         this.protocolClient = new ProtocolClient(
                 this.objectMapper, ssrfPolicy, adcpVersion, connectionManager);
     }
@@ -132,7 +139,11 @@ public final class AdcpClient implements AutoCloseable {
 
     @Override
     public void close() {
-        protocolClient.close();
+        try {
+            protocolClient.close();
+        } finally {
+            adcpHttpClient.close();
+        }
     }
 
     // -- Builder --
@@ -142,6 +153,7 @@ public final class AdcpClient implements AutoCloseable {
         private @Nullable AdcpVersion adcpVersion;
         private @Nullable ObjectMapper objectMapper;
         private @Nullable SsrfPolicy ssrfPolicy;
+        private Duration requestTimeout = Duration.ofSeconds(30);
 
         private Builder() {}
 
@@ -181,6 +193,15 @@ public final class AdcpClient implements AutoCloseable {
          */
         public Builder ssrfPolicy(SsrfPolicy ssrfPolicy) {
             this.ssrfPolicy = Objects.requireNonNull(ssrfPolicy);
+            return this;
+        }
+
+        /**
+         * Override the per-request timeout for MCP tool calls. Defaults to 30 seconds.
+         * Increase this for agents that perform long-running operations.
+         */
+        public Builder requestTimeout(Duration requestTimeout) {
+            this.requestTimeout = Objects.requireNonNull(requestTimeout, "requestTimeout");
             return this;
         }
 

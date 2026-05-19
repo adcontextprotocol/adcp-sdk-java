@@ -22,13 +22,18 @@ import java.util.Objects;
  * <p>Implements the four mitigations from {@code specs/ssrf-baseline.md}:
  * <ol>
  *   <li>Resolve DNS once, validate the full address set</li>
- *   <li>Pin the connect to the first validated address</li>
+ *   <li>Validate resolved addresses against the SSRF policy</li>
  *   <li>{@code redirect: manual} (no transparent redirect-follow)</li>
  *   <li>Body cap (default 4 KiB for probes, configurable per call)</li>
  * </ol>
  *
  * <p>Every outbound HTTP call in the SDK routes through this client.
  * Built on {@link java.net.http.HttpClient} (JDK 21).
+ *
+ * <p>The client keeps the original URI authority unchanged so HTTPS uses the
+ * intended hostname for TLS SNI and hostname verification. DNS validation
+ * therefore happens at resolve time only and accepts the remaining TOCTOU
+ * window before connect.
  *
  * @see SsrfPolicy
  * @see DnsPinResolver
@@ -73,10 +78,11 @@ public final class AdcpHttpClient implements AutoCloseable {
     /**
      * Sends an HTTP request with SSRF protection.
      *
-     * <p>The hostname is resolved via DNS, all addresses are validated
-     * against the {@link SsrfPolicy}, and the connection is pinned to the
-     * first validated address. Redirects are never followed automatically.
-     * The response body is capped at {@link #maxResponseBytes()}.
+     * <p>The hostname is resolved via DNS and all addresses are validated
+     * against the {@link SsrfPolicy}. The original URI is preserved so TLS
+     * SNI and hostname verification continue to use the hostname instead of
+     * an IP literal. Redirects are never followed automatically. The response
+     * body is capped at {@link #maxResponseBytes()}.
      *
      * @param method  HTTP method (GET, POST, etc.)
      * @param uri     target URI
@@ -107,26 +113,16 @@ public final class AdcpHttpClient implements AutoCloseable {
             }
         }
 
-        // Step 1: DNS resolve + SSRF validate + pin
-        URI pinnedUri = pinUri(uri);
+        // Step 1: DNS resolve + SSRF validate. Keep the original URI so
+        // HTTPS continues to use the hostname for TLS and hostname checks,
+        // accepting the remaining resolve-to-connect TOCTOU window.
+        URI validatedUri = validateUri(uri);
 
         // Step 2: Build the request with the validated URI
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-                .uri(pinnedUri)
+                .uri(validatedUri)
                 .timeout(readTimeout)
                 .header("User-Agent", userAgent);
-
-        // If the URI was rewritten to an IP literal for DNS pinning,
-        // inject the original Host header so the server sees the right
-        // hostname (and TLS SNI matches via SSLParameters).
-        String originalHost = uri.getHost();
-        String pinnedHost = pinnedUri.getHost();
-        if (originalHost != null && !originalHost.equals(pinnedHost)) {
-            String hostHeader = uri.getPort() > 0 && uri.getPort() != 443 && uri.getPort() != 80
-                    ? originalHost + ":" + uri.getPort()
-                    : originalHost;
-            requestBuilder.header("Host", hostHeader);
-        }
 
         // Add caller-supplied headers, skipping protected headers
         headers.forEach((name, value) -> {
@@ -189,6 +185,16 @@ public final class AdcpHttpClient implements AutoCloseable {
         return maxResponseBytes;
     }
 
+    /**
+     * Creates an MCP transport client builder with the same connection-timeout
+     * and redirect policy used by this client.
+     */
+    public HttpClient.Builder newMcpClientBuilder() {
+        return HttpClient.newBuilder()
+                .connectTimeout(connectTimeout)
+                .followRedirects(HttpClient.Redirect.NEVER);
+    }
+
     @Override
     public void close() {
         httpClient.close();
@@ -196,7 +202,12 @@ public final class AdcpHttpClient implements AutoCloseable {
 
     // -- internal --
 
-    private URI pinUri(URI uri) throws IOException {
+    private URI validateUri(URI uri) throws IOException {
+        String scheme = uri.getScheme();
+        if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+            throw new IOException("URI scheme must be http or https: " + uri);
+        }
+
         String host = uri.getHost();
         if (host == null) {
             throw new IOException("URI has no host: " + uri);
@@ -209,11 +220,11 @@ public final class AdcpHttpClient implements AutoCloseable {
             return uri;
         }
 
-        // Resolve hostname, validate all addresses, and rewrite the URI
-        // to use the pinned IP so that the JDK HttpClient cannot re-resolve
-        // to a different address (DNS rebinding).
-        InetAddress pinned = DnsPinResolver.resolveAndPin(host, ssrfPolicy);
-        return DnsPinResolver.rewriteUri(uri, pinned, host);
+        // Resolve hostname and validate every address, but keep the original
+        // hostname in the URI so TLS SNI and hostname verification work.
+        // This accepts the remaining TOCTOU window between validation and connect.
+        DnsPinResolver.resolveAndPin(host, ssrfPolicy);
+        return uri;
     }
 
     private static boolean isIpLiteral(String host) {

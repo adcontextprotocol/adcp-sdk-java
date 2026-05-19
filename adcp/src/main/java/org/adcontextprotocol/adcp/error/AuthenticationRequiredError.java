@@ -9,6 +9,13 @@ import java.net.URI;
 /**
  * The agent requires authentication. Carries parsed {@code WWW-Authenticate}
  * challenge info and optional OAuth metadata for programmatic auth flows.
+ *
+ * <p>The {@link #challenge()} field is populated on a best-effort basis via
+ * a HEAD (or OPTIONS) probe when a 401 is detected. It may be {@code null}
+ * even when authentication is genuinely required — for example, if the
+ * agent endpoint returns 405 for both HEAD and OPTIONS, or if the probe
+ * itself fails. Callers should not assume a {@code null} challenge means
+ * "no auth needed"; it means the auth scheme could not be determined.
  */
 public final class AuthenticationRequiredError extends AdcpError {
 

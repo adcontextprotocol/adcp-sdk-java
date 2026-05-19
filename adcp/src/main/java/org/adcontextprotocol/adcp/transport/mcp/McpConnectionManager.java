@@ -10,16 +10,19 @@ import org.adcontextprotocol.adcp.auth.AuthChallengeInfo;
 import org.adcontextprotocol.adcp.auth.WwwAuthenticateParser;
 import org.adcontextprotocol.adcp.error.AuthenticationRequiredError;
 import org.adcontextprotocol.adcp.error.ProtocolError;
+import org.adcontextprotocol.adcp.http.AdcpHttpClient;
+import org.adcontextprotocol.adcp.http.AdcpHttpResponse;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReentrantLock;
@@ -60,6 +63,7 @@ public final class McpConnectionManager implements AutoCloseable {
             knownStreamableKeys = ConcurrentHashMap.newKeySet();
     private final Duration connectTimeout;
     private final Duration requestTimeout;
+    private final AdcpHttpClient adcpHttpClient;
     private volatile boolean closed;
 
     public McpConnectionManager() {
@@ -71,8 +75,14 @@ public final class McpConnectionManager implements AutoCloseable {
     }
 
     public McpConnectionManager(Duration connectTimeout, Duration requestTimeout) {
+        this(connectTimeout, requestTimeout, AdcpHttpClient.builder().build());
+    }
+
+    public McpConnectionManager(Duration connectTimeout, Duration requestTimeout,
+                                AdcpHttpClient adcpHttpClient) {
         this.connectTimeout = connectTimeout;
         this.requestTimeout = requestTimeout;
+        this.adcpHttpClient = Objects.requireNonNull(adcpHttpClient, "adcpHttpClient");
         this.connectStripes = new Semaphore[STRIPE_COUNT];
         for (int i = 0; i < STRIPE_COUNT; i++) {
             connectStripes[i] = new Semaphore(1);
@@ -251,7 +261,8 @@ public final class McpConnectionManager implements AutoCloseable {
             }
         }
 
-        // Probe: POST with MCP initialize to detect transport type
+        // Probe: POST with MCP ping to detect transport type without
+        // accidentally completing an MCP initialize handshake.
         boolean useStreamable = probeSupportsStreamableHttp(agentUri, safe);
 
         try {
@@ -299,42 +310,28 @@ public final class McpConnectionManager implements AutoCloseable {
      * @return true if the endpoint appears to support StreamableHTTP
      */
     private boolean probeSupportsStreamableHttp(URI agentUri, Map<String, String> headers) {
+        String pingPayload = "{\"jsonrpc\":\"2.0\",\"method\":\"ping\","
+                + "\"id\":\"probe\",\"params\":{}}";
+        Map<String, String> probeHeaders = new LinkedHashMap<>(headers);
+        probeHeaders.put("Content-Type", "application/json");
+        probeHeaders.put("Accept", "application/json, text/event-stream");
         try {
-            var reqBuilder = HttpRequest.newBuilder()
-                    .uri(agentUri)
-                    .timeout(Duration.ofSeconds(5))
-                    .header("Accept", "application/json, text/event-stream")
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(
-                            "{\"jsonrpc\":\"2.0\",\"method\":\"initialize\","
-                            + "\"id\":\"probe\",\"params\":{\"protocolVersion\":"
-                            + "\"2025-03-26\",\"capabilities\":{},"
-                            + "\"clientInfo\":{\"name\":\"adcp-java-sdk\","
-                            + "\"version\":\"0.1\"}}}"));
-            headers.forEach(reqBuilder::header);
-            HttpClient probeClient = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(5))
-                    .followRedirects(HttpClient.Redirect.NEVER)
-                    .build();
-            try {
-                HttpResponse<Void> resp = probeClient.send(
-                        reqBuilder.build(),
-                        HttpResponse.BodyHandlers.discarding());
-                String ct = resp.headers()
-                        .firstValue("Content-Type").orElse("");
-                // 2xx with JSON or SSE content-type → StreamableHTTP
-                if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
-                    return ct.contains("application/json")
-                            || ct.contains("text/event-stream");
-                }
-                // 405 Method Not Allowed → likely SSE-only (only accepts GET)
-                return false;
-            } finally {
-                probeClient.close();
+            AdcpHttpResponse resp = adcpHttpClient.post(
+                    agentUri,
+                    probeHeaders,
+                    pingPayload.getBytes(StandardCharsets.UTF_8));
+            String ct = resp.headers().firstValue("Content-Type").orElse("");
+            if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
+                return ct.contains("application/json")
+                        || ct.contains("text/event-stream");
             }
-        } catch (Exception e) {
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.debug("StreamableHTTP probe interrupted for {}: {}", agentUri, e.getMessage());
+            return true;
+        } catch (IOException e) {
             log.debug("StreamableHTTP probe failed for {}: {}", agentUri, e.getMessage());
-            // If probe fails, default to StreamableHTTP (newer, preferred)
             return true;
         }
     }
@@ -346,14 +343,14 @@ public final class McpConnectionManager implements AutoCloseable {
                 ? HttpClientStreamableHttpTransport.builder(url)
                         .connectTimeout(connectTimeout)
                         .requestBuilder(reqBuilder)
-                        .customizeClient(cb -> cb.followRedirects(HttpClient.Redirect.NEVER))
+                        .clientBuilder(adcpHttpClient.newMcpClientBuilder())
                         .httpRequestCustomizer((rb, method, uri, body, ctx) ->
                                 headers.forEach(rb::header))
                         .build()
                 : HttpClientSseClientTransport.builder(url)
                         .connectTimeout(connectTimeout)
                         .requestBuilder(reqBuilder)
-                        .customizeClient(cb -> cb.followRedirects(HttpClient.Redirect.NEVER))
+                        .clientBuilder(adcpHttpClient.newMcpClientBuilder())
                         .httpRequestCustomizer((rb, method, uri, body, ctx) ->
                                 headers.forEach(rb::header))
                         .build();
@@ -403,31 +400,29 @@ public final class McpConnectionManager implements AutoCloseable {
     private AuthenticationRequiredError probeAndBuildAuthError(URI agentUri, Exception cause) {
         AuthChallengeInfo challenge = null;
         try {
-            HttpRequest probe = HttpRequest.newBuilder()
-                    .uri(agentUri)
-                    .method("HEAD", HttpRequest.BodyPublishers.noBody())
-                    .timeout(Duration.ofSeconds(5))
-                    .build();
-            HttpClient probeClient = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(5))
-                    .followRedirects(HttpClient.Redirect.NEVER)
-                    .build();
-            try {
-                HttpResponse<Void> resp = probeClient.send(probe,
-                        HttpResponse.BodyHandlers.discarding());
-                if (resp.statusCode() == 401) {
-                    String wwwAuth = resp.headers()
-                            .firstValue("WWW-Authenticate").orElse(null);
-                    challenge = WwwAuthenticateParser.parse(wwwAuth);
-                }
-            } finally {
-                probeClient.close();
+            AdcpHttpResponse resp = adcpHttpClient.send("HEAD", agentUri, Map.of(), null);
+            challenge = parseAuthChallenge(resp);
+            if (challenge == null && resp.statusCode() == 405) {
+                challenge = parseAuthChallenge(
+                        adcpHttpClient.send("OPTIONS", agentUri, Map.of(), null));
             }
-        } catch (Exception probeEx) {
-            log.debug("HEAD probe for auth challenge failed for {}: {}",
+        } catch (InterruptedException probeEx) {
+            Thread.currentThread().interrupt();
+            log.debug("Auth challenge probe interrupted for {}: {}",
+                    agentUri, probeEx.getMessage());
+        } catch (IOException probeEx) {
+            log.debug("Auth challenge probe failed for {}: {}",
                     agentUri, probeEx.getMessage());
         }
         return new AuthenticationRequiredError(agentUri, challenge, null, cause);
+    }
+
+    private static @Nullable AuthChallengeInfo parseAuthChallenge(AdcpHttpResponse response) {
+        if (response.statusCode() != 401) {
+            return null;
+        }
+        String wwwAuth = response.headers().firstValue("WWW-Authenticate").orElse(null);
+        return WwwAuthenticateParser.parse(wwwAuth);
     }
 
     private boolean isAuthError(Exception e) {
