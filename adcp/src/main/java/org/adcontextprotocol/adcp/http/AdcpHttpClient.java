@@ -49,6 +49,7 @@ public final class AdcpHttpClient implements AutoCloseable {
     private final Duration connectTimeout;
     private final Duration readTimeout;
     private final String userAgent;
+    private final boolean requireHttps;
     private final HttpClient httpClient;
 
     private AdcpHttpClient(Builder builder) {
@@ -57,6 +58,7 @@ public final class AdcpHttpClient implements AutoCloseable {
         this.connectTimeout = builder.connectTimeout;
         this.readTimeout = builder.readTimeout;
         this.userAgent = builder.userAgent;
+        this.requireHttps = builder.requireHttps;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(this.connectTimeout)
                 .followRedirects(HttpClient.Redirect.NEVER)
@@ -93,6 +95,17 @@ public final class AdcpHttpClient implements AutoCloseable {
 
         Objects.requireNonNull(uri, "uri");
         Objects.requireNonNull(method, "method");
+
+        // Step 0: Enforce HTTPS when requireHttps is enabled.
+        // Localhost/loopback is exempt for local development.
+        if (requireHttps && "http".equalsIgnoreCase(uri.getScheme())) {
+            String host = uri.getHost();
+            if (host != null && !isLoopback(host)) {
+                throw new IOException(
+                        "Plain HTTP is not allowed when requireHttps is enabled: " + uri
+                                + ". Use HTTPS or set requireHttps(false) for local development.");
+            }
+        }
 
         // Step 1: DNS resolve + SSRF validate + pin
         URI pinnedUri = pinUri(uri);
@@ -231,6 +244,13 @@ public final class AdcpHttpClient implements AutoCloseable {
         return true;
     }
 
+    private static boolean isLoopback(String host) {
+        return "localhost".equalsIgnoreCase(host)
+                || "127.0.0.1".equals(host)
+                || "[::1]".equals(host)
+                || "::1".equals(host);
+    }
+
     private AdcpHttpResponse readBodyWithCap(HttpResponse<InputStream> response)
             throws IOException {
         long cap = maxResponseBytes;
@@ -281,6 +301,7 @@ public final class AdcpHttpClient implements AutoCloseable {
         private Duration connectTimeout = DEFAULT_CONNECT_TIMEOUT;
         private Duration readTimeout = DEFAULT_READ_TIMEOUT;
         private String userAgent = DEFAULT_USER_AGENT;
+        private boolean requireHttps = false;
 
         private Builder() {}
 
@@ -324,6 +345,22 @@ public final class AdcpHttpClient implements AutoCloseable {
         /** User-Agent header value. */
         public Builder userAgent(String userAgent) {
             this.userAgent = Objects.requireNonNull(userAgent);
+            return this;
+        }
+
+        /**
+         * When {@code true}, rejects plain {@code http://} URIs for
+         * non-loopback hosts. Prevents credential leakage over unencrypted
+         * connections in production.
+         *
+         * <p>Localhost ({@code 127.0.0.1}, {@code ::1}, {@code localhost})
+         * is always exempt for local development.
+         *
+         * <p>Default: {@code false} (warns only, via
+         * {@link org.adcontextprotocol.adcp.AgentConfig}).
+         */
+        public Builder requireHttps(boolean requireHttps) {
+            this.requireHttps = requireHttps;
             return this;
         }
 

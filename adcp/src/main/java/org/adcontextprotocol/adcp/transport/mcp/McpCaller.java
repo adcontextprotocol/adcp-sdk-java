@@ -27,7 +27,12 @@ public final class McpCaller {
     private final ObjectMapper objectMapper;
 
     public McpCaller(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+        // Harden the ObjectMapper against polymorphic deserialization attacks.
+        // When responseType is Object.class or Map.class, a default-typed
+        // mapper could instantiate arbitrary classes from incoming JSON
+        // (gadget-chain attacks). We defensively disable these features.
+        this.objectMapper = objectMapper.copy();
+        this.objectMapper.deactivateDefaultTyping();
     }
 
     /**

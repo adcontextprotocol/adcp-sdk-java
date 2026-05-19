@@ -202,10 +202,16 @@ public final class AdcpServerBuilder {
         } else {
             return adcpVersion;
         }
-        if (major < 3 || major > 99) {
+        if (major < 1 || major > 99) {
             throw new org.adcontextprotocol.adcp.error.VersionUnsupportedError(
                     null, "Unsupported AdCP major version: " + major,
                     String.valueOf(major), null);
+        }
+        // AdCP back-compat: versions < 3 default to v1 semantics rather
+        // than refusing the request (matches Python adcp.server behavior).
+        if (major < 3) {
+            log.debug("Client sent adcp_major_version={}, defaulting to v1 semantics", major);
+            return new AdcpVersion(major, null);
         }
         String minor = args.get("adcp_version") instanceof String s ? s : null;
         // Guard against unbounded strings from untrusted input

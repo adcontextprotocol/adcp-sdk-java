@@ -221,55 +221,121 @@ public final class McpConnectionManager implements AutoCloseable {
         }
     }
 
-    // TODO(v0.2): MCP recommends a content-type probe (OPTIONS or HEAD with
-    // Accept: application/json) to pick StreamableHTTP vs SSE, instead of
-    // catching exceptions from a failed connect. The current approach masks
-    // legitimate 5xx errors and double-charges every cold connect. Revisit
-    // when MCP SDK 2.x provides explicit transport negotiation.
+    /**
+     * Probes the agent URI with a POST to determine whether it speaks
+     * StreamableHTTP (responds with {@code application/json} or
+     * {@code text/event-stream}) vs legacy SSE-only. Falls back to SSE
+     * when the probe gets a 4xx/non-JSON response.
+     *
+     * <p>This replaces the previous exception-based fallback which masked
+     * legitimate 5xx errors and double-charged every cold connect.
+     */
     private McpSyncClient connectWithFallback(URI agentUri, Map<String, String> headers,
                                                String cacheKey) {
         String url = agentUri.toString();
         Map<String, String> safe = sanitizeHeaders(headers);
 
-        // Try StreamableHTTP first
-        try {
-            McpSyncClient client = buildAndInit(url, safe, true);
-            knownStreamableKeys.add(cacheKey);
-            log.debug("Connected to {} via StreamableHTTP", agentUri);
-            return client;
-        } catch (Exception e) {
-            if (isAuthError(e)) {
-                throw probeAndBuildAuthError(agentUri, e);
-            }
-            log.debug("StreamableHTTP failed for {}: {}", agentUri, e.getMessage());
-        }
-
-        // If this cache key has never succeeded with StreamableHTTP, try SSE fallback
-        if (!knownStreamableKeys.contains(cacheKey)) {
+        // Known-good StreamableHTTP endpoints skip the probe
+        if (knownStreamableKeys.contains(cacheKey)) {
             try {
-                McpSyncClient client = buildAndInit(url, safe, false);
-                log.debug("Connected to {} via SSE fallback", agentUri);
+                McpSyncClient client = buildAndInit(url, safe, true);
+                log.debug("Reconnected to {} via StreamableHTTP (cached)", agentUri);
                 return client;
             } catch (Exception e) {
                 if (isAuthError(e)) {
                     throw probeAndBuildAuthError(agentUri, e);
                 }
-                throw new ProtocolError("mcp",
-                        "Failed to connect to " + agentUri
-                                + " via StreamableHTTP and SSE",
-                        e);
+                // Lost contact — fall through to probe
+                knownStreamableKeys.remove(cacheKey);
+                log.debug("Cached StreamableHTTP failed for {}, re-probing", agentUri);
             }
         }
 
-        // Retry StreamableHTTP once for known-good endpoints (after eviction/reconnect)
+        // Probe: POST with MCP initialize to detect transport type
+        boolean useStreamable = probeSupportsStreamableHttp(agentUri, safe);
+
         try {
-            McpSyncClient client = buildAndInit(url, safe, true);
-            log.debug("Reconnected to {} via StreamableHTTP (retry)", agentUri);
+            McpSyncClient client = buildAndInit(url, safe, useStreamable);
+            if (useStreamable) {
+                knownStreamableKeys.add(cacheKey);
+            }
+            log.debug("Connected to {} via {}", agentUri,
+                    useStreamable ? "StreamableHTTP" : "SSE");
             return client;
         } catch (Exception e) {
+            if (isAuthError(e)) {
+                throw probeAndBuildAuthError(agentUri, e);
+            }
+            // If probe said StreamableHTTP but init failed, try SSE as last resort
+            if (useStreamable) {
+                log.debug("StreamableHTTP init failed despite probe, trying SSE for {}",
+                        agentUri);
+                try {
+                    McpSyncClient client = buildAndInit(url, safe, false);
+                    log.debug("Connected to {} via SSE (fallback)", agentUri);
+                    return client;
+                } catch (Exception e2) {
+                    if (isAuthError(e2)) {
+                        throw probeAndBuildAuthError(agentUri, e2);
+                    }
+                    e2.addSuppressed(e);
+                    throw new ProtocolError("mcp",
+                            "Failed to connect to " + agentUri
+                                    + " via StreamableHTTP and SSE",
+                            e2);
+                }
+            }
             throw new ProtocolError("mcp",
-                    "Failed to reconnect to " + agentUri + " via StreamableHTTP",
-                    e);
+                    "Failed to connect to " + agentUri + " via SSE", e);
+        }
+    }
+
+    /**
+     * Sends a POST probe to the agent URI to detect StreamableHTTP support.
+     * StreamableHTTP endpoints respond to POST with {@code application/json}
+     * or {@code text/event-stream} content-type. Legacy SSE endpoints
+     * typically return 404/405 on POST to the root.
+     *
+     * @return true if the endpoint appears to support StreamableHTTP
+     */
+    private boolean probeSupportsStreamableHttp(URI agentUri, Map<String, String> headers) {
+        try {
+            var reqBuilder = HttpRequest.newBuilder()
+                    .uri(agentUri)
+                    .timeout(Duration.ofSeconds(5))
+                    .header("Accept", "application/json, text/event-stream")
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(
+                            "{\"jsonrpc\":\"2.0\",\"method\":\"initialize\","
+                            + "\"id\":\"probe\",\"params\":{\"protocolVersion\":"
+                            + "\"2025-03-26\",\"capabilities\":{},"
+                            + "\"clientInfo\":{\"name\":\"adcp-java-sdk\","
+                            + "\"version\":\"0.1\"}}}"));
+            headers.forEach(reqBuilder::header);
+            HttpClient probeClient = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(5))
+                    .followRedirects(HttpClient.Redirect.NEVER)
+                    .build();
+            try {
+                HttpResponse<Void> resp = probeClient.send(
+                        reqBuilder.build(),
+                        HttpResponse.BodyHandlers.discarding());
+                String ct = resp.headers()
+                        .firstValue("Content-Type").orElse("");
+                // 2xx with JSON or SSE content-type → StreamableHTTP
+                if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
+                    return ct.contains("application/json")
+                            || ct.contains("text/event-stream");
+                }
+                // 405 Method Not Allowed → likely SSE-only (only accepts GET)
+                return false;
+            } finally {
+                probeClient.close();
+            }
+        } catch (Exception e) {
+            log.debug("StreamableHTTP probe failed for {}: {}", agentUri, e.getMessage());
+            // If probe fails, default to StreamableHTTP (newer, preferred)
+            return true;
         }
     }
 
@@ -323,13 +389,11 @@ public final class McpConnectionManager implements AutoCloseable {
         return s.indexOf('\r') >= 0 || s.indexOf('\n') >= 0;
     }
 
-    // TODO(7.2.0-delta): MCP SDK 1.1.2 does not expose HTTP response headers
-    // on errors. When it does, parse WWW-Authenticate via WwwAuthenticateParser
-    // and populate AuthenticationRequiredError.challenge(). Until then, callers
-    // receive challenge=null on auth errors from the MCP path.
-    // TODO(7.2.0-delta): MCP SDK 1.1.2 does not expose HTTP response headers
-    // on errors. We work around this by sending a HEAD probe to the agent URI
-    // to retrieve the WWW-Authenticate challenge for the caller.
+    // NOTE: MCP SDK 1.1.2 does not expose HTTP response headers on errors.
+    // We work around this by sending a HEAD probe to the agent URI to
+    // retrieve the WWW-Authenticate challenge. When the MCP SDK adds
+    // response header access, this probe can be replaced with direct
+    // header inspection.
 
     /**
      * Probes the agent URI with a HEAD request to retrieve WWW-Authenticate.

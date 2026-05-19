@@ -93,4 +93,64 @@ class AdcpHttpClientTest {
             assertNotNull(client);
         }
     }
+
+    @Test
+    void requireHttps_rejects_plain_http_for_remote_hosts() {
+        AdcpHttpClient client = AdcpHttpClient.builder()
+                .ssrfPolicy(SsrfPolicy.permissive())
+                .requireHttps(true)
+                .build();
+        IOException ex = assertThrows(IOException.class,
+                () -> client.get(URI.create("http://agent.example.com/mcp"), Map.of()));
+        assertTrue(ex.getMessage().contains("requireHttps"),
+                "Error should mention requireHttps: " + ex.getMessage());
+    }
+
+    @Test
+    void requireHttps_allows_localhost_http() {
+        // Localhost is exempt from requireHttps for local development.
+        // We verify the requireHttps check passes; downstream errors
+        // (connection refused, restricted headers, etc.) are expected.
+        AdcpHttpClient client = AdcpHttpClient.builder()
+                .ssrfPolicy(SsrfPolicy.permissive())
+                .requireHttps(true)
+                .build();
+        try {
+            client.get(URI.create("http://localhost:4500/mcp"), Map.of());
+            // If it succeeds (unlikely in test env), that's fine too
+        } catch (Exception e) {
+            // Walk the exception chain — requireHttps rejection must NOT appear
+            for (Throwable t = e; t != null; t = t.getCause()) {
+                assertFalse(
+                        t.getMessage() != null && t.getMessage().contains("requireHttps"),
+                        "Localhost should be exempt from requireHttps: " + t.getMessage());
+            }
+        }
+    }
+
+    @Test
+    void requireHttps_defaults_to_false() {
+        // Default behavior should not block http:// via requireHttps
+        AdcpHttpClient client = AdcpHttpClient.builder()
+                .ssrfPolicy(SsrfPolicy.permissive())
+                .build();
+        try {
+            client.get(URI.create("http://agent.example.com/mcp"), Map.of());
+        } catch (Exception e) {
+            for (Throwable t = e; t != null; t = t.getCause()) {
+                assertFalse(
+                        t.getMessage() != null && t.getMessage().contains("requireHttps"),
+                        "requireHttps should default to false: " + t.getMessage());
+            }
+        }
+    }
+
+    @Test
+    void send_rejects_octal_ip_literal() {
+        AdcpHttpClient client = AdcpHttpClient.builder()
+                .ssrfPolicy(SsrfPolicy.permissive())
+                .build();
+        assertThrows(SsrfBlockedException.class,
+                () -> client.get(URI.create("http://0177.0.0.1/test"), Map.of()));
+    }
 }
