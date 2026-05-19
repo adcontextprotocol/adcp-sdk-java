@@ -30,4 +30,11 @@ public record OAuthClientCredentials(
             throw new IllegalArgumentException("clientSecret must not be blank");
         }
     }
+
+    @Override
+    public String toString() {
+        return "OAuthClientCredentials[clientId=" + clientId
+                + ", clientSecret=<REDACTED>, tokenEndpoint=" + tokenEndpoint
+                + ", scope=" + scope + "]";
+    }
 }

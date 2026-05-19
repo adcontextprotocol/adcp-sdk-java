@@ -16,7 +16,7 @@ public final class SsrfBlockedException extends RuntimeException {
     private final String reason;
 
     SsrfBlockedException(String host, String reason) {
-        super("SSRF blocked for host '" + host + "': " + reason);
+        super("SSRF blocked: " + reason);
         this.host = host;
         this.reason = reason;
     }

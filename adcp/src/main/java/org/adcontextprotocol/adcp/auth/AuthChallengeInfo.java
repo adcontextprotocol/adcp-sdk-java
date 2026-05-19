@@ -20,4 +20,11 @@ public record AuthChallengeInfo(
         @Nullable String scope,
         @Nullable String error,
         @Nullable String errorDescription
-) {}
+) {
+    public AuthChallengeInfo {
+        java.util.Objects.requireNonNull(scheme, "scheme");
+        if (scheme.isBlank()) {
+            throw new IllegalArgumentException("scheme must not be blank");
+        }
+    }
+}

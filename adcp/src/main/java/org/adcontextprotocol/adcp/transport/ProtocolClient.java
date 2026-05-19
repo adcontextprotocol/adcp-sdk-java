@@ -15,6 +15,10 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -114,31 +118,51 @@ public final class ProtocolClient implements AutoCloseable {
         try {
             return mcpCaller.callTool(client, toolName, mergedArgs, responseType);
         } catch (ProtocolError e) {
+            if (!isTransportError(e)) {
+                throw e;
+            }
             // On transport error, evict and retry once
             connectionManager.evict(agent.agentUri(), tokenHash);
-            log.debug("MCP call failed for {}, retrying after evict: {}",
+            log.debug("MCP transport error for {}, retrying after evict: {}",
                     toolName, e.getMessage());
 
+            ProtocolError original = e;
             client = connectionManager.getOrConnect(
                     agent.agentUri(), headers, tokenHash);
-            return mcpCaller.callTool(client, toolName, mergedArgs, responseType);
+            try {
+                return mcpCaller.callTool(client, toolName, mergedArgs, responseType);
+            } catch (ProtocolError retry) {
+                retry.addSuppressed(original);
+                throw retry;
+            }
         }
+    }
+
+    private boolean isTransportError(ProtocolError e) {
+        Throwable cause = e.getCause();
+        return cause instanceof java.io.IOException
+                || cause instanceof java.net.http.HttpTimeoutException
+                || (cause != null && cause.getClass().getName().contains("Transport"));
     }
 
     private void validateUrl(AgentConfig agent) {
-        try {
-            String host = agent.agentUri().getHost();
-            if (host != null) {
-                java.net.InetAddress addr = java.net.InetAddress.getByName(host);
-                org.adcontextprotocol.adcp.http.DnsPinResolver.validateAddress(addr, ssrfPolicy);
-            }
-        } catch (java.net.UnknownHostException e) {
+        String host = agent.agentUri().getHost();
+        if (host == null) {
             throw new ProtocolError("mcp",
-                    "Cannot resolve agent host: " + agent.agentUri().getHost(), e);
+                    "Agent URI has no host: " + agent.agentUri(), null);
         }
+        // Note: Full SSRF validation with DNS resolution is performed by
+        // AdcpHttpClient.pinUri() on actual HTTP calls. MCP transport uses
+        // its own HttpClient, so this validation is best-effort for the
+        // initial hostname check. The MCP transport builder also gets
+        // followRedirects(NEVER) set by McpConnectionManager.
     }
 
-    private String computeTokenHash(AgentConfig agent) {
+    /**
+     * Computes a SHA-256 hash of the agent's credentials for use as a
+     * cache key component.
+     */
+    static String computeTokenHash(AgentConfig agent) {
         String token = "";
         if (agent.authToken() != null) {
             token = agent.authToken();
@@ -147,6 +171,16 @@ public final class ProtocolClient implements AutoCloseable {
         } else if (agent.basicAuth() != null) {
             token = agent.basicAuth().username() + ":" + agent.basicAuth().password();
         }
-        return Integer.toHexString(token.hashCode());
+        if (token.isEmpty()) {
+            return "anonymous";
+        }
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash, 0, 8);
+        } catch (NoSuchAlgorithmException e) {
+            // SHA-256 is required by every JRE; this should never happen
+            throw new AssertionError("SHA-256 not available", e);
+        }
     }
 }

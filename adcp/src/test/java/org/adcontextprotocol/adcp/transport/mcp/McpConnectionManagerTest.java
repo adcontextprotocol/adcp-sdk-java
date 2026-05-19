@@ -40,4 +40,18 @@ class McpConnectionManagerTest {
         var uri = java.net.URI.create("https://agent.example.com");
         assertDoesNotThrow(() -> manager.evict(uri, "abc"));
     }
+
+    @Test
+    void getOrConnect_after_close_throws() {
+        manager.close();
+        var uri = java.net.URI.create("https://agent.example.com");
+        assertThrows(IllegalStateException.class,
+                () -> manager.getOrConnect(uri, java.util.Map.of(), "hash"));
+    }
+
+    @Test
+    void double_close_is_safe() {
+        manager.close();
+        assertDoesNotThrow(manager::close);
+    }
 }

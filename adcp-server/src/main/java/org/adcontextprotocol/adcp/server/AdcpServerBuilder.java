@@ -121,10 +121,15 @@ public final class AdcpServerBuilder {
             ObjectMapper om, String toolName, McpSchema.CallToolRequest request) {
         try {
             Map<String, Object> args = request.arguments() != null
-                    ? request.arguments()
-                    : Map.of();
+                    ? new java.util.LinkedHashMap<>(request.arguments())
+                    : new java.util.LinkedHashMap<>();
 
             AdcpVersion version = extractVersion(args);
+
+            // Strip version envelope fields before passing to platform
+            args.remove("adcp_major_version");
+            args.remove("adcp_version");
+
             AdcpContext ctx = new AdcpContext(version, Map.of(), null);
 
             Object response = platform.handleTool(toolName, args, ctx);
@@ -135,9 +140,16 @@ public final class AdcpServerBuilder {
                     false, null, Map.of());
         } catch (Exception e) {
             log.error("Tool call failed: {}", toolName, e);
+            // Serialize error safely via ObjectMapper to prevent JSON injection
+            String safeError;
+            try {
+                safeError = om.writeValueAsString(
+                        Map.of("error", e.getMessage() != null ? e.getMessage() : "unknown error"));
+            } catch (Exception ignored) {
+                safeError = "{\"error\":\"internal error\"}";
+            }
             return new McpSchema.CallToolResult(
-                    List.of(new McpSchema.TextContent(
-                            "{\"error\":\"" + e.getMessage() + "\"}")),
+                    List.of(new McpSchema.TextContent(safeError)),
                     true, null, Map.of());
         }
     }

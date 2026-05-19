@@ -46,4 +46,12 @@ public record OAuthTokens(
         }
         return Instant.now().plusSeconds(30).isAfter(expiresAt);
     }
+
+    @Override
+    public String toString() {
+        return "OAuthTokens[accessToken=<REDACTED>, refreshToken="
+                + (refreshToken != null ? "<REDACTED>" : "null")
+                + ", expiresAt=" + expiresAt
+                + ", tokenType=" + tokenType + "]";
+    }
 }

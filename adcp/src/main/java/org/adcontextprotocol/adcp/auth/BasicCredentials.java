@@ -19,8 +19,16 @@ public record BasicCredentials(String username, String password) {
         if (username.isBlank()) {
             throw new IllegalArgumentException("username must not be blank");
         }
+        if (username.contains(":")) {
+            throw new IllegalArgumentException("username must not contain ':' (RFC 7617 §2)");
+        }
         if (password.isBlank()) {
             throw new IllegalArgumentException("password must not be blank");
         }
+    }
+
+    @Override
+    public String toString() {
+        return "BasicCredentials[username=" + username + ", password=<REDACTED>]";
     }
 }

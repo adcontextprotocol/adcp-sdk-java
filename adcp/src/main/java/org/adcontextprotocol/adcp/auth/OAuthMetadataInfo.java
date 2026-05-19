@@ -16,4 +16,9 @@ public record OAuthMetadataInfo(
         String tokenEndpoint,
         @Nullable String registrationEndpoint,
         @Nullable String issuer
-) {}
+) {
+    public OAuthMetadataInfo {
+        java.util.Objects.requireNonNull(authorizationEndpoint, "authorizationEndpoint");
+        java.util.Objects.requireNonNull(tokenEndpoint, "tokenEndpoint");
+    }
+}

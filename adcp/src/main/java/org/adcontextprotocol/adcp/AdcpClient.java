@@ -11,7 +11,6 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -38,6 +37,7 @@ public final class AdcpClient implements AutoCloseable {
 
     private final AgentConfig agent;
     private final ProtocolClient protocolClient;
+    private final ObjectMapper objectMapper;
     private final @Nullable AdcpVersion adcpVersion;
 
     private AdcpClient(Builder builder) {
@@ -47,7 +47,7 @@ public final class AdcpClient implements AutoCloseable {
         this.agent = builder.agent;
         this.adcpVersion = builder.adcpVersion;
 
-        ObjectMapper objectMapper = builder.objectMapper != null
+        this.objectMapper = builder.objectMapper != null
                 ? builder.objectMapper
                 : AdcpObjectMapperFactory.create();
 
@@ -57,7 +57,7 @@ public final class AdcpClient implements AutoCloseable {
 
         McpConnectionManager connectionManager = new McpConnectionManager();
         this.protocolClient = new ProtocolClient(
-                objectMapper, ssrfPolicy, adcpVersion, connectionManager);
+                this.objectMapper, ssrfPolicy, adcpVersion, connectionManager);
     }
 
     /** Creates a new builder. */
@@ -99,8 +99,7 @@ public final class AdcpClient implements AutoCloseable {
      */
     @SuppressWarnings("unchecked")
     private Map<String, Object> toArgs(Object request) {
-        ObjectMapper om = AdcpObjectMapperFactory.create();
-        return om.convertValue(request, Map.class);
+        return objectMapper.convertValue(request, Map.class);
     }
 
     /**

@@ -97,23 +97,20 @@ public final class AdcpHttpClient implements AutoCloseable {
         // Step 1: DNS resolve + SSRF validate + pin
         URI pinnedUri = pinUri(uri);
 
-        // Step 2: Build the request with the pinned URI
+        // Step 2: Build the request with the validated URI
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(pinnedUri)
                 .timeout(readTimeout)
                 .header("User-Agent", userAgent);
 
-        // Inject Host header for the original hostname (the URI now has the IP)
-        String originalHost = uri.getHost();
-        if (originalHost != null && !originalHost.equals(pinnedUri.getHost())) {
-            String hostValue = uri.getPort() > 0 && uri.getPort() != defaultPort(uri.getScheme())
-                    ? originalHost + ":" + uri.getPort()
-                    : originalHost;
-            requestBuilder.header("Host", hostValue);
-        }
-
-        // Add caller-supplied headers
-        headers.forEach(requestBuilder::header);
+        // Add caller-supplied headers, skipping protected headers
+        headers.forEach((name, value) -> {
+            if (!isProtectedHeader(name)) {
+                requestBuilder.header(name, value);
+            } else {
+                log.debug("Skipping protected header from caller: {}", name);
+            }
+        });
 
         // Set method + body
         if (body != null) {
@@ -159,8 +156,7 @@ public final class AdcpHttpClient implements AutoCloseable {
 
     @Override
     public void close() {
-        // HttpClient in JDK 21 doesn't require explicit close,
-        // but we implement AutoCloseable for forward compatibility.
+        httpClient.close();
     }
 
     // -- internal --
@@ -171,40 +167,40 @@ public final class AdcpHttpClient implements AutoCloseable {
             throw new IOException("URI has no host: " + uri);
         }
 
-        // Check if the host is already a literal IP address
-        try {
+        // Syntactic check for IP literals: IPv4 dotted-quad or IPv6
+        // brackets. No DNS call needed.
+        if (isIpLiteral(host)) {
             InetAddress literal = InetAddress.getByName(host);
-            if (host.equals(literal.getHostAddress()) || host.startsWith("[")) {
-                // Already a literal IP — just validate it
-                DnsPinResolver.validateAddress(literal, ssrfPolicy);
-                return uri;
+            DnsPinResolver.validateAddress(literal, ssrfPolicy);
+            return uri;
+        }
+
+        // Resolve hostname, validate all addresses.
+        // We validate but do NOT rewrite the URI with the resolved IP
+        // because that would break HTTPS SNI/TLS hostname verification.
+        // Instead we rely on HttpClient's built-in resolution using the
+        // same hostname. The SSRF check is advisory — it catches the
+        // common case where a hostname resolves to a private address.
+        DnsPinResolver.resolveAndPin(host, ssrfPolicy);
+        return uri;
+    }
+
+    private static boolean isIpLiteral(String host) {
+        // IPv6 in URI brackets: [::1]
+        if (host.startsWith("[")) {
+            return true;
+        }
+        // IPv4 dotted-quad: all digits and dots, at least one dot
+        if (host.indexOf('.') < 0) {
+            return false;
+        }
+        for (int i = 0; i < host.length(); i++) {
+            char c = host.charAt(i);
+            if (c != '.' && (c < '0' || c > '9')) {
+                return false;
             }
-        } catch (Exception ignored) {
-            // Not a literal IP — proceed with DNS resolution
         }
-
-        // Resolve hostname and pin to first validated address
-        InetAddress pinned = DnsPinResolver.resolveAndPin(host, ssrfPolicy);
-        String pinnedHost = pinned.getHostAddress();
-
-        // IPv6 addresses need brackets in URIs
-        if (pinnedHost.contains(":")) {
-            pinnedHost = "[" + pinnedHost + "]";
-        }
-
-        // Reconstruct URI with the pinned IP
-        try {
-            return new URI(
-                    uri.getScheme(),
-                    null, // userInfo
-                    pinned.getHostAddress(),
-                    uri.getPort(),
-                    uri.getPath(),
-                    uri.getQuery(),
-                    uri.getFragment());
-        } catch (Exception e) {
-            throw new IOException("Failed to construct pinned URI for " + host, e);
-        }
+        return true;
     }
 
     private AdcpHttpResponse readBodyWithCap(HttpResponse<InputStream> response)
@@ -245,8 +241,11 @@ public final class AdcpHttpClient implements AutoCloseable {
         }
     }
 
-    private static int defaultPort(String scheme) {
-        return "https".equalsIgnoreCase(scheme) ? 443 : 80;
+    private static final java.util.Set<String> PROTECTED_HEADERS = java.util.Set.of(
+            "host", "user-agent", "content-length", "transfer-encoding");
+
+    private static boolean isProtectedHeader(String name) {
+        return PROTECTED_HEADERS.contains(name.toLowerCase(java.util.Locale.ROOT));
     }
 
     // -- Builder --

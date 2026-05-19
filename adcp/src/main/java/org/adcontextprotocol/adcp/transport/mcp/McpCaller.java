@@ -55,8 +55,13 @@ public final class McpCaller {
 
     @SuppressWarnings("unchecked")
     private <T> T extractResponse(McpSchema.CallToolResult result, Class<T> responseType) {
-        // MCP callTool returns content in the result.
-        // Look for structured content first, then text content.
+        // If the tool itself reported an error, surface it before trying
+        // to deserialize the content as a success payload.
+        if (Boolean.TRUE.equals(result.isError())) {
+            String errorText = extractErrorText(result);
+            throw new ProtocolError("mcp", "MCP tool returned an error: " + errorText, null);
+        }
+
         if (result.content() == null || result.content().isEmpty()) {
             throw new ProtocolError("mcp", "Empty response from MCP callTool", null);
         }
@@ -83,5 +88,16 @@ public final class McpCaller {
                     "Cannot deserialize MCP response to " + responseType.getSimpleName(),
                     e);
         }
+    }
+
+    private String extractErrorText(McpSchema.CallToolResult result) {
+        if (result.content() != null) {
+            for (McpSchema.Content content : result.content()) {
+                if (content instanceof McpSchema.TextContent tc) {
+                    return tc.text();
+                }
+            }
+        }
+        return "(no error detail)";
     }
 }
