@@ -72,20 +72,22 @@ public final class AdcpClient implements AutoCloseable {
      *
      * @param toolName     the MCP tool name (e.g. "get_products")
      * @param args         tool arguments
+     * @param args         tool arguments (may be {@code null}, treated as empty)
      * @param responseType expected response type
      * @param options      call options
      * @param <T>          response type
      * @return deserialized response
      */
-    public <T> T callTool(String toolName, Map<String, Object> args,
+    public <T> T callTool(String toolName, @Nullable Map<String, Object> args,
                           Class<T> responseType, CallToolOptions options) {
-        return protocolClient.callTool(agent, toolName, args, responseType, options);
+        return protocolClient.callTool(agent, toolName,
+                args != null ? args : Map.of(), responseType, options);
     }
 
     /**
      * Calls a tool with default options.
      */
-    public <T> T callTool(String toolName, Map<String, Object> args,
+    public <T> T callTool(String toolName, @Nullable Map<String, Object> args,
                           Class<T> responseType) {
         return callTool(toolName, args, responseType, CallToolOptions.DEFAULT);
     }
