@@ -26,6 +26,9 @@ public record OAuthTokens(
         if (accessToken.isBlank()) {
             throw new IllegalArgumentException("accessToken must not be blank");
         }
+        if (accessToken.indexOf('\r') >= 0 || accessToken.indexOf('\n') >= 0) {
+            throw new IllegalArgumentException("accessToken must not contain CR/LF characters");
+        }
     }
 
     /** Creates a Bearer token with the given access token. */

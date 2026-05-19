@@ -144,7 +144,7 @@ public final class McpConnectionManager implements AutoCloseable {
             return client;
         } catch (Exception e) {
             if (isAuthError(e)) {
-                throw new AuthenticationRequiredError(agentUri, null, null);
+                throw new AuthenticationRequiredError(agentUri, null, null, e);
             }
             log.debug("StreamableHTTP failed for {}: {}", agentUri, e.getMessage());
         }
@@ -157,7 +157,7 @@ public final class McpConnectionManager implements AutoCloseable {
                 return client;
             } catch (Exception e) {
                 if (isAuthError(e)) {
-                    throw new AuthenticationRequiredError(agentUri, null, null);
+                    throw new AuthenticationRequiredError(agentUri, null, null, e);
                 }
                 throw new ProtocolError("mcp",
                         "Failed to connect to " + agentUri
@@ -194,8 +194,13 @@ public final class McpConnectionManager implements AutoCloseable {
                                 headers.forEach(rb::header))
                         .build();
         McpSyncClient client = McpClient.sync(transport).build();
-        client.initialize();
-        return client;
+        try {
+            client.initialize();
+            return client;
+        } catch (Exception e) {
+            closeQuietly(client);
+            throw e;
+        }
     }
 
     private static Map<String, String> sanitizeHeaders(Map<String, String> headers) {

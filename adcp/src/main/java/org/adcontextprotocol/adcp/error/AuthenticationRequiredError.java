@@ -25,9 +25,17 @@ public final class AuthenticationRequiredError extends AdcpError {
             URI agentUri,
             @Nullable AuthChallengeInfo challenge,
             @Nullable OAuthMetadataInfo oauthMetadata) {
+        this(agentUri, challenge, oauthMetadata, null);
+    }
+
+    public AuthenticationRequiredError(
+            URI agentUri,
+            @Nullable AuthChallengeInfo challenge,
+            @Nullable OAuthMetadataInfo oauthMetadata,
+            @Nullable Throwable cause) {
         super("AUTHENTICATION_REQUIRED",
                 "Authentication required for agent: " + agentUri,
-                null);
+                null, cause);
         this.agentUri = agentUri;
         this.challenge = challenge;
         this.oauthMetadata = oauthMetadata;

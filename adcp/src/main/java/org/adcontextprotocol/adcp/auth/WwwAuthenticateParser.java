@@ -48,7 +48,7 @@ public final class WwwAuthenticateParser {
             return null;
         }
 
-        String scheme = schemeMatcher.group(1).toLowerCase();
+        String scheme = schemeMatcher.group(1).toLowerCase(java.util.Locale.ROOT);
         String paramString = schemeMatcher.group(2);
 
         Map<String, String> params = parseParams(paramString);

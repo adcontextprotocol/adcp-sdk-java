@@ -119,4 +119,12 @@ class CredentialsTest {
         assertFalse(str.contains("refresh-secret"));
         assertTrue(str.contains("<REDACTED>"));
     }
+
+    @Test
+    void oauth_access_token_rejects_crlf() {
+        assertThrows(IllegalArgumentException.class,
+                () -> OAuthTokens.bearer("token\r\nX-Injected: bad"));
+        assertThrows(IllegalArgumentException.class,
+                () -> OAuthTokens.bearer("token\ninjection"));
+    }
 }
