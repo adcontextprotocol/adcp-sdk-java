@@ -116,6 +116,9 @@ public final class McpConnectionManager implements AutoCloseable {
             return client;
         } finally {
             keyLock.unlock();
+            // Remove per-key lock to prevent unbounded growth as tokens rotate.
+            // Safe: ConcurrentHashMap.remove(k,v) only removes if value matches.
+            keyLocks.remove(cacheKey, keyLock);
         }
     }
 
@@ -144,6 +147,7 @@ public final class McpConnectionManager implements AutoCloseable {
             cache.values().forEach(this::closeQuietly);
             cache.clear();
             knownStreamableKeys.clear();
+            keyLocks.clear();
         } finally {
             cacheLock.unlock();
         }
