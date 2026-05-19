@@ -125,8 +125,14 @@ public final class AdcpServerBuilder {
         return spec.build();
     }
 
+    /**
+     * Dispatches a tool call through the platform, handling version extraction,
+     * envelope stripping, error wrapping, and response serialization.
+     *
+     * <p>Package-private for testing ({@code AdcpServerBuilderTest}).
+     */
     @SuppressWarnings("unchecked")
-    private McpSchema.CallToolResult handleToolCall(
+    McpSchema.CallToolResult handleToolCall(
             ObjectMapper om, String toolName, McpSchema.CallToolRequest request) {
         try {
             Map<String, Object> args = request.arguments() != null
@@ -188,7 +194,8 @@ public final class AdcpServerBuilder {
         return truncated.replaceAll("[\\p{Cc}&&[^\t\n]]", "");
     }
 
-    private @Nullable AdcpVersion extractVersion(Map<String, Object> args) {
+    /** Package-private for testing. */
+    @Nullable AdcpVersion extractVersion(Map<String, Object> args) {
         Object majorRaw = args.get("adcp_major_version");
         int major;
         if (majorRaw instanceof Number num) {
