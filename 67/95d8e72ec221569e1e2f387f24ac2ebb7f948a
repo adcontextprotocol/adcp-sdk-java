@@ -1,0 +1,28 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/http/ProtectedHeaders.java
+  s_5a10c71ca4b03f::t_5b7a6f5ec1ec79 17
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/AdcpServerBuilder.java
+  s_5a10c71ca4b03f::t_9d2cbb02a36a4c 187,193-197
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/ProtocolClient.java
+  s_5a10c71ca4b03f::t_d39a47c7694d53 179-205
+  s_5a10c71ca4b03f::t_5f9e7df4457a23 119,121,130,136
+adcp/src/main/java/org/adcontextprotocol/adcp/http/AdcpHttpClient.java
+  s_5a10c71ca4b03f::t_ea48c1672a7951 127-138
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpCaller.java
+  s_5a10c71ca4b03f::t_181e8e3dbbd851 76-81,84,88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "6795d8e72ec221569e1e2f387f24ac2ebb7f948a",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
