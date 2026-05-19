@@ -73,4 +73,51 @@ class AdcpVersionTest {
         var v = new AdcpVersion(3, "3.1.2");
         assertEquals("3.1.2", v.minorVersion());
     }
+
+    // -- AdcpVersion.of(String) --
+
+    @Test
+    void of_parses_release_precision_version() {
+        AdcpVersion v = AdcpVersion.of("3.0");
+        assertEquals(3, v.majorVersion());
+        assertEquals("3.0", v.minorVersion());
+    }
+
+    @Test
+    void of_parses_minor_version() {
+        AdcpVersion v = AdcpVersion.of("3.1");
+        assertEquals(3, v.majorVersion());
+        assertEquals("3.1", v.minorVersion());
+    }
+
+    @Test
+    void of_rejects_major_only_string() {
+        assertThrows(IllegalArgumentException.class, () -> AdcpVersion.of("3"));
+    }
+
+    @Test
+    void of_rejects_non_numeric() {
+        assertThrows(IllegalArgumentException.class, () -> AdcpVersion.of("abc.def"));
+    }
+
+    @Test
+    void of_rejects_null() {
+        assertThrows(NullPointerException.class, () -> AdcpVersion.of(null));
+    }
+
+    // -- AdcpSdkVersion constants (build-time generated) --
+
+    @Test
+    void sdk_major_version_is_positive() {
+        assertTrue(AdcpSdkVersion.SDK_MAJOR_VERSION > 0,
+                "SDK_MAJOR_VERSION must be a positive integer");
+    }
+
+    @Test
+    void sdk_release_version_matches_major() {
+        String release = AdcpSdkVersion.SDK_RELEASE_VERSION;
+        assertTrue(release.startsWith(AdcpSdkVersion.SDK_MAJOR_VERSION + "."),
+                "SDK_RELEASE_VERSION must start with SDK_MAJOR_VERSION: " + release);
+    }
 }
+

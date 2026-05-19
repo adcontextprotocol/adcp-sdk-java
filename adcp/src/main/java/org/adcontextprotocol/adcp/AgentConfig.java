@@ -229,6 +229,17 @@ public record AgentConfig(
             return this;
         }
 
+        /**
+         * Pin a specific AdCP protocol version by release-precision string
+         * (e.g. {@code "3.0"}, {@code "3.1"}).
+         *
+         * <p>Equivalent to {@code adcpVersion(AdcpVersion.of(releaseVersion))}.
+         * Cross-major pins are rejected at {@link AdcpClient} build time.
+         */
+        public Builder adcpVersion(String releaseVersion) {
+            return adcpVersion(AdcpVersion.of(releaseVersion));
+        }
+
         /** Extra headers injected into every request to this agent. */
         public Builder extraHeaders(Map<String, String> extraHeaders) {
             this.extraHeaders = Map.copyOf(extraHeaders);
