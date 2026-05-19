@@ -1,0 +1,26 @@
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/AdcpServerBuilder.java
+  s_5a10c71ca4b03f::t_0ad4bd7a140969 128-133,135
+  s_5a10c71ca4b03f::t_c68b8b2521514d 197-198
+adcp-server/src/test/java/org/adcontextprotocol/adcp/server/AdcpServerBuilderTest.java
+  s_5a10c71ca4b03f::t_b003e349ede188 156-157
+  s_5a10c71ca4b03f::t_69e64127c938a2 121
+  s_5a10c71ca4b03f::t_a6f87ffb96d950 106-107,186-187,199,211,252-253
+  s_5a10c71ca4b03f::t_14985feb47353d 1-105,108-120,122-130,132-155,158-185,188-198,200-210,212-251,254-255
+  s_5a10c71ca4b03f::t_a6dbaeaeb03e70 131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "25b0a30149e0e9a778aba532abc623771ebc5ff2",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
