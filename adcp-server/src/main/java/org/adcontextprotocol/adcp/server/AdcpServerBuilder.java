@@ -184,12 +184,17 @@ public final class AdcpServerBuilder {
         } else {
             return adcpVersion;
         }
-        if (major < 3) {
+        if (major < 3 || major > 99) {
             throw new org.adcontextprotocol.adcp.error.VersionUnsupportedError(
                     null, "Unsupported AdCP major version: " + major,
                     String.valueOf(major), null);
         }
         String minor = args.get("adcp_version") instanceof String s ? s : null;
+        // Guard against unbounded strings from untrusted input
+        if (minor != null && minor.length() > 20) {
+            log.warn("Rejecting oversized adcp_version field ({} chars)", minor.length());
+            minor = null;
+        }
         return new AdcpVersion(major, minor);
     }
 }

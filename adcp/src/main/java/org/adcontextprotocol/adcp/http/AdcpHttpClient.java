@@ -124,8 +124,18 @@ public final class AdcpHttpClient implements AutoCloseable {
                 requestBuilder.build(),
                 HttpResponse.BodyHandlers.ofInputStream());
 
-        // Step 4: Read body with cap enforcement
-        return readBodyWithCap(response);
+        // Step 4: Read body with cap enforcement.
+        // Ensure the InputStream is closed even if readBodyWithCap throws.
+        try {
+            return readBodyWithCap(response);
+        } catch (Throwable t) {
+            try {
+                response.body().close();
+            } catch (Exception suppressed) {
+                t.addSuppressed(suppressed);
+            }
+            throw t;
+        }
     }
 
     /**

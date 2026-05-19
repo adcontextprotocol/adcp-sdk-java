@@ -73,15 +73,19 @@ public final class McpCaller {
         Exception firstParseError = null;
         for (McpSchema.Content content : result.content()) {
             if (content instanceof McpSchema.TextContent textContent) {
-                if (textContent.text() != null
-                        && textContent.text().length() > MAX_CONTENT_LENGTH) {
+                String text = textContent.text();
+                if (text == null) {
+                    log.debug("Skipping TextContent with null text");
+                    continue;
+                }
+                if (text.length() > MAX_CONTENT_LENGTH) {
                     throw new ProtocolError("mcp",
                             "MCP response content exceeds size limit ("
-                                    + textContent.text().length() + " > "
+                                    + text.length() + " > "
                                     + MAX_CONTENT_LENGTH + ")", null);
                 }
                 try {
-                    return objectMapper.readValue(textContent.text(), responseType);
+                    return objectMapper.readValue(text, responseType);
                 } catch (Exception e) {
                     if (firstParseError == null) firstParseError = e;
                     log.debug("Failed to parse TextContent as {}: {}",

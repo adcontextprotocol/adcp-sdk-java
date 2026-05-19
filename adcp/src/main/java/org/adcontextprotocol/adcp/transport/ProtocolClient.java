@@ -116,9 +116,9 @@ public final class ProtocolClient implements AutoCloseable {
                              Map<String, Object> mergedArgs,
                              Map<String, String> headers,
                              Class<T> responseType) {
-        String tokenHash = computeTokenHash(agent);
+        String cacheHash = computeCacheHash(agent);
         McpSyncClient client = connectionManager.getOrConnect(
-                agent.agentUri(), headers, tokenHash);
+                agent.agentUri(), headers, cacheHash);
 
         try {
             return mcpCaller.callTool(client, toolName, mergedArgs, responseType);
@@ -127,13 +127,13 @@ public final class ProtocolClient implements AutoCloseable {
                 throw e;
             }
             // On transport error, evict and retry once
-            connectionManager.evict(agent.agentUri(), tokenHash);
+            connectionManager.evict(agent.agentUri(), cacheHash);
             log.debug("MCP transport error for {}, retrying after evict: {}",
                     toolName, e.getMessage());
 
             ProtocolError original = e;
             client = connectionManager.getOrConnect(
-                    agent.agentUri(), headers, tokenHash);
+                    agent.agentUri(), headers, cacheHash);
             try {
                 return mcpCaller.callTool(client, toolName, mergedArgs, responseType);
             } catch (ProtocolError retry) {
@@ -172,6 +172,34 @@ public final class ProtocolClient implements AutoCloseable {
         } catch (java.net.UnknownHostException e) {
             throw new ProtocolError("mcp",
                     "Cannot resolve agent host", e);
+        }
+    }
+
+    /**
+     * Computes a combined hash of credentials + extraHeaders for use as
+     * a connection cache key. This ensures connections are not shared
+     * across different auth tokens or different routing headers.
+     */
+    private static String computeCacheHash(AgentConfig agent) {
+        String tokenHash = computeTokenHash(agent);
+        if (agent.extraHeaders().isEmpty()) {
+            return tokenHash;
+        }
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(tokenHash.getBytes(StandardCharsets.UTF_8));
+            md.update((byte) '\0');
+            agent.extraHeaders().entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(e -> {
+                        md.update(e.getKey().getBytes(StandardCharsets.UTF_8));
+                        md.update((byte) '=');
+                        md.update(e.getValue().getBytes(StandardCharsets.UTF_8));
+                        md.update((byte) '\n');
+                    });
+            return HexFormat.of().formatHex(md.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new AssertionError("SHA-256 not available", e);
         }
     }
 
