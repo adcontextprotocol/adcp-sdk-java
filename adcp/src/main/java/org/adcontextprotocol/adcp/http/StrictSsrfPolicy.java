@@ -60,25 +60,33 @@ final class StrictSsrfPolicy implements SsrfPolicy {
     }
 
     private static InetAddress unmapIpv4Mapped(InetAddress address) {
-        // ::ffff:0:0/96 — an IPv4 address tunneled inside an IPv6 address.
-        // The JDK's range methods evaluate the v6 form, not the embedded v4,
-        // so we unwrap to apply the v4 ranges (RFC 1918 etc.) to the
-        // effective destination.
-        //
-        // Note: Inet6Address.isIPv4CompatibleAddress() checks the legacy
-        // "::a.b.c.d" form (which also matches ::1), not the IPv4-mapped
-        // "::ffff:a.b.c.d" form we want. We test the bytes directly.
+        // Unwrap both IPv4-mapped (::ffff:a.b.c.d) and IPv4-compatible
+        // (::a.b.c.d) IPv6 addresses so that the embedded IPv4 address
+        // gets evaluated against the IPv4 block ranges. The compatible
+        // form is deprecated (RFC 4291 §2.5.5.1) but still parsed by
+        // JDK's InetAddress, and JDK's range methods (isLoopback, etc.)
+        // return false for these addresses — making them an SSRF vector.
         if (!(address instanceof Inet6Address v6)) {
             return address;
         }
         byte[] addr = v6.getAddress();
-        // First 80 bits zero, next 16 bits 0xFFFF — the IPv4-mapped form.
+        // First 80 bits must be zero (common to both forms)
         for (int i = 0; i < 10; i++) {
             if (addr[i] != 0) {
                 return address;
             }
         }
-        if ((addr[10] & 0xFF) != 0xFF || (addr[11] & 0xFF) != 0xFF) {
+        // IPv4-mapped: bytes 10-11 = 0xFF, 0xFF
+        boolean isMapped = (addr[10] & 0xFF) == 0xFF && (addr[11] & 0xFF) == 0xFF;
+        // IPv4-compatible: bytes 10-11 = 0x00, 0x00 (and not all-zeros/::1)
+        boolean isCompat = addr[10] == 0 && addr[11] == 0;
+        if (!isMapped && !isCompat) {
+            return address;
+        }
+        // Guard: don't unwrap :: (all zeros) or ::1 — those are already
+        // handled by isAnyLocalAddress() / isLoopbackAddress()
+        if (isCompat && addr[12] == 0 && addr[13] == 0
+                && addr[14] == 0 && (addr[15] == 0 || addr[15] == 1)) {
             return address;
         }
         byte[] v4Bytes = new byte[]{addr[12], addr[13], addr[14], addr[15]};

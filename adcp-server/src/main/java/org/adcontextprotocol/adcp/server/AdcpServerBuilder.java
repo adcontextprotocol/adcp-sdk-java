@@ -141,12 +141,14 @@ public final class AdcpServerBuilder {
                     List.of(new McpSchema.TextContent(json)),
                     false, null, Map.of());
         } catch (org.adcontextprotocol.adcp.error.AdcpError e) {
-            // Known application errors — safe to surface the code and message
-            log.warn("Tool call failed ({}): {}", toolName, e.code());
+            // Known application errors — surface the stable code, not the
+            // free-text message (which may contain internal details if the
+            // platform wraps infrastructure exceptions in AdcpError).
+            log.warn("Tool call failed ({}) [{}]: {}", toolName, e.code(), e.getMessage());
             String safeError;
             try {
                 safeError = om.writeValueAsString(
-                        Map.of("error", e.getMessage(), "code", e.code()));
+                        Map.of("error", e.code(), "code", e.code()));
             } catch (Exception ignored) {
                 // e.code() is always an enum-like constant, but use a
                 // fixed string to be absolutely safe against JSON injection.

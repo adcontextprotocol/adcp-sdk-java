@@ -202,4 +202,24 @@ class AgentConfigTest {
         assertTrue(str.contains("<1 headers>"),
                 "toString() should show header count");
     }
+
+    @Test
+    void rejects_extraHeaders_with_crlf_in_key() {
+        assertThrows(org.adcontextprotocol.adcp.error.ConfigurationError.class,
+                () -> AgentConfig.builder()
+                        .id("a1")
+                        .agentUri(AGENT_URI)
+                        .extraHeaders(Map.of("X-Bad\rKey", "value"))
+                        .build());
+    }
+
+    @Test
+    void rejects_extraHeaders_with_crlf_in_value() {
+        assertThrows(org.adcontextprotocol.adcp.error.ConfigurationError.class,
+                () -> AgentConfig.builder()
+                        .id("a1")
+                        .agentUri(AGENT_URI)
+                        .extraHeaders(Map.of("X-Key", "bad\nvalue"))
+                        .build());
+    }
 }

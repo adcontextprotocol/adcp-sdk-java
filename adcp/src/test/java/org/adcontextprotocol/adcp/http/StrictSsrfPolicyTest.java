@@ -44,7 +44,11 @@ class StrictSsrfPolicyTest {
             "ff02::1",                       // IPv6 multicast
             "::ffff:127.0.0.1",              // IPv4-mapped IPv6 loopback
             "::ffff:10.0.0.1",               // IPv4-mapped IPv6 RFC 1918
-            "::ffff:169.254.169.254"         // IPv4-mapped IPv6 cloud metadata
+            "::ffff:169.254.169.254",        // IPv4-mapped IPv6 cloud metadata
+            "::127.0.0.1",                   // IPv4-compatible loopback
+            "::10.0.0.1",                    // IPv4-compatible RFC 1918
+            "::169.254.169.254",             // IPv4-compatible cloud metadata
+            "::192.168.1.1"                  // IPv4-compatible RFC 1918
     })
     void denies_block_table(String literal) throws UnknownHostException {
         InetAddress addr = InetAddress.getByName(literal);

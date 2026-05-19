@@ -21,6 +21,9 @@ public final class McpCaller {
 
     private static final Logger log = LoggerFactory.getLogger(McpCaller.class);
 
+    /** Maximum allowed TextContent length (10 MB, matching ObjectMapper limits). */
+    private static final int MAX_CONTENT_LENGTH = 10 * 1024 * 1024;
+
     private final ObjectMapper objectMapper;
 
     public McpCaller(ObjectMapper objectMapper) {
@@ -70,6 +73,13 @@ public final class McpCaller {
         Exception firstParseError = null;
         for (McpSchema.Content content : result.content()) {
             if (content instanceof McpSchema.TextContent textContent) {
+                if (textContent.text() != null
+                        && textContent.text().length() > MAX_CONTENT_LENGTH) {
+                    throw new ProtocolError("mcp",
+                            "MCP response content exceeds size limit ("
+                                    + textContent.text().length() + " > "
+                                    + MAX_CONTENT_LENGTH + ")", null);
+                }
                 try {
                     return objectMapper.readValue(textContent.text(), responseType);
                 } catch (Exception e) {

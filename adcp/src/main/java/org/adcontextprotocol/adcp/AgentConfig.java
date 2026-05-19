@@ -5,6 +5,8 @@ import org.adcontextprotocol.adcp.auth.OAuthClientCredentials;
 import org.adcontextprotocol.adcp.auth.OAuthTokens;
 import org.adcontextprotocol.adcp.error.ConfigurationError;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.util.Map;
@@ -40,6 +42,8 @@ public record AgentConfig(
         Map<String, String> extraHeaders
 ) {
 
+    private static final Logger log = LoggerFactory.getLogger(AgentConfig.class);
+
     public AgentConfig {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(agentUri, "agentUri");
@@ -47,6 +51,8 @@ public record AgentConfig(
         extraHeaders = Map.copyOf(extraHeaders);
         validateAuth(authToken, basicAuth, oauthClientCredentials, oauthTokens);
         validateAuthToken(authToken);
+        validateExtraHeaders(extraHeaders);
+        warnPlaintextAuth(agentUri, authToken, basicAuth, oauthClientCredentials, oauthTokens);
     }
 
     @Override
@@ -114,6 +120,35 @@ public record AgentConfig(
                 && (authToken.indexOf('\r') >= 0 || authToken.indexOf('\n') >= 0)) {
             throw new ConfigurationError(
                     "authToken must not contain CR/LF characters", "authToken");
+        }
+    }
+
+    private static void validateExtraHeaders(Map<String, String> headers) {
+        for (var entry : headers.entrySet()) {
+            if (hasCrlf(entry.getKey()) || hasCrlf(entry.getValue())) {
+                throw new ConfigurationError(
+                        "extraHeaders key/value must not contain CR/LF: "
+                                + entry.getKey(), "extraHeaders");
+            }
+        }
+    }
+
+    private static boolean hasCrlf(String s) {
+        return s.indexOf('\r') >= 0 || s.indexOf('\n') >= 0;
+    }
+
+    private static void warnPlaintextAuth(
+            URI agentUri,
+            @Nullable String authToken,
+            @Nullable BasicCredentials basicAuth,
+            @Nullable OAuthClientCredentials oauthCC,
+            @Nullable OAuthTokens oauthTokens) {
+        boolean hasAuth = authToken != null || basicAuth != null
+                || oauthCC != null || oauthTokens != null;
+        if (hasAuth && "http".equalsIgnoreCase(agentUri.getScheme())) {
+            log.warn("Credentials configured for plaintext HTTP agent URI: {}. "
+                    + "Use HTTPS in production to prevent credential interception.",
+                    agentUri);
         }
     }
 

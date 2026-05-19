@@ -14,6 +14,9 @@ import org.jspecify.annotations.Nullable;
  */
 public record AdcpVersion(int majorVersion, @Nullable String minorVersion) {
 
+    private static final java.util.regex.Pattern MINOR_VERSION_PATTERN =
+            java.util.regex.Pattern.compile("\\d+\\.\\d+(\\.\\d+)?");
+
     /** AdCP v3.0 (current default). */
     public static final AdcpVersion V3 = new AdcpVersion(3, null);
 
@@ -24,9 +27,20 @@ public record AdcpVersion(int majorVersion, @Nullable String minorVersion) {
         if (majorVersion < 1) {
             throw new IllegalArgumentException("majorVersion must be >= 1: " + majorVersion);
         }
-        if (minorVersion != null && !minorVersion.startsWith(majorVersion + ".")) {
-            throw new IllegalArgumentException(
-                    "minorVersion must start with majorVersion: " + minorVersion);
+        if (minorVersion != null) {
+            if (minorVersion.length() > 20) {
+                throw new IllegalArgumentException(
+                        "minorVersion too long: " + minorVersion.length());
+            }
+            if (!MINOR_VERSION_PATTERN.matcher(minorVersion).matches()) {
+                throw new IllegalArgumentException(
+                        "minorVersion must be a version string (e.g. '3.1'): "
+                                + minorVersion);
+            }
+            if (!minorVersion.startsWith(majorVersion + ".")) {
+                throw new IllegalArgumentException(
+                        "minorVersion must start with majorVersion: " + minorVersion);
+            }
         }
     }
 }

@@ -7,8 +7,15 @@ import java.time.Duration;
 /**
  * Options for a single {@code callTool()} invocation.
  *
- * @param timeout     per-call timeout (overrides client default)
- * @param maxResponseBytes per-call body cap (overrides client default)
+ * <p><b>Implementation status:</b> In v0.1, MCP transport applies a
+ * fixed 10 MB content limit regardless of {@code maxResponseBytes}.
+ * The {@code timeout} and {@code maxResponseBytes} fields are accepted
+ * for forward compatibility but are <em>not yet wired</em> into the
+ * MCP transport path. They will be enforced when the call-level timeout
+ * and per-agent body-cap features ship (planned v0.2).
+ *
+ * @param timeout     per-call timeout (overrides client default) — <em>reserved, not yet enforced</em>
+ * @param maxResponseBytes per-call body cap (overrides client default) — <em>reserved, not yet enforced</em>
  * @param validateResponse whether to validate the response against schema
  */
 public record CallToolOptions(

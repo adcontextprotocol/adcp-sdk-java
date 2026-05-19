@@ -53,4 +53,24 @@ class AdcpVersionTest {
         assertEquals(5, v.majorVersion());
         assertNull(v.minorVersion());
     }
+
+    @Test
+    void rejects_minor_version_with_invalid_characters() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new AdcpVersion(3, "3.\nFake-Log-Entry"),
+                "minorVersion must be a version string");
+    }
+
+    @Test
+    void rejects_minor_version_too_long() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new AdcpVersion(3, "3.1234567890123456789"),
+                "minorVersion too long");
+    }
+
+    @Test
+    void accepts_three_part_minor_version() {
+        var v = new AdcpVersion(3, "3.1.2");
+        assertEquals("3.1.2", v.minorVersion());
+    }
 }
