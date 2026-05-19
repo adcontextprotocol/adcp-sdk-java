@@ -108,6 +108,10 @@ public final class McpConnectionManager implements AutoCloseable {
 
             cacheLock.lock();
             try {
+                if (closed) {
+                    closeQuietly(client);
+                    throw new IllegalStateException("McpConnectionManager is closed");
+                }
                 cache.put(cacheKey, client);
                 evictOldest();
             } finally {
@@ -116,9 +120,13 @@ public final class McpConnectionManager implements AutoCloseable {
             return client;
         } finally {
             keyLock.unlock();
-            // Remove per-key lock to prevent unbounded growth as tokens rotate.
-            // Safe: ConcurrentHashMap.remove(k,v) only removes if value matches.
-            keyLocks.remove(cacheKey, keyLock);
+            // Only remove the per-key lock if no other thread is queued on it.
+            // Eager removal while another thread holds/waits on this lock lets
+            // a third thread create a new lock for the same key, breaking
+            // mutual exclusion and causing duplicate connections.
+            if (!keyLock.hasQueuedThreads()) {
+                keyLocks.remove(cacheKey, keyLock);
+            }
         }
     }
 

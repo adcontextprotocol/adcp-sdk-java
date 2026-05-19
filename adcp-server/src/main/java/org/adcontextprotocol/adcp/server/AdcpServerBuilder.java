@@ -147,12 +147,13 @@ public final class AdcpServerBuilder {
                     false, null, Map.of());
         } catch (org.adcontextprotocol.adcp.error.AdcpError e) {
             // Known application errors — surface the stable code plus a
-            // brief message. The full message is logged server-side.
+            // brief, sanitized message. The full message is logged server-side.
             log.warn("Tool call failed ({}) [{}]: {}", toolName, e.code(), e.getMessage());
             String safeError;
             try {
                 safeError = om.writeValueAsString(
-                        Map.of("error", e.code(), "message", e.getMessage()));
+                        Map.of("error", e.code(),
+                                "message", sanitizeErrorMessage(e.getMessage())));
             } catch (Exception ignored) {
                 // e.code() is always an enum-like constant, but use a
                 // fixed string to be absolutely safe against JSON injection.
@@ -168,6 +169,21 @@ public final class AdcpServerBuilder {
                     List.of(new McpSchema.TextContent("{\"error\":\"internal error\"}")),
                     true, null, Map.of());
         }
+    }
+
+    private static final int MAX_ERROR_MESSAGE_LENGTH = 500;
+
+    /**
+     * Sanitizes error messages before sending to remote callers.
+     * Prevents leaking internal details (stack traces, SQL, file paths).
+     */
+    private static String sanitizeErrorMessage(String raw) {
+        if (raw == null) return "(no error detail)";
+        String truncated = raw.length() > MAX_ERROR_MESSAGE_LENGTH
+                ? raw.substring(0, MAX_ERROR_MESSAGE_LENGTH) + "..."
+                : raw;
+        // Strip control characters except tab and newline
+        return truncated.replaceAll("[\\p{Cc}&&[^\t\n]]", "");
     }
 
     private @Nullable AdcpVersion extractVersion(Map<String, Object> args) {
