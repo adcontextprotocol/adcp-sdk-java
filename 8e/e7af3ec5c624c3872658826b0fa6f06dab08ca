@@ -1,0 +1,45 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/ProtocolClient.java
+  s_5a10c71ca4b03f::t_355b136ee581d2 154-170
+  s_5a10c71ca4b03f::t_13ba9636e1843a 192
+  s_5a10c71ca4b03f::t_1276937167af57 80-82
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpCaller.java
+  s_5a10c71ca4b03f::t_3a112fc6b7ea9e 93-94,99,105-115
+adcp/src/main/java/org/adcontextprotocol/adcp/http/AdcpHttpClient.java
+  s_5a10c71ca4b03f::t_bbe1447d22154c 245-246
+adcp/src/main/java/org/adcontextprotocol/adcp/http/SsrfBlockedException.java
+  s_5a10c71ca4b03f::t_af0e6aed4a48b7 24-25
+adcp/src/main/java/org/adcontextprotocol/adcp/schema/AdcpObjectMapperFactory.java
+  s_5a10c71ca4b03f::t_6d6193a69957e5 27-28,31
+adcp/src/test/java/org/adcontextprotocol/adcp/AgentConfigTest.java
+  s_5a10c71ca4b03f::t_b656f66c41186e 162-189
+adcp/src/test/java/org/adcontextprotocol/adcp/schema/AdcpObjectMapperFactoryTest.java
+  s_5a10c71ca4b03f::t_2e90993ae00535 53-56,63-64
+adcp/src/main/java/org/adcontextprotocol/adcp/http/AdcpHttpResponse.java
+  s_5a10c71ca4b03f::t_ce204fc462fc9e 27-31
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/AdcpServerBuilder.java
+  s_5a10c71ca4b03f::t_078e1b1c1d42b6 141-143,147,149,154-158
+  s_5a10c71ca4b03f::t_bbeedf2d4b6dea 166-171,173
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpConnectionManager.java
+  s_5a10c71ca4b03f::t_1c685eb8833dda 68-71
+  s_5a10c71ca4b03f::t_55a2ab22b0ab1c 38
+  s_5a10c71ca4b03f::t_5279c63ae82044 129,137,158,181,194-217
+adcp/src/main/java/org/adcontextprotocol/adcp/AgentConfig.java
+  s_5a10c71ca4b03f::t_aa88a5c37c63d6 49-64
+  s_5a10c71ca4b03f::t_53724f1d4ede43 111-118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "8ee7af3ec5c624c3872658826b0fa6f06dab08ca",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
