@@ -1,0 +1,58 @@
+adcp/src/test/java/org/adcontextprotocol/adcp/AgentConfigTest.java
+  s_5a10c71ca4b03f::t_c9c2e018167234 190-204
+adcp/src/main/java/org/adcontextprotocol/adcp/AdcpClient.java
+  s_5a10c71ca4b03f::t_109cfc880eac7a 50-56
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/AdcpPlatform.java
+  s_5a10c71ca4b03f::t_d270191cafb195 58-70
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/AdcpServerBuilder.java
+  s_5a10c71ca4b03f::t_8296fe7466d6d0 101,109,112
+  s_5a10c71ca4b03f::t_ec31712db9f64d 151-153
+adcp/src/test/java/org/adcontextprotocol/adcp/auth/WwwAuthenticateParserTest.java
+  s_5a10c71ca4b03f::t_c0cde28ddde59c 92-98
+adcp/src/main/java/org/adcontextprotocol/adcp/http/AdcpHttpResponse.java
+  s_5a10c71ca4b03f::t_12d8eb034d91fe 32-40
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpConnectionManager.java
+  s_5a10c71ca4b03f::t_3b61fa7c4f00ef 123-129
+  s_5a10c71ca4b03f::t_f9d681043ce53a 223-224,227,229-231
+  s_5a10c71ca4b03f::t_c5325ec0c80b1f 8
+  s_5a10c71ca4b03f::t_7a7f20cabd84a6 228
+  s_5a10c71ca4b03f::t_7d58c98953b7b8 206
+  s_5a10c71ca4b03f::t_26019c551a339c 141,155,171,181-198
+  s_5a10c71ca4b03f::t_37a3237d1b3871 108
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpCaller.java
+  s_5a10c71ca4b03f::t_e6c660a0e941f5 70,76,89
+adcp/src/main/java/org/adcontextprotocol/adcp/http/AdcpHttpClient.java
+  s_5a10c71ca4b03f::t_f0b7a70422f15d 245
+adcp/src/test/java/org/adcontextprotocol/adcp/AdcpClientTest.java
+  s_5a10c71ca4b03f::t_ec79807b037ee5 73-83
+adcp/src/main/java/org/adcontextprotocol/adcp/AdcpVersion.java
+  s_5a10c71ca4b03f::t_ba18820d7142a7 27-30
+adcp/src/main/java/org/adcontextprotocol/adcp/AgentConfig.java
+  s_5a10c71ca4b03f::t_f590fff22f6571 64-65
+adcp/src/test/java/org/adcontextprotocol/adcp/AdcpVersionTest.java
+  s_5a10c71ca4b03f::t_13a362b7bfc398 42-55
+adcp/src/main/java/org/adcontextprotocol/adcp/http/ProtectedHeaders.java
+  s_5a10c71ca4b03f::t_128113433d17b8 1-25
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/AuthChallengeInfo.java
+  s_5a10c71ca4b03f::t_5f0bde5cda8a16 26
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/CallToolOptions.java
+  s_5a10c71ca4b03f::t_414a1eaf351241 40-43
+adcp-server/src/test/java/org/adcontextprotocol/adcp/server/AdcpPlatformTest.java
+  s_5a10c71ca4b03f::t_a322ac1746be3e 72-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "20254dae0a91f5e4f8e96570b743eb121cb4af65",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
