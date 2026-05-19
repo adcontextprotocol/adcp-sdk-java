@@ -10,6 +10,10 @@ import java.util.Map;
  * headers, and body — with truncation tracking when the body cap
  * is exceeded.
  *
+ * <p><b>Note:</b> Equality comparison is not meaningful for this record
+ * because it contains a byte array field. Use explicit content comparison
+ * via {@link java.util.Arrays#equals(byte[], byte[])} if needed.
+ *
  * @param statusCode   HTTP status code
  * @param headers      response headers
  * @param body         response body (possibly truncated)
@@ -24,7 +28,10 @@ public record AdcpHttpResponse(
         long bytesRead
 ) {
 
-    /** Defensive copy to prevent callers from mutating the response body. */
+    /**
+     * Defensive copy on construction to prevent callers who retain
+     * a reference to the input array from mutating response state.
+     */
     public AdcpHttpResponse {
         body = body.clone();
     }
@@ -38,7 +45,7 @@ public record AdcpHttpResponse(
         return body.clone();
     }
 
-    /** Returns the body as a UTF-8 string. */
+    /** Returns the body as a UTF-8 string (from the internal copy, no extra clone). */
     public String bodyAsString() {
         return new String(body, java.nio.charset.StandardCharsets.UTF_8);
     }
@@ -46,5 +53,26 @@ public record AdcpHttpResponse(
     /** Returns the value of a single header, or {@code null} if absent. */
     public @Nullable String header(String name) {
         return headers.firstValue(name).orElse(null);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof AdcpHttpResponse that)) return false;
+        return statusCode == that.statusCode
+                && truncated == that.truncated
+                && bytesRead == that.bytesRead
+                && java.util.Arrays.equals(body, that.body)
+                && headers.equals(that.headers);
+    }
+
+    @Override
+    public int hashCode() {
+        int h = Integer.hashCode(statusCode);
+        h = 31 * h + headers.hashCode();
+        h = 31 * h + java.util.Arrays.hashCode(body);
+        h = 31 * h + Boolean.hashCode(truncated);
+        h = 31 * h + Long.hashCode(bytesRead);
+        return h;
     }
 }

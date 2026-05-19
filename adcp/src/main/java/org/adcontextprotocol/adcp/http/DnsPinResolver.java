@@ -3,19 +3,16 @@ package org.adcontextprotocol.adcp.http;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.net.spi.InetAddressResolver;
-import java.net.spi.InetAddressResolverProvider;
-import java.util.stream.Stream;
 
 /**
  * DNS-pinning resolver that resolves a hostname once, validates every
  * address against an {@link SsrfPolicy}, and returns only the first
  * validated address — preventing DNS-rebinding attacks.
  *
- * <p>This uses the JDK 21 {@link InetAddressResolverProvider} SPI.
- * The resolver is not installed globally; instead, {@link AdcpHttpClient}
- * resolves via this class before each request and pins the connection
- * to the validated IP.
+ * <p>Resolution uses {@link InetAddress#getAllByName(String)} (the
+ * system resolver). The resolver is not installed globally; instead,
+ * {@link AdcpHttpClient} resolves via this class before each request
+ * and pins the connection to the validated IP.
  */
 public final class DnsPinResolver {
 

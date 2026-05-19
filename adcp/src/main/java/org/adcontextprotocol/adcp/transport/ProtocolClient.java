@@ -74,18 +74,23 @@ public final class ProtocolClient implements AutoCloseable {
         // 1. Validate agent URL against SSRF policy
         validateUrl(agent);
 
-        // 2. Resolve auth headers
+        // 2. Warn if non-default options are passed (not yet enforced in v0.1)
+        if (!options.equals(CallToolOptions.DEFAULT)) {
+            log.debug("CallToolOptions fields are not yet enforced by the MCP transport (v0.1)");
+        }
+
+        // 3. Resolve auth headers
         Map<String, String> authHeaders = AuthTokenResolver.resolve(agent);
 
-        // 3. Merge headers: extra headers first, then auth (auth wins)
+        // 4. Merge headers: extra headers first, then auth (auth wins)
         Map<String, String> allHeaders = new LinkedHashMap<>(agent.extraHeaders());
         allHeaders.putAll(authHeaders);
 
-        // 4. Build version envelope and merge into args
+        // 5. Build version envelope and merge into args
         AdcpVersion version = agent.adcpVersion() != null ? agent.adcpVersion() : adcpVersion;
         Map<String, Object> mergedArgs = VersionEnvelope.mergeInto(args, version);
 
-        // 5. Dispatch to transport
+        // 6. Dispatch to transport
         return switch (agent.protocol()) {
             case MCP -> callViaMcp(agent, toolName, mergedArgs, allHeaders, responseType);
             case A2A -> throw new FeatureUnsupportedError(
@@ -182,6 +187,10 @@ public final class ProtocolClient implements AutoCloseable {
             token = agent.oauthTokens().accessToken();
         } else if (agent.basicAuth() != null) {
             token = agent.basicAuth().username() + ":" + agent.basicAuth().password();
+        } else if (agent.oauthClientCredentials() != null) {
+            // Client-credentials flow: key on clientId to distinguish
+            // different OAuth apps hitting the same endpoint.
+            token = "cc:" + agent.oauthClientCredentials().clientId();
         }
         if (token.isEmpty()) {
             return "anonymous";

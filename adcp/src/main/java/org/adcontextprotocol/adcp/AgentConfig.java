@@ -61,9 +61,9 @@ public record AgentConfig(
                 + ", agentUri=" + agentUri
                 + ", protocol=" + protocol
                 + ", authToken=" + (authToken != null ? "<REDACTED>" : "null")
-                + ", basicAuth=" + basicAuth
-                + ", oauthClientCredentials=" + oauthClientCredentials
-                + ", oauthTokens=" + oauthTokens
+                + ", basicAuth=" + (basicAuth != null ? "<REDACTED>" : "null")
+                + ", oauthClientCredentials=" + (oauthClientCredentials != null ? "<REDACTED>" : "null")
+                + ", oauthTokens=" + (oauthTokens != null ? "<REDACTED>" : "null")
                 + ", webhookUrlTemplate=" + webhookUrlTemplate
                 + ", webhookSecret=" + (webhookSecret != null ? "<REDACTED>" : "null")
                 + ", adcpVersion=" + adcpVersion

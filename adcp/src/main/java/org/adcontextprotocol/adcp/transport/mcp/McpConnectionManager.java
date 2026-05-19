@@ -36,7 +36,7 @@ public final class McpConnectionManager implements AutoCloseable {
     private final LinkedHashMap<String, McpSyncClient> cache =
             new LinkedHashMap<>(16, 0.75f, true);
     private final ReentrantLock lock = new ReentrantLock();
-    private final java.util.HashSet<String> knownStreamableUrls = new java.util.HashSet<>();
+    private final java.util.HashSet<String> knownStreamableKeys = new java.util.HashSet<>();
     private final Duration connectTimeout;
     private volatile boolean closed;
 
@@ -75,7 +75,7 @@ public final class McpConnectionManager implements AutoCloseable {
                 return existing;
             }
 
-            McpSyncClient client = connectWithFallback(agentUri, headers);
+            McpSyncClient client = connectWithFallback(agentUri, headers, cacheKey);
             cache.put(cacheKey, client);
             evictOldest();
             return client;
@@ -93,7 +93,7 @@ public final class McpConnectionManager implements AutoCloseable {
         try {
             McpSyncClient evicted = cache.remove(cacheKey);
             if (evicted != null) {
-                knownStreamableUrls.remove(agentUri.toString());
+                knownStreamableKeys.remove(cacheKey);
                 closeQuietly(evicted);
             }
         } finally {
@@ -108,7 +108,7 @@ public final class McpConnectionManager implements AutoCloseable {
             closed = true;
             cache.values().forEach(this::closeQuietly);
             cache.clear();
-            knownStreamableUrls.clear();
+            knownStreamableKeys.clear();
         } finally {
             lock.unlock();
         }
@@ -120,26 +120,21 @@ public final class McpConnectionManager implements AutoCloseable {
             if (it.hasNext()) {
                 var entry = it.next();
                 it.remove();
-                // Extract URL from "url::hash" key and clear its
-                // known-streamable flag so reconnection retries fallback.
-                String key = entry.getKey();
-                int sep = key.indexOf("::");
-                if (sep > 0) {
-                    knownStreamableUrls.remove(key.substring(0, sep));
-                }
+                knownStreamableKeys.remove(entry.getKey());
                 closeQuietly(entry.getValue());
             }
         }
     }
 
-    private McpSyncClient connectWithFallback(URI agentUri, Map<String, String> headers) {
+    private McpSyncClient connectWithFallback(URI agentUri, Map<String, String> headers,
+                                               String cacheKey) {
         String url = agentUri.toString();
         Map<String, String> safe = sanitizeHeaders(headers);
 
         // Try StreamableHTTP first
         try {
             McpSyncClient client = buildAndInit(url, safe, true);
-            knownStreamableUrls.add(url);
+            knownStreamableKeys.add(cacheKey);
             log.debug("Connected to {} via StreamableHTTP", agentUri);
             return client;
         } catch (Exception e) {
@@ -149,8 +144,8 @@ public final class McpConnectionManager implements AutoCloseable {
             log.debug("StreamableHTTP failed for {}: {}", agentUri, e.getMessage());
         }
 
-        // If this URL has never succeeded with StreamableHTTP, try SSE fallback
-        if (!knownStreamableUrls.contains(url)) {
+        // If this cache key has never succeeded with StreamableHTTP, try SSE fallback
+        if (!knownStreamableKeys.contains(cacheKey)) {
             try {
                 McpSyncClient client = buildAndInit(url, safe, false);
                 log.debug("Connected to {} via SSE fallback", agentUri);
@@ -166,7 +161,7 @@ public final class McpConnectionManager implements AutoCloseable {
             }
         }
 
-        // Retry StreamableHTTP once for known-good endpoints
+        // Retry StreamableHTTP once for known-good endpoints (after eviction/reconnect)
         try {
             McpSyncClient client = buildAndInit(url, safe, true);
             log.debug("Reconnected to {} via StreamableHTTP (retry)", agentUri);
@@ -225,8 +220,10 @@ public final class McpConnectionManager implements AutoCloseable {
         return s.indexOf('\r') >= 0 || s.indexOf('\n') >= 0;
     }
 
-    // TODO: Replace string-based 401 detection when MCP SDK exposes typed
-    // HTTP status on errors (tracked as an MCP SDK limitation).
+    // TODO(7.2.0-delta): MCP SDK 1.1.2 does not expose HTTP response headers
+    // on errors. When it does, parse WWW-Authenticate via WwwAuthenticateParser
+    // and populate AuthenticationRequiredError.challenge(). Until then, callers
+    // receive challenge=null on auth errors from the MCP path.
     private boolean isAuthError(Exception e) {
         for (Throwable t = e; t != null; t = t.getCause()) {
             // Check MCP SDK's error type first

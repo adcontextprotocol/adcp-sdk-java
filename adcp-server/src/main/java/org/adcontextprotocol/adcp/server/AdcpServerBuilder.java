@@ -6,7 +6,6 @@ import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpServerTransportProvider;
 import org.adcontextprotocol.adcp.AdcpVersion;
-import org.adcontextprotocol.adcp.error.ProtocolError;
 import org.adcontextprotocol.adcp.schema.AdcpObjectMapperFactory;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -89,8 +88,8 @@ public final class AdcpServerBuilder {
      */
     public McpSyncServer build() {
         if (transport == null) {
-            throw new ProtocolError("mcp",
-                    "McpServerTransportProvider is required", null);
+            throw new org.adcontextprotocol.adcp.error.ConfigurationError(
+                    "McpServerTransportProvider is required", "transport");
         }
 
         ObjectMapper om = objectMapper != null
@@ -107,9 +106,15 @@ public final class AdcpServerBuilder {
 
         for (String toolName : tools) {
             String description = descriptions.getOrDefault(toolName, toolName);
+            // MCP spec requires inputSchema on every tool. Use a permissive
+            // open-object schema as the default since AdCP tools accept
+            // arbitrary JSON args (version envelope + caller args).
+            McpSchema.JsonSchema inputSchema = new McpSchema.JsonSchema(
+                    "object", Map.of(), List.of(), true, null, null);
             McpSchema.Tool tool = McpSchema.Tool.builder()
                     .name(toolName)
                     .description(description)
+                    .inputSchema(inputSchema)
                     .build();
             spec.toolCall(tool,
                     (exchange, request) -> handleToolCall(om, toolName, request));
@@ -141,14 +146,13 @@ public final class AdcpServerBuilder {
                     List.of(new McpSchema.TextContent(json)),
                     false, null, Map.of());
         } catch (org.adcontextprotocol.adcp.error.AdcpError e) {
-            // Known application errors — surface the stable code, not the
-            // free-text message (which may contain internal details if the
-            // platform wraps infrastructure exceptions in AdcpError).
+            // Known application errors — surface the stable code plus a
+            // brief message. The full message is logged server-side.
             log.warn("Tool call failed ({}) [{}]: {}", toolName, e.code(), e.getMessage());
             String safeError;
             try {
                 safeError = om.writeValueAsString(
-                        Map.of("error", e.code(), "code", e.code()));
+                        Map.of("error", e.code(), "message", e.getMessage()));
             } catch (Exception ignored) {
                 // e.code() is always an enum-like constant, but use a
                 // fixed string to be absolutely safe against JSON injection.
@@ -168,16 +172,24 @@ public final class AdcpServerBuilder {
 
     private @Nullable AdcpVersion extractVersion(Map<String, Object> args) {
         Object majorRaw = args.get("adcp_major_version");
+        int major;
         if (majorRaw instanceof Number num) {
-            int major = num.intValue();
-            if (major < 3) {
-                throw new org.adcontextprotocol.adcp.error.VersionUnsupportedError(
-                        null, "Unsupported AdCP major version: " + major,
-                        String.valueOf(major), null);
+            major = num.intValue();
+        } else if (majorRaw instanceof String s) {
+            try {
+                major = Integer.parseInt(s);
+            } catch (NumberFormatException e) {
+                return adcpVersion;
             }
-            String minor = args.get("adcp_version") instanceof String s ? s : null;
-            return new AdcpVersion(major, minor);
+        } else {
+            return adcpVersion;
         }
-        return adcpVersion;
+        if (major < 3) {
+            throw new org.adcontextprotocol.adcp.error.VersionUnsupportedError(
+                    null, "Unsupported AdCP major version: " + major,
+                    String.valueOf(major), null);
+        }
+        String minor = args.get("adcp_version") instanceof String s ? s : null;
+        return new AdcpVersion(major, minor);
     }
 }

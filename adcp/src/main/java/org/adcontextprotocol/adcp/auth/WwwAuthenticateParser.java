@@ -69,7 +69,7 @@ public final class WwwAuthenticateParser {
 
         Matcher paramMatcher = PARAM_PATTERN.matcher(paramString);
         while (paramMatcher.find()) {
-            String key = paramMatcher.group(1).toLowerCase();
+            String key = paramMatcher.group(1).toLowerCase(java.util.Locale.ROOT);
             // Prefer quoted value (group 2), fall back to unquoted (group 3)
             String value = paramMatcher.group(2) != null
                     ? paramMatcher.group(2)

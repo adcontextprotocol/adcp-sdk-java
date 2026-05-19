@@ -5,10 +5,11 @@ import org.adcontextprotocol.adcp.error.UnsupportedTaskError;
 /**
  * Service Provider Interface for AdCP agent implementations.
  *
- * <p>Adopters extend this class and override the tools they support.
- * The SDK introspects which methods are overridden and only advertises
- * those tools via MCP {@code tools/list}. Unoverridden methods throw
- * {@link UnsupportedTaskError}.
+ * <p>Adopters extend this class, override {@link #supportedTools()} to
+ * declare which tools to advertise via MCP {@code tools/list}, and
+ * override {@link #handleTool(String, Object, AdcpContext)} to dispatch
+ * them. Only tools returned by {@link #supportedTools()} are registered
+ * with the MCP server — unregistered tools are never advertised.
  *
  * <p>Each method receives a typed request and an {@link AdcpContext}
  * with per-request metadata (protocol version, headers, etc.).
@@ -17,9 +18,15 @@ import org.adcontextprotocol.adcp.error.UnsupportedTaskError;
  * <pre>{@code
  * public class MyPlatform extends AdcpPlatform {
  *     @Override
+ *     public Set<String> supportedTools() {
+ *         return Set.of("get_products", "get_creatives");
+ *     }
+ *
+ *     @Override
  *     public Object handleTool(String toolName, Object request, AdcpContext ctx) {
  *         return switch (toolName) {
  *             case "get_products" -> getProducts(request, ctx);
+ *             case "get_creatives" -> getCreatives(request, ctx);
  *             default -> super.handleTool(toolName, request, ctx);
  *         };
  *     }
