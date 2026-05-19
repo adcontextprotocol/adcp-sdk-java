@@ -1,0 +1,45 @@
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/AdcpServerBuilder.java
+  s_5a10c71ca4b03f::t_59aef00148a275 109-113,117
+  s_5a10c71ca4b03f::t_08e400108aa005 175,177-182,184-190,192-193
+  s_5a10c71ca4b03f::t_61106e35b04463 91-92
+  s_5a10c71ca4b03f::t_052905fd5a229f 149-150,155
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/ProtocolClient.java
+  s_5a10c71ca4b03f::t_14be519fc51986 77-82
+  s_5a10c71ca4b03f::t_4b68cbe259720d 190-193
+  s_5a10c71ca4b03f::t_7f211e4fe814e3 85,89,93
+adcp/src/main/java/org/adcontextprotocol/adcp/http/DnsPinResolver.java
+  s_5a10c71ca4b03f::t_aca1c98c8c4d38 12-15
+adcp/src/main/java/org/adcontextprotocol/adcp/http/AdcpHttpResponse.java
+  s_5a10c71ca4b03f::t_f8a6a5cede42de 13-16,31-34,48,57-76
+adcp/src/main/java/org/adcontextprotocol/adcp/AgentConfig.java
+  s_5a10c71ca4b03f::t_aef83a2d308b5b 64-66
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/AdcpPlatform.java
+  s_5a10c71ca4b03f::t_ce1c7d859d07de 8-12,21-25,29
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpConnectionManager.java
+  s_5a10c71ca4b03f::t_ca5794d7de18d1 39
+  s_5a10c71ca4b03f::t_da3244cad31f70 123,129-130,137,147-148,164
+  s_5a10c71ca4b03f::t_5866f9ef12dde6 78
+  s_5a10c71ca4b03f::t_fb9ebc3572272d 111
+  s_5a10c71ca4b03f::t_3cfddb07ff8c0b 223-226
+  s_5a10c71ca4b03f::t_cf543ef57e834d 96
+adcp/src/main/java/org/adcontextprotocol/adcp/http/ProtectedHeaders.java
+  s_5a10c71ca4b03f::t_d1c27e7d6f6b02 17
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/WwwAuthenticateParser.java
+  s_5a10c71ca4b03f::t_ce37c4560097eb 72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "450b68f0fc05359a2567a70ffac55bfdabb61561",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
