@@ -55,4 +55,17 @@ public abstract class AdcpPlatform {
     public java.util.Set<String> supportedTools() {
         return java.util.Set.of();
     }
+
+    /**
+     * Returns human-readable descriptions for each tool, keyed by tool name.
+     *
+     * <p>Override this to provide descriptions that help MCP clients
+     * (and LLMs) understand when to invoke each tool. If a tool has no
+     * entry in this map, its name is used as the description.
+     *
+     * @return map of tool name → description
+     */
+    public java.util.Map<String, String> toolDescriptions() {
+        return java.util.Map.of();
+    }
 }

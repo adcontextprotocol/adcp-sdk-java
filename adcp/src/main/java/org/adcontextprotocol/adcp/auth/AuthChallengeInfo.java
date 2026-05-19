@@ -23,6 +23,7 @@ public record AuthChallengeInfo(
 ) {
     public AuthChallengeInfo {
         java.util.Objects.requireNonNull(scheme, "scheme");
+        scheme = scheme.toLowerCase(java.util.Locale.ROOT);
         if (scheme.isBlank()) {
             throw new IllegalArgumentException("scheme must not be blank");
         }

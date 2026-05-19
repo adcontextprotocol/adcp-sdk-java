@@ -37,6 +37,10 @@ public record CallToolOptions(
         }
 
         public Builder maxResponseBytes(long maxResponseBytes) {
+            if (maxResponseBytes <= 0) {
+                throw new IllegalArgumentException(
+                        "maxResponseBytes must be positive: " + maxResponseBytes);
+            }
             this.maxResponseBytes = maxResponseBytes;
             return this;
         }

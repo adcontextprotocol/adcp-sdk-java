@@ -5,6 +5,7 @@ import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.spec.McpClientTransport;
+import io.modelcontextprotocol.spec.McpError;
 import org.adcontextprotocol.adcp.error.AuthenticationRequiredError;
 import org.adcontextprotocol.adcp.error.ProtocolError;
 import org.slf4j.Logger;
@@ -102,9 +103,9 @@ public final class McpConnectionManager implements AutoCloseable {
 
     @Override
     public void close() {
-        closed = true;
         lock.lock();
         try {
+            closed = true;
             cache.values().forEach(this::closeQuietly);
             cache.clear();
             knownStreamableUrls.clear();
@@ -119,6 +120,13 @@ public final class McpConnectionManager implements AutoCloseable {
             if (it.hasNext()) {
                 var entry = it.next();
                 it.remove();
+                // Extract URL from "url::hash" key and clear its
+                // known-streamable flag so reconnection retries fallback.
+                String key = entry.getKey();
+                int sep = key.indexOf("::");
+                if (sep > 0) {
+                    knownStreamableUrls.remove(key.substring(0, sep));
+                }
                 closeQuietly(entry.getValue());
             }
         }
@@ -130,14 +138,7 @@ public final class McpConnectionManager implements AutoCloseable {
 
         // Try StreamableHTTP first
         try {
-            McpClientTransport transport = HttpClientStreamableHttpTransport.builder(url)
-                    .connectTimeout(connectTimeout)
-                    .customizeClient(cb -> cb.followRedirects(HttpClient.Redirect.NEVER))
-                    .httpRequestCustomizer((rb, method, uri, body, ctx) ->
-                            safe.forEach(rb::header))
-                    .build();
-            McpSyncClient client = McpClient.sync(transport).build();
-            client.initialize();
+            McpSyncClient client = buildAndInit(url, safe, true);
             knownStreamableUrls.add(url);
             log.debug("Connected to {} via StreamableHTTP", agentUri);
             return client;
@@ -151,14 +152,7 @@ public final class McpConnectionManager implements AutoCloseable {
         // If this URL has never succeeded with StreamableHTTP, try SSE fallback
         if (!knownStreamableUrls.contains(url)) {
             try {
-                McpClientTransport transport = HttpClientSseClientTransport.builder(url)
-                        .connectTimeout(connectTimeout)
-                        .customizeClient(cb -> cb.followRedirects(HttpClient.Redirect.NEVER))
-                        .httpRequestCustomizer((rb, method, uri, body, ctx) ->
-                                safe.forEach(rb::header))
-                        .build();
-                McpSyncClient client = McpClient.sync(transport).build();
-                client.initialize();
+                McpSyncClient client = buildAndInit(url, safe, false);
                 log.debug("Connected to {} via SSE fallback", agentUri);
                 return client;
             } catch (Exception e) {
@@ -174,14 +168,7 @@ public final class McpConnectionManager implements AutoCloseable {
 
         // Retry StreamableHTTP once for known-good endpoints
         try {
-            McpClientTransport transport = HttpClientStreamableHttpTransport.builder(url)
-                    .connectTimeout(connectTimeout)
-                    .customizeClient(cb -> cb.followRedirects(HttpClient.Redirect.NEVER))
-                    .httpRequestCustomizer((rb, method, uri, body, ctx) ->
-                            safe.forEach(rb::header))
-                    .build();
-            McpSyncClient client = McpClient.sync(transport).build();
-            client.initialize();
+            McpSyncClient client = buildAndInit(url, safe, true);
             log.debug("Reconnected to {} via StreamableHTTP (retry)", agentUri);
             return client;
         } catch (Exception e) {
@@ -191,16 +178,32 @@ public final class McpConnectionManager implements AutoCloseable {
         }
     }
 
-    private static final java.util.Set<String> PROTECTED_HEADERS = java.util.Set.of(
-            "host", "user-agent", "content-length", "transfer-encoding",
-            "connection", "upgrade");
+    private McpSyncClient buildAndInit(String url, Map<String, String> headers,
+                                        boolean useStreamable) {
+        McpClientTransport transport = useStreamable
+                ? HttpClientStreamableHttpTransport.builder(url)
+                        .connectTimeout(connectTimeout)
+                        .customizeClient(cb -> cb.followRedirects(HttpClient.Redirect.NEVER))
+                        .httpRequestCustomizer((rb, method, uri, body, ctx) ->
+                                headers.forEach(rb::header))
+                        .build()
+                : HttpClientSseClientTransport.builder(url)
+                        .connectTimeout(connectTimeout)
+                        .customizeClient(cb -> cb.followRedirects(HttpClient.Redirect.NEVER))
+                        .httpRequestCustomizer((rb, method, uri, body, ctx) ->
+                                headers.forEach(rb::header))
+                        .build();
+        McpSyncClient client = McpClient.sync(transport).build();
+        client.initialize();
+        return client;
+    }
 
     private static Map<String, String> sanitizeHeaders(Map<String, String> headers) {
         Map<String, String> sanitized = new LinkedHashMap<>();
         for (var entry : headers.entrySet()) {
             String name = entry.getKey();
             String value = entry.getValue();
-            if (PROTECTED_HEADERS.contains(name.toLowerCase(java.util.Locale.ROOT))) {
+            if (org.adcontextprotocol.adcp.http.ProtectedHeaders.isProtected(name)) {
                 log.debug("Skipping protected MCP header: {}", name);
                 continue;
             }
@@ -217,8 +220,15 @@ public final class McpConnectionManager implements AutoCloseable {
         return s.indexOf('\r') >= 0 || s.indexOf('\n') >= 0;
     }
 
+    // TODO: Replace string-based 401 detection when MCP SDK exposes typed
+    // HTTP status on errors (tracked as an MCP SDK limitation).
     private boolean isAuthError(Exception e) {
         for (Throwable t = e; t != null; t = t.getCause()) {
+            // Check MCP SDK's error type first
+            if (t instanceof McpError) {
+                String msg = t.getMessage();
+                if (msg != null && msg.contains("401")) return true;
+            }
             String msg = t.getMessage();
             if (msg != null && (msg.contains("HTTP 401")
                     || msg.contains("status: 401")

@@ -29,6 +29,15 @@ public record AdcpHttpResponse(
         body = body.clone();
     }
 
+    /**
+     * Returns a defensive copy of the body bytes.
+     * Callers may freely mutate the returned array.
+     */
+    @Override
+    public byte[] body() {
+        return body.clone();
+    }
+
     /** Returns the body as a UTF-8 string. */
     public String bodyAsString() {
         return new String(body, java.nio.charset.StandardCharsets.UTF_8);

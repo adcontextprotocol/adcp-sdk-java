@@ -98,6 +98,7 @@ public final class AdcpServerBuilder {
                 : AdcpObjectMapperFactory.create();
 
         Set<String> tools = platform.supportedTools();
+        Map<String, String> descriptions = platform.toolDescriptions();
         log.info("Building AdCP server with {} tool(s): {}", tools.size(), tools);
 
         // Build the MCP server with tool handlers
@@ -105,9 +106,10 @@ public final class AdcpServerBuilder {
                 .serverInfo(serverName, serverVersion);
 
         for (String toolName : tools) {
+            String description = descriptions.getOrDefault(toolName, toolName);
             McpSchema.Tool tool = McpSchema.Tool.builder()
                     .name(toolName)
-                    .description(toolName)
+                    .description(description)
                     .build();
             spec.toolCall(tool,
                     (exchange, request) -> handleToolCall(om, toolName, request));
@@ -146,7 +148,9 @@ public final class AdcpServerBuilder {
                 safeError = om.writeValueAsString(
                         Map.of("error", e.getMessage(), "code", e.code()));
             } catch (Exception ignored) {
-                safeError = "{\"error\":\"" + e.code() + "\"}";
+                // e.code() is always an enum-like constant, but use a
+                // fixed string to be absolutely safe against JSON injection.
+                safeError = "{\"error\":\"internal_error\"}";
             }
             return new McpSchema.CallToolResult(
                     List.of(new McpSchema.TextContent(safeError)),

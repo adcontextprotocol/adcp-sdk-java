@@ -89,4 +89,11 @@ class WwwAuthenticateParserTest {
         assertEquals("example", info.realm());
         assertEquals("invalid_token", info.error());
     }
+
+    @Test
+    void authChallengeInfo_lowercases_scheme() {
+        AuthChallengeInfo info = new AuthChallengeInfo("Bearer", null, null, null, null);
+        assertEquals("bearer", info.scheme(),
+                "Scheme should be lowercased in the constructor");
+    }
 }

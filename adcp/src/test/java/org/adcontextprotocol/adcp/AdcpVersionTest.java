@@ -39,4 +39,18 @@ class AdcpVersionTest {
         assertEquals(4, v.majorVersion());
         assertEquals("4.2", v.minorVersion());
     }
+
+    @Test
+    void rejects_mismatched_minor_version() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new AdcpVersion(3, "4.1"),
+                "minorVersion must start with majorVersion");
+    }
+
+    @Test
+    void allows_null_minor_version() {
+        var v = new AdcpVersion(5, null);
+        assertEquals(5, v.majorVersion());
+        assertNull(v.minorVersion());
+    }
 }

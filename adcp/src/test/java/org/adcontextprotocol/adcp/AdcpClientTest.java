@@ -70,4 +70,15 @@ class AdcpClientTest {
         client.close();
         assertDoesNotThrow(client::close);
     }
+
+    @Test
+    void builder_rejects_a2a_protocol() {
+        AgentConfig a2aAgent = AgentConfig.builder()
+                .id("a2a")
+                .agentUri(AGENT_URI)
+                .protocol(Protocol.A2A)
+                .build();
+        assertThrows(org.adcontextprotocol.adcp.error.FeatureUnsupportedError.class,
+                () -> AdcpClient.builder().agent(a2aAgent).build());
+    }
 }

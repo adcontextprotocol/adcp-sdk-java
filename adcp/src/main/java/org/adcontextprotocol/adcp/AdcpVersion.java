@@ -24,5 +24,9 @@ public record AdcpVersion(int majorVersion, @Nullable String minorVersion) {
         if (majorVersion < 1) {
             throw new IllegalArgumentException("majorVersion must be >= 1: " + majorVersion);
         }
+        if (minorVersion != null && !minorVersion.startsWith(majorVersion + ".")) {
+            throw new IllegalArgumentException(
+                    "minorVersion must start with majorVersion: " + minorVersion);
+        }
     }
 }

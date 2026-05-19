@@ -187,4 +187,19 @@ class AgentConfigTest {
         assertThrows(ConfigurationError.class, () ->
                 AgentConfig.mcp("a", AGENT_URI, "token\ninjection"));
     }
+
+    @Test
+    void toString_redacts_extraHeaders_values() {
+        AgentConfig config = AgentConfig.builder()
+                .id("agent")
+                .agentUri(AGENT_URI)
+                .extraHeaders(Map.of("X-Api-Key", "secret-key-value"))
+                .build();
+
+        String str = config.toString();
+        assertFalse(str.contains("secret-key-value"),
+                "toString() must not contain extra header values");
+        assertTrue(str.contains("<1 headers>"),
+                "toString() should show header count");
+    }
 }

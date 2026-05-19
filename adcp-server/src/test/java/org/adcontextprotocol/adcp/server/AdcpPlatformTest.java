@@ -69,4 +69,28 @@ class AdcpPlatformTest {
         AdcpContext ctx = new AdcpContext(null, Map.of(), "req-123");
         assertEquals("req-123", ctx.requestId());
     }
+
+    @Test
+    void default_toolDescriptions_returns_empty() {
+        AdcpPlatform platform = new AdcpPlatform() {};
+        assertTrue(platform.toolDescriptions().isEmpty());
+    }
+
+    @Test
+    void custom_toolDescriptions() {
+        AdcpPlatform platform = new AdcpPlatform() {
+            @Override
+            public Set<String> supportedTools() {
+                return Set.of("get_products");
+            }
+
+            @Override
+            public Map<String, String> toolDescriptions() {
+                return Map.of("get_products", "Retrieves product catalog for an advertiser");
+            }
+        };
+
+        assertEquals("Retrieves product catalog for an advertiser",
+                platform.toolDescriptions().get("get_products"));
+    }
 }

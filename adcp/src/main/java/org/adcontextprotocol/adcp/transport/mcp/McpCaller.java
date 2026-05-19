@@ -67,11 +67,13 @@ public final class McpCaller {
         }
 
         // Try to find structured (JSON) content
+        Exception firstParseError = null;
         for (McpSchema.Content content : result.content()) {
             if (content instanceof McpSchema.TextContent textContent) {
                 try {
                     return objectMapper.readValue(textContent.text(), responseType);
                 } catch (Exception e) {
+                    if (firstParseError == null) firstParseError = e;
                     log.debug("Failed to parse TextContent as {}: {}",
                             responseType.getSimpleName(), e.getMessage());
                 }
@@ -84,6 +86,7 @@ public final class McpCaller {
             JsonNode node = objectMapper.valueToTree(first);
             return objectMapper.treeToValue(node, responseType);
         } catch (Exception e) {
+            if (firstParseError != null) e.addSuppressed(firstParseError);
             throw new ProtocolError("mcp",
                     "Cannot deserialize MCP response to " + responseType.getSimpleName(),
                     e);

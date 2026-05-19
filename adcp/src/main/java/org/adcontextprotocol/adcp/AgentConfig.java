@@ -61,7 +61,8 @@ public record AgentConfig(
                 + ", webhookUrlTemplate=" + webhookUrlTemplate
                 + ", webhookSecret=" + (webhookSecret != null ? "<REDACTED>" : "null")
                 + ", adcpVersion=" + adcpVersion
-                + ", extraHeaders=" + extraHeaders + "]";
+                + ", extraHeaders=" + (extraHeaders.isEmpty()
+                        ? "{}" : "<" + extraHeaders.size() + " headers>") + "]";
     }
 
     /** Creates a builder for {@code AgentConfig}. */
