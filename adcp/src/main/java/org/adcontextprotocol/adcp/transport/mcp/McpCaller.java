@@ -90,14 +90,28 @@ public final class McpCaller {
         }
     }
 
+    private static final int MAX_ERROR_LENGTH = 500;
+
     private String extractErrorText(McpSchema.CallToolResult result) {
         if (result.content() != null) {
             for (McpSchema.Content content : result.content()) {
                 if (content instanceof McpSchema.TextContent tc) {
-                    return tc.text();
+                    return sanitizeErrorText(tc.text());
                 }
             }
         }
         return "(no error detail)";
+    }
+
+    private static String sanitizeErrorText(String raw) {
+        if (raw == null) {
+            return "(no error detail)";
+        }
+        String truncated = raw.length() > MAX_ERROR_LENGTH
+                ? raw.substring(0, MAX_ERROR_LENGTH) + "..."
+                : raw;
+        // Strip control characters (except tab/newline) to prevent
+        // injection into downstream systems (logs, LLM context)
+        return truncated.replaceAll("[\\p{Cc}&&[^\t\n]]", "");
     }
 }

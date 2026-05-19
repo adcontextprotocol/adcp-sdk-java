@@ -15,8 +15,6 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -37,7 +35,7 @@ public final class McpConnectionManager implements AutoCloseable {
     private final LinkedHashMap<String, McpSyncClient> cache =
             new LinkedHashMap<>(16, 0.75f, true);
     private final ReentrantLock lock = new ReentrantLock();
-    private final Set<String> knownStreamableUrls = ConcurrentHashMap.newKeySet();
+    private final java.util.HashSet<String> knownStreamableUrls = new java.util.HashSet<>();
     private final Duration connectTimeout;
     private volatile boolean closed;
 
@@ -64,13 +62,13 @@ public final class McpConnectionManager implements AutoCloseable {
      */
     public McpSyncClient getOrConnect(URI agentUri, Map<String, String> headers,
                                        String tokenHash) {
-        if (closed) {
-            throw new IllegalStateException("McpConnectionManager is closed");
-        }
-
         String cacheKey = agentUri + "::" + tokenHash;
         lock.lock();
         try {
+            if (closed) {
+                throw new IllegalStateException("McpConnectionManager is closed");
+            }
+
             McpSyncClient existing = cache.get(cacheKey);
             if (existing != null) {
                 return existing;
@@ -128,6 +126,7 @@ public final class McpConnectionManager implements AutoCloseable {
 
     private McpSyncClient connectWithFallback(URI agentUri, Map<String, String> headers) {
         String url = agentUri.toString();
+        Map<String, String> safe = sanitizeHeaders(headers);
 
         // Try StreamableHTTP first
         try {
@@ -135,7 +134,7 @@ public final class McpConnectionManager implements AutoCloseable {
                     .connectTimeout(connectTimeout)
                     .customizeClient(cb -> cb.followRedirects(HttpClient.Redirect.NEVER))
                     .httpRequestCustomizer((rb, method, uri, body, ctx) ->
-                            headers.forEach(rb::header))
+                            safe.forEach(rb::header))
                     .build();
             McpSyncClient client = McpClient.sync(transport).build();
             client.initialize();
@@ -156,7 +155,7 @@ public final class McpConnectionManager implements AutoCloseable {
                         .connectTimeout(connectTimeout)
                         .customizeClient(cb -> cb.followRedirects(HttpClient.Redirect.NEVER))
                         .httpRequestCustomizer((rb, method, uri, body, ctx) ->
-                                headers.forEach(rb::header))
+                                safe.forEach(rb::header))
                         .build();
                 McpSyncClient client = McpClient.sync(transport).build();
                 client.initialize();
@@ -179,7 +178,7 @@ public final class McpConnectionManager implements AutoCloseable {
                     .connectTimeout(connectTimeout)
                     .customizeClient(cb -> cb.followRedirects(HttpClient.Redirect.NEVER))
                     .httpRequestCustomizer((rb, method, uri, body, ctx) ->
-                            headers.forEach(rb::header))
+                            safe.forEach(rb::header))
                     .build();
             McpSyncClient client = McpClient.sync(transport).build();
             client.initialize();
@@ -190,6 +189,32 @@ public final class McpConnectionManager implements AutoCloseable {
                     "Failed to reconnect to " + agentUri + " via StreamableHTTP",
                     e);
         }
+    }
+
+    private static final java.util.Set<String> PROTECTED_HEADERS = java.util.Set.of(
+            "host", "user-agent", "content-length", "transfer-encoding",
+            "connection", "upgrade");
+
+    private static Map<String, String> sanitizeHeaders(Map<String, String> headers) {
+        Map<String, String> sanitized = new LinkedHashMap<>();
+        for (var entry : headers.entrySet()) {
+            String name = entry.getKey();
+            String value = entry.getValue();
+            if (PROTECTED_HEADERS.contains(name.toLowerCase(java.util.Locale.ROOT))) {
+                log.debug("Skipping protected MCP header: {}", name);
+                continue;
+            }
+            if (hasCrlf(name) || hasCrlf(value)) {
+                log.warn("Rejecting MCP header with CR/LF characters: {}", name);
+                continue;
+            }
+            sanitized.put(name, value);
+        }
+        return sanitized;
+    }
+
+    private static boolean hasCrlf(String s) {
+        return s.indexOf('\r') >= 0 || s.indexOf('\n') >= 0;
     }
 
     private boolean isAuthError(Exception e) {

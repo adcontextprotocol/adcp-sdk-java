@@ -159,4 +159,32 @@ class AgentConfigTest {
         assertEquals(3, config.adcpVersion().majorVersion());
         assertEquals("3.1", config.adcpVersion().minorVersion());
     }
+
+    @Test
+    void toString_redacts_authToken_and_webhookSecret() {
+        AgentConfig config = AgentConfig.builder()
+                .id("agent")
+                .agentUri(AGENT_URI)
+                .authToken("super-secret-token")
+                .webhookSecret("hmac-secret-key")
+                .build();
+
+        String str = config.toString();
+        assertFalse(str.contains("super-secret-token"),
+                "toString() must not contain authToken value");
+        assertFalse(str.contains("hmac-secret-key"),
+                "toString() must not contain webhookSecret value");
+        assertTrue(str.contains("<REDACTED>"),
+                "toString() should show <REDACTED> for secrets");
+        assertTrue(str.contains("agent"),
+                "toString() should still show the agent id");
+    }
+
+    @Test
+    void authToken_rejects_crlf() {
+        assertThrows(ConfigurationError.class, () ->
+                AgentConfig.mcp("a", AGENT_URI, "token\r\nX-Injected: bad"));
+        assertThrows(ConfigurationError.class, () ->
+                AgentConfig.mcp("a", AGENT_URI, "token\ninjection"));
+    }
 }

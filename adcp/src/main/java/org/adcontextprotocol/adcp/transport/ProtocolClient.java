@@ -77,9 +77,9 @@ public final class ProtocolClient implements AutoCloseable {
         // 2. Resolve auth headers
         Map<String, String> authHeaders = AuthTokenResolver.resolve(agent);
 
-        // 3. Merge extra headers
-        Map<String, String> allHeaders = new LinkedHashMap<>(authHeaders);
-        allHeaders.putAll(agent.extraHeaders());
+        // 3. Merge headers: extra headers first, then auth (auth wins)
+        Map<String, String> allHeaders = new LinkedHashMap<>(agent.extraHeaders());
+        allHeaders.putAll(authHeaders);
 
         // 4. Build version envelope and merge into args
         AdcpVersion version = agent.adcpVersion() != null ? agent.adcpVersion() : adcpVersion;
@@ -151,11 +151,23 @@ public final class ProtocolClient implements AutoCloseable {
             throw new ProtocolError("mcp",
                     "Agent URI has no host: " + agent.agentUri(), null);
         }
-        // Note: Full SSRF validation with DNS resolution is performed by
-        // AdcpHttpClient.pinUri() on actual HTTP calls. MCP transport uses
-        // its own HttpClient, so this validation is best-effort for the
-        // initial hostname check. The MCP transport builder also gets
-        // followRedirects(NEVER) set by McpConnectionManager.
+        // Resolve DNS and validate all addresses against SSRF policy.
+        // Note: The MCP transport uses its own HttpClient which re-resolves
+        // DNS independently (TOCTOU limitation), but this check blocks the
+        // common case of misconfigured URIs pointing at private addresses.
+        try {
+            java.net.InetAddress[] addresses = java.net.InetAddress.getAllByName(host);
+            for (java.net.InetAddress addr : addresses) {
+                org.adcontextprotocol.adcp.http.DnsPinResolver.validateAddress(
+                        addr, ssrfPolicy);
+            }
+        } catch (org.adcontextprotocol.adcp.http.SsrfBlockedException e) {
+            throw new ProtocolError("mcp",
+                    "Agent URI blocked by SSRF policy", e);
+        } catch (java.net.UnknownHostException e) {
+            throw new ProtocolError("mcp",
+                    "Cannot resolve agent host", e);
+        }
     }
 
     /**
@@ -177,7 +189,7 @@ public final class ProtocolClient implements AutoCloseable {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] hash = md.digest(token.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash, 0, 8);
+            return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
             // SHA-256 is required by every JRE; this should never happen
             throw new AssertionError("SHA-256 not available", e);

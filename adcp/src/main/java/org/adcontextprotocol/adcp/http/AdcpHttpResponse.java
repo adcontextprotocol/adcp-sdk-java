@@ -24,6 +24,11 @@ public record AdcpHttpResponse(
         long bytesRead
 ) {
 
+    /** Defensive copy to prevent callers from mutating the response body. */
+    public AdcpHttpResponse {
+        body = body.clone();
+    }
+
     /** Returns the body as a UTF-8 string. */
     public String bodyAsString() {
         return new String(body, java.nio.charset.StandardCharsets.UTF_8);

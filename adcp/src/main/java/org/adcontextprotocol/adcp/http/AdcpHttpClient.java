@@ -242,7 +242,8 @@ public final class AdcpHttpClient implements AutoCloseable {
     }
 
     private static final java.util.Set<String> PROTECTED_HEADERS = java.util.Set.of(
-            "host", "user-agent", "content-length", "transfer-encoding");
+            "host", "user-agent", "content-length", "transfer-encoding",
+            "connection", "upgrade");
 
     private static boolean isProtectedHeader(String name) {
         return PROTECTED_HEADERS.contains(name.toLowerCase(java.util.Locale.ROOT));

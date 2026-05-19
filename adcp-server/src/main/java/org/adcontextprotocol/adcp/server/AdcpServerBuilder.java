@@ -138,18 +138,24 @@ public final class AdcpServerBuilder {
             return new McpSchema.CallToolResult(
                     List.of(new McpSchema.TextContent(json)),
                     false, null, Map.of());
-        } catch (Exception e) {
-            log.error("Tool call failed: {}", toolName, e);
-            // Serialize error safely via ObjectMapper to prevent JSON injection
+        } catch (org.adcontextprotocol.adcp.error.AdcpError e) {
+            // Known application errors — safe to surface the code and message
+            log.warn("Tool call failed ({}): {}", toolName, e.code());
             String safeError;
             try {
                 safeError = om.writeValueAsString(
-                        Map.of("error", e.getMessage() != null ? e.getMessage() : "unknown error"));
+                        Map.of("error", e.getMessage(), "code", e.code()));
             } catch (Exception ignored) {
-                safeError = "{\"error\":\"internal error\"}";
+                safeError = "{\"error\":\"" + e.code() + "\"}";
             }
             return new McpSchema.CallToolResult(
                     List.of(new McpSchema.TextContent(safeError)),
+                    true, null, Map.of());
+        } catch (Exception e) {
+            // Unknown errors — do NOT leak internal details to remote callers
+            log.error("Tool call failed: {}", toolName, e);
+            return new McpSchema.CallToolResult(
+                    List.of(new McpSchema.TextContent("{\"error\":\"internal error\"}")),
                     true, null, Map.of());
         }
     }
@@ -157,8 +163,14 @@ public final class AdcpServerBuilder {
     private @Nullable AdcpVersion extractVersion(Map<String, Object> args) {
         Object majorRaw = args.get("adcp_major_version");
         if (majorRaw instanceof Number num) {
+            int major = num.intValue();
+            if (major < 3) {
+                throw new org.adcontextprotocol.adcp.error.VersionUnsupportedError(
+                        null, "Unsupported AdCP major version: " + major,
+                        String.valueOf(major), null);
+            }
             String minor = args.get("adcp_version") instanceof String s ? s : null;
-            return new AdcpVersion(num.intValue(), minor);
+            return new AdcpVersion(major, minor);
         }
         return adcpVersion;
     }

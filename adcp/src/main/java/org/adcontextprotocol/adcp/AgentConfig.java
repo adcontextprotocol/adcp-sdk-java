@@ -46,6 +46,22 @@ public record AgentConfig(
         Objects.requireNonNull(protocol, "protocol");
         extraHeaders = Map.copyOf(extraHeaders);
         validateAuth(authToken, basicAuth, oauthClientCredentials, oauthTokens);
+        validateAuthToken(authToken);
+    }
+
+    @Override
+    public String toString() {
+        return "AgentConfig[id=" + id
+                + ", agentUri=" + agentUri
+                + ", protocol=" + protocol
+                + ", authToken=" + (authToken != null ? "<REDACTED>" : "null")
+                + ", basicAuth=" + basicAuth
+                + ", oauthClientCredentials=" + oauthClientCredentials
+                + ", oauthTokens=" + oauthTokens
+                + ", webhookUrlTemplate=" + webhookUrlTemplate
+                + ", webhookSecret=" + (webhookSecret != null ? "<REDACTED>" : "null")
+                + ", adcpVersion=" + adcpVersion
+                + ", extraHeaders=" + extraHeaders + "]";
     }
 
     /** Creates a builder for {@code AgentConfig}. */
@@ -89,6 +105,14 @@ public record AgentConfig(
                             + (oauthCC != null) + ", oauthTokens="
                             + (oauthTokens != null) + ")",
                     "auth");
+        }
+    }
+
+    private static void validateAuthToken(@Nullable String authToken) {
+        if (authToken != null
+                && (authToken.indexOf('\r') >= 0 || authToken.indexOf('\n') >= 0)) {
+            throw new ConfigurationError(
+                    "authToken must not contain CR/LF characters", "authToken");
         }
     }
 

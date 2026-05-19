@@ -21,8 +21,8 @@ public final class SsrfBlockedException extends RuntimeException {
         this.reason = reason;
     }
 
-    /** The hostname or IP that was blocked. */
-    public String host() {
+    /** The hostname or IP that was blocked. Package-private to limit exposure. */
+    String host() {
         return host;
     }
 

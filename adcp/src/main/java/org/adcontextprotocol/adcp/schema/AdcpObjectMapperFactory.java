@@ -24,11 +24,11 @@ public final class AdcpObjectMapperFactory {
 
     private AdcpObjectMapperFactory() {}
 
-    /** Maximum string length for AdCP payloads (100 MB). */
-    private static final int MAX_STRING_LENGTH = 100_000_000;
+    /** Maximum string length for AdCP payloads (10 MB). */
+    private static final int MAX_STRING_LENGTH = 10_000_000;
 
     /** Maximum nesting depth for AdCP catalog responses. */
-    private static final int MAX_NESTING_DEPTH = 2000;
+    private static final int MAX_NESTING_DEPTH = 200;
 
     /**
      * Creates a new {@link ObjectMapper} configured for AdCP payloads.
