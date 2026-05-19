@@ -50,10 +50,24 @@ class AdcpClientIntegrationTest {
         }
     }
 
+    /**
+     * Exercises the full caller stack against a live MCP-speaking server.
+     *
+     * <p>The current {@code @adcp/sdk} mock-server is a REST stub, not an
+     * MCP server, so this test is guarded behind a separate env var
+     * ({@code ADCP_MCP_SERVER_URL}) until the mock-server gains MCP
+     * support.
+     */
     @Test
+    @EnabledIfEnvironmentVariable(
+            named = "ADCP_MCP_SERVER_URL",
+            matches = ".+",
+            disabledReason = "Set ADCP_MCP_SERVER_URL to run against an MCP-speaking server"
+    )
     @SuppressWarnings("unchecked")
     void callTool_get_adcp_capabilities_returns_response() {
-        AgentConfig agent = AgentConfig.mcp("mock", mockServerUri());
+        URI mcpUri = URI.create(System.getenv("ADCP_MCP_SERVER_URL"));
+        AgentConfig agent = AgentConfig.mcp("mock", mcpUri);
 
         try (AdcpClient client = AdcpClient.builder()
                 .agent(agent)
