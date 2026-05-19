@@ -1,0 +1,33 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/http/DnsPinResolver.java
+  s_5a10c71ca4b03f::t_adab951f58a0de 8-10,12-17
+adcp/src/main/java/org/adcontextprotocol/adcp/error/AuthenticationRequiredError.java
+  s_5a10c71ca4b03f::t_80864a7a386626 12-18
+adcp/src/main/java/org/adcontextprotocol/adcp/AdcpClient.java
+  s_5a10c71ca4b03f::t_fb0210b8e59a6f 156
+  s_5a10c71ca4b03f::t_c0dcbbd902a81d 187-195
+  s_5a10c71ca4b03f::t_adab951f58a0de 5,15,42,61-64,142-146
+  s_5a10c71ca4b03f::t_ef156b2bd39230 65
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpConnectionManager.java
+  s_5a10c71ca4b03f::t_adab951f58a0de 13-15,19,21,25,66,78-82,85,264-265,313-317,319-326,328-333,346,353,403-407,409-414,420-425
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/ProtocolClient.java
+  s_5a10c71ca4b03f::t_adab951f58a0de 173-177
+  s_5a10c71ca4b03f::t_9b9433ed8d6e0e 184-187
+adcp/src/main/java/org/adcontextprotocol/adcp/http/AdcpHttpClient.java
+  s_5a10c71ca4b03f::t_adab951f58a0de 25,33-37,81-85,116-119,123,188-197,205-210,223-227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "cfceb972be93aa019198640b02ec2e1dabed82fc",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
