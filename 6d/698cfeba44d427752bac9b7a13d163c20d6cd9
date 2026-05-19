@@ -1,0 +1,54 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/ProtocolClient.java
+  s_5a10c71ca4b03f::t_6360100cac9982 18-21,121-123,126,129,132-137,141-147,149-150,152,154-158,161-165,174-183
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/AdcpServerBuilder.java
+  s_5a10c71ca4b03f::t_cdaaed0948e001 124-125,128-132,143-150,152
+adcp/src/test/java/org/adcontextprotocol/adcp/auth/CredentialsTest.java
+  s_5a10c71ca4b03f::t_bc01822211e831 36-49
+  s_5a10c71ca4b03f::t_185ed02d91ff0a 75-83
+  s_5a10c71ca4b03f::t_8689ca7ebbf192 112-121
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpCaller.java
+  s_5a10c71ca4b03f::t_d2be1b967ebb56 58-64,92-101
+adcp/src/main/java/org/adcontextprotocol/adcp/http/AdcpHttpClient.java
+  s_5a10c71ca4b03f::t_326614a5a6c95b 159
+  s_5a10c71ca4b03f::t_2c3275b5190cf9 244-248
+  s_5a10c71ca4b03f::t_98f19f2beafa5c 100
+  s_5a10c71ca4b03f::t_670350ad0ae037 106-113
+  s_5a10c71ca4b03f::t_9914ca642ce2bd 170-172,174-175,178-186,188-191,193-201,203
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpConnectionManager.java
+  s_5a10c71ca4b03f::t_f0fd114d475dbc 14,16,20,27-30,35,37-39,42,56,60,63,66-68,71-76,79-85,93-101,107-126,135-136,140,156-157,161,170-171,179-180,184,196-204
+  s_5a10c71ca4b03f::t_d4a80968ab5e80 137-138,158-159,181-182
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/BasicCredentials.java
+  s_5a10c71ca4b03f::t_386a6b44bff21f 22-24,29-32
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/OAuthMetadataInfo.java
+  s_5a10c71ca4b03f::t_5b93ec730ef5be 19-24
+adcp/src/main/java/org/adcontextprotocol/adcp/http/SsrfBlockedException.java
+  s_5a10c71ca4b03f::t_f5de4f0d0a99f5 19
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/OAuthTokens.java
+  s_5a10c71ca4b03f::t_a223ee26bcdf39 49-56
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/OAuthClientCredentials.java
+  s_5a10c71ca4b03f::t_2bb888c4a5dd6e 33-39
+adcp/src/test/java/org/adcontextprotocol/adcp/transport/mcp/McpConnectionManagerTest.java
+  s_5a10c71ca4b03f::t_df9d831cddf68d 43-56
+adcp/src/main/java/org/adcontextprotocol/adcp/AdcpClient.java
+  s_5a10c71ca4b03f::t_4274514904c377 102
+  s_5a10c71ca4b03f::t_90a292f2dedd9c 60
+  s_5a10c71ca4b03f::t_c8b99a49ccbcc1 40,50
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/AuthChallengeInfo.java
+  s_5a10c71ca4b03f::t_5f98ff66667131 23-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "6d698cfeba44d427752bac9b7a13d163c20d6cd9",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
