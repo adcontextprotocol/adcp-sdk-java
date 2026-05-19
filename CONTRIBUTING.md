@@ -28,6 +28,7 @@ Before designing anything new, read the [21 confirmed post-RFC decisions](ROADMA
 
 Requirements:
 - JDK 21 (Temurin recommended)
+- [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) — the build shells out to `cosign verify-blob` to verify the schema bundle signature (per D4). Install via `brew install cosign` (macOS) or `go install github.com/sigstore/cosign/v2/cmd/cosign@latest`.
 - The Gradle wrapper (committed) — don't install Gradle separately.
 
 Local build:

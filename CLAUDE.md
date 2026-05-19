@@ -21,7 +21,7 @@ If a task contradicts a confirmed decision, **stop and ask** before coding aroun
 
 ## Build commands
 
-JDK 21 required. The Gradle wrapper is committed.
+JDK 21 and [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) required. The Gradle wrapper is committed. Install cosign via `brew install cosign` (macOS) — the build uses it to verify schema bundle signatures.
 
 ```bash
 ./gradlew build           # full build, all 8 modules
