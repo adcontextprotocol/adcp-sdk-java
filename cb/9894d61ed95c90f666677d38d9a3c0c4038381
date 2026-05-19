@@ -1,0 +1,22 @@
+adcp/src/test/java/org/adcontextprotocol/adcp/AdcpClientTest.java
+  s_5a10c71ca4b03f::t_f1a3b2034ba284 92-112
+adcp/src/main/java/org/adcontextprotocol/adcp/AdcpClient.java
+  s_5a10c71ca4b03f::t_6a2ea1a501d4b8 75,81,83-84
+  s_5a10c71ca4b03f::t_586d99ec5f4bf7 90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "cb9894d61ed95c90f666677d38d9a3c0c4038381",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
