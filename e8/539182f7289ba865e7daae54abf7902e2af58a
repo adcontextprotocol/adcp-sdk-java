@@ -1,0 +1,22 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpConnectionManager.java
+  s_5a10c71ca4b03f::t_06e58d52f8a176 246,250,257
+  s_5a10c71ca4b03f::t_e3359ef82b6410 66-69,71-75
+  s_5a10c71ca4b03f::t_976e9300879ebb 109-113,115-121,135,151
+  s_5a10c71ca4b03f::t_d94f46771b5530 19-20,26,29-39,45,49,51-56,58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "e8539182f7289ba865e7daae54abf7902e2af58a",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
