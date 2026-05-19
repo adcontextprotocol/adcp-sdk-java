@@ -110,4 +110,25 @@ class AdcpClientTest {
                     () -> client.callTool("get_products", null, java.util.Map.class));
         }
     }
+
+    @Test
+    void builder_accepts_string_version() {
+        try (AdcpClient client = AdcpClient.builder()
+                .agent(AgentConfig.mcp("test", AGENT_URI))
+                .adcpVersion("3.0")
+                .build()) {
+            assertNotNull(client.adcpVersion());
+            assertEquals(3, client.adcpVersion().majorVersion());
+            assertEquals("3.0", client.adcpVersion().minorVersion());
+        }
+    }
+
+    @Test
+    void builder_rejects_cross_major_version() {
+        assertThrows(org.adcontextprotocol.adcp.error.ConfigurationError.class,
+                () -> AdcpClient.builder()
+                        .agent(AgentConfig.mcp("test", AGENT_URI))
+                        .adcpVersion(new AdcpVersion(2, null))
+                        .build());
+    }
 }

@@ -43,4 +43,27 @@ public record AdcpVersion(int majorVersion, @Nullable String minorVersion) {
             }
         }
     }
+
+    /**
+     * Parses a release-precision version string (e.g. {@code "3.0"}, {@code "3.1"})
+     * into an {@code AdcpVersion}.
+     *
+     * <p>This is the string-based convenience factory — pass the same value you
+     * would set in the Python SDK or TS SDK {@code adcpVersion} constructor option.
+     *
+     * @param releaseVersion release-precision version (major.minor, e.g. {@code "3.0"})
+     * @return parsed {@code AdcpVersion}
+     * @throws IllegalArgumentException if the string is not in major.minor format
+     */
+    public static AdcpVersion of(String releaseVersion) {
+        java.util.Objects.requireNonNull(releaseVersion, "releaseVersion");
+        if (!MINOR_VERSION_PATTERN.matcher(releaseVersion).matches()) {
+            throw new IllegalArgumentException(
+                    "releaseVersion must be in major.minor format (e.g. '3.0'): "
+                            + releaseVersion);
+        }
+        int dotIndex = releaseVersion.indexOf('.');
+        int major = Integer.parseInt(releaseVersion.substring(0, dotIndex));
+        return new AdcpVersion(major, releaseVersion);
+    }
 }

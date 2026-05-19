@@ -157,6 +157,18 @@ public final class AdcpClient implements AutoCloseable {
             return this;
         }
 
+        /**
+         * Pin a specific AdCP protocol version by release-precision string
+         * (e.g. {@code "3.0"}, {@code "3.1"}).
+         *
+         * <p>Equivalent to {@code adcpVersion(AdcpVersion.of(releaseVersion))}.
+         * Throws {@link org.adcontextprotocol.adcp.error.ConfigurationError} at
+         * {@link #build()} time if the major version does not match the SDK.
+         */
+        public Builder adcpVersion(String releaseVersion) {
+            return adcpVersion(AdcpVersion.of(releaseVersion));
+        }
+
         /** Override the Jackson ObjectMapper. */
         public Builder objectMapper(ObjectMapper objectMapper) {
             this.objectMapper = Objects.requireNonNull(objectMapper);
@@ -174,7 +186,25 @@ public final class AdcpClient implements AutoCloseable {
 
         /** Builds the client. */
         public AdcpClient build() {
+            validateAdcpVersion(adcpVersion);
             return new AdcpClient(this);
+        }
+
+        /**
+         * Validates that the pinned version's major matches the SDK's built-in major.
+         * Cross-major pins (e.g. requesting "2.0" from a major-3 SDK) fail fast before
+         * any network request.
+         */
+        private static void validateAdcpVersion(@Nullable AdcpVersion version) {
+            if (version == null) return;
+            if (version.majorVersion() != AdcpSdkVersion.SDK_MAJOR_VERSION) {
+                throw new ConfigurationError(
+                        "adcpVersion major " + version.majorVersion()
+                                + " does not match SDK major "
+                                + AdcpSdkVersion.SDK_MAJOR_VERSION
+                                + " (built for AdCP " + AdcpSdkVersion.SDK_RELEASE_VERSION + ")",
+                        "adcpVersion");
+            }
         }
     }
 }
