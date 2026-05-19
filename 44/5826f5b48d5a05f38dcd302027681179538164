@@ -1,0 +1,21 @@
+CONTRIBUTING.md
+  s_5a10c71ca4b03f::t_181655119240c3 31
+CLAUDE.md
+  s_5a10c71ca4b03f::t_f8433d4dbcfcd2 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "445826f5b48d5a05f38dcd302027681179538164",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
