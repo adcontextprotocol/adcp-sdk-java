@@ -1,0 +1,41 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/CallToolOptions.java
+  s_5a10c71ca4b03f::t_a884380cdb7c3b 10-18
+adcp/src/main/java/org/adcontextprotocol/adcp/AdcpVersion.java
+  s_5a10c71ca4b03f::t_12d5caa638a6c2 17-19
+  s_5a10c71ca4b03f::t_32507e7885cf7e 30-43
+adcp/src/main/java/org/adcontextprotocol/adcp/AgentConfig.java
+  s_5a10c71ca4b03f::t_3f3a478de84e4c 8-9
+  s_5a10c71ca4b03f::t_7e7f34dbfee435 45-46,55
+  s_5a10c71ca4b03f::t_7304a119d1d577 140-154
+  s_5a10c71ca4b03f::t_e723d9305d3cb4 126-139
+  s_5a10c71ca4b03f::t_dbc763e2f9dc42 54
+adcp/src/test/java/org/adcontextprotocol/adcp/AdcpVersionTest.java
+  s_5a10c71ca4b03f::t_598abc83ba4e19 56-75
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpCaller.java
+  s_5a10c71ca4b03f::t_3c578ba53c41a9 76-82
+  s_5a10c71ca4b03f::t_0bde4d82fe93dc 24-26
+adcp/src/main/java/org/adcontextprotocol/adcp/http/StrictSsrfPolicy.java
+  s_5a10c71ca4b03f::t_2e9a055a6c117a 63-68,73,79-89
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/AdcpServerBuilder.java
+  s_5a10c71ca4b03f::t_05b641b8d785b7 144-147,151
+adcp/src/test/java/org/adcontextprotocol/adcp/AgentConfigTest.java
+  s_5a10c71ca4b03f::t_ea2e1e57105fb1 205-224
+adcp/src/test/java/org/adcontextprotocol/adcp/http/StrictSsrfPolicyTest.java
+  s_5a10c71ca4b03f::t_cda2ce8a94ed81 47-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "f87be43773d7bac6f260e9a15de1d96f046e0e2c",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
