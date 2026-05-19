@@ -280,11 +280,12 @@ public final class AdcpHttpClient implements AutoCloseable {
          * Maximum response body size in bytes. Responses exceeding this
          * are truncated and flagged via {@link AdcpHttpResponse#truncated()}.
          * Default: {@value #DEFAULT_MAX_RESPONSE_BYTES} (4 KiB).
+         * Maximum: 64 MB.
          */
         public Builder maxResponseBytes(long maxResponseBytes) {
-            if (maxResponseBytes <= 0) {
+            if (maxResponseBytes <= 0 || maxResponseBytes > 64 * 1024 * 1024) {
                 throw new IllegalArgumentException(
-                        "maxResponseBytes must be positive: " + maxResponseBytes);
+                        "maxResponseBytes must be in (0, 67108864]: " + maxResponseBytes);
             }
             this.maxResponseBytes = maxResponseBytes;
             return this;

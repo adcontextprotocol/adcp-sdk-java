@@ -144,10 +144,14 @@ public final class ProtocolClient implements AutoCloseable {
     }
 
     private boolean isTransportError(ProtocolError e) {
-        Throwable cause = e.getCause();
-        return cause instanceof java.io.IOException
-                || cause instanceof java.net.http.HttpTimeoutException
-                || (cause != null && cause.getClass().getName().contains("Transport"));
+        // Walk the full cause chain — any I/O or timeout failure is transient
+        for (Throwable t = e.getCause(); t != null; t = t.getCause()) {
+            if (t instanceof java.io.IOException
+                    || t instanceof java.net.http.HttpTimeoutException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void validateUrl(AgentConfig agent) {

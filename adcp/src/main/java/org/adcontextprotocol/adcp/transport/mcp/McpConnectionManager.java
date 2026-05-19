@@ -35,8 +35,13 @@ public final class McpConnectionManager implements AutoCloseable {
 
     private final LinkedHashMap<String, McpSyncClient> cache =
             new LinkedHashMap<>(16, 0.75f, true);
-    private final ReentrantLock lock = new ReentrantLock();
-    private final java.util.HashSet<String> knownStreamableKeys = new java.util.HashSet<>();
+    // Global lock only for short cache reads/writes; never held during I/O
+    private final ReentrantLock cacheLock = new ReentrantLock();
+    // Per-key locks so that connecting to one agent doesn't block others
+    private final java.util.concurrent.ConcurrentHashMap<String, ReentrantLock> keyLocks =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap.KeySetView<String, Boolean>
+            knownStreamableKeys = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Duration connectTimeout;
     private volatile boolean closed;
 
@@ -63,24 +68,54 @@ public final class McpConnectionManager implements AutoCloseable {
      */
     public McpSyncClient getOrConnect(URI agentUri, Map<String, String> headers,
                                        String tokenHash) {
+        if (closed) {
+            throw new IllegalStateException("McpConnectionManager is closed");
+        }
         String cacheKey = agentUri + "::" + tokenHash;
-        lock.lock();
-        try {
-            if (closed) {
-                throw new IllegalStateException("McpConnectionManager is closed");
-            }
 
+        // Fast path: check cache under short lock (no I/O)
+        cacheLock.lock();
+        try {
             McpSyncClient existing = cache.get(cacheKey);
             if (existing != null) {
                 return existing;
             }
+        } finally {
+            cacheLock.unlock();
+        }
 
+        // Slow path: acquire per-key lock so only one thread connects per key.
+        // Other keys remain unblocked.
+        ReentrantLock keyLock = keyLocks.computeIfAbsent(cacheKey, k -> new ReentrantLock());
+        keyLock.lock();
+        try {
+            // Double-check after acquiring key lock
+            cacheLock.lock();
+            try {
+                if (closed) {
+                    throw new IllegalStateException("McpConnectionManager is closed");
+                }
+                McpSyncClient existing = cache.get(cacheKey);
+                if (existing != null) {
+                    return existing;
+                }
+            } finally {
+                cacheLock.unlock();
+            }
+
+            // Network I/O happens here — only blocks threads for the same key
             McpSyncClient client = connectWithFallback(agentUri, headers, cacheKey);
-            cache.put(cacheKey, client);
-            evictOldest();
+
+            cacheLock.lock();
+            try {
+                cache.put(cacheKey, client);
+                evictOldest();
+            } finally {
+                cacheLock.unlock();
+            }
             return client;
         } finally {
-            lock.unlock();
+            keyLock.unlock();
         }
     }
 
@@ -89,7 +124,7 @@ public final class McpConnectionManager implements AutoCloseable {
      */
     public void evict(URI agentUri, String tokenHash) {
         String cacheKey = agentUri + "::" + tokenHash;
-        lock.lock();
+        cacheLock.lock();
         try {
             McpSyncClient evicted = cache.remove(cacheKey);
             if (evicted != null) {
@@ -97,20 +132,20 @@ public final class McpConnectionManager implements AutoCloseable {
                 closeQuietly(evicted);
             }
         } finally {
-            lock.unlock();
+            cacheLock.unlock();
         }
     }
 
     @Override
     public void close() {
-        lock.lock();
+        cacheLock.lock();
         try {
             closed = true;
             cache.values().forEach(this::closeQuietly);
             cache.clear();
             knownStreamableKeys.clear();
         } finally {
-            lock.unlock();
+            cacheLock.unlock();
         }
     }
 
