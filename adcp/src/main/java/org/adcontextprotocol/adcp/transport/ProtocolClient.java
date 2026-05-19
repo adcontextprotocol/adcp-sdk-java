@@ -16,12 +16,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Dispatches tool calls to the appropriate transport (MCP or A2A).
@@ -71,7 +75,14 @@ public final class ProtocolClient implements AutoCloseable {
                           Map<String, Object> args, Class<T> responseType,
                           CallToolOptions options) {
 
-        // 1. Validate agent URL against SSRF policy
+        // 1. Check protocol support early so unsupported transports fail fast
+        if (agent.protocol() == org.adcontextprotocol.adcp.Protocol.A2A) {
+            throw new FeatureUnsupportedError(
+                    List.of("A2A transport"),
+                    List.of("MCP"));
+        }
+
+        // 2. Validate agent URL against SSRF policy
         validateUrl(agent);
 
         // 2. Warn if non-default options are passed (not yet enforced in v0.1)
@@ -82,21 +93,25 @@ public final class ProtocolClient implements AutoCloseable {
         // 3. Resolve auth headers
         Map<String, String> authHeaders = AuthTokenResolver.resolve(agent);
 
-        // 4. Merge headers: extra headers first, then auth (auth wins)
-        Map<String, String> allHeaders = new LinkedHashMap<>(agent.extraHeaders());
+        // 4. Merge headers: filter extraHeaders through ProtectedHeaders first
+        // (so callers cannot override authorization/cookie/etc.), then add
+        // SDK-resolved auth headers which are trusted and must not be filtered.
+        Map<String, String> allHeaders = new LinkedHashMap<>();
+        agent.extraHeaders().forEach((name, value) -> {
+            if (!org.adcontextprotocol.adcp.http.ProtectedHeaders.isProtected(name)) {
+                allHeaders.put(name, value);
+            } else {
+                log.debug("Dropping protected extraHeader: {}", name);
+            }
+        });
         allHeaders.putAll(authHeaders);
 
         // 5. Build version envelope and merge into args
         AdcpVersion version = agent.adcpVersion() != null ? agent.adcpVersion() : adcpVersion;
         Map<String, Object> mergedArgs = VersionEnvelope.mergeInto(args, version);
 
-        // 6. Dispatch to transport
-        return switch (agent.protocol()) {
-            case MCP -> callViaMcp(agent, toolName, mergedArgs, allHeaders, responseType);
-            case A2A -> throw new FeatureUnsupportedError(
-                    List.of("A2A transport"),
-                    List.of("MCP"));
-        };
+        // 6. Dispatch to transport (A2A already rejected in step 1)
+        return callViaMcp(agent, toolName, mergedArgs, allHeaders, responseType);
     }
 
     /**
@@ -180,6 +195,16 @@ public final class ProtocolClient implements AutoCloseable {
     }
 
     /**
+     * Per-process HMAC key — prevents token hash reversibility in heap dumps.
+     * Generated once at class-load time; never persisted.
+     */
+    private static final byte[] HMAC_KEY;
+    static {
+        HMAC_KEY = new byte[32];
+        new SecureRandom().nextBytes(HMAC_KEY);
+    }
+
+    /**
      * Computes a combined hash of credentials + extraHeaders for use as
      * a connection cache key. This ensures connections are not shared
      * across different auth tokens or different routing headers.
@@ -189,27 +214,24 @@ public final class ProtocolClient implements AutoCloseable {
         if (agent.extraHeaders().isEmpty()) {
             return tokenHash;
         }
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            md.update(tokenHash.getBytes(StandardCharsets.UTF_8));
-            md.update((byte) '\0');
-            agent.extraHeaders().entrySet().stream()
-                    .sorted(Map.Entry.comparingByKey())
-                    .forEach(e -> {
-                        md.update(e.getKey().getBytes(StandardCharsets.UTF_8));
-                        md.update((byte) '=');
-                        md.update(e.getValue().getBytes(StandardCharsets.UTF_8));
-                        md.update((byte) '\n');
-                    });
-            return HexFormat.of().formatHex(md.digest());
-        } catch (NoSuchAlgorithmException e) {
-            throw new AssertionError("SHA-256 not available", e);
-        }
+        Mac mac = createHmac();
+        mac.update(tokenHash.getBytes(StandardCharsets.UTF_8));
+        mac.update((byte) '\0');
+        agent.extraHeaders().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    mac.update(e.getKey().getBytes(StandardCharsets.UTF_8));
+                    mac.update((byte) '=');
+                    mac.update(e.getValue().getBytes(StandardCharsets.UTF_8));
+                    mac.update((byte) '\n');
+                });
+        return HexFormat.of().formatHex(mac.doFinal());
     }
 
     /**
-     * Computes a SHA-256 hash of the agent's credentials for use as a
-     * cache key component.
+     * Computes an HMAC-SHA256 of the agent's credentials for use as a
+     * cache key component. The per-process random HMAC key prevents
+     * reversal of known token formats (e.g. {@code ghp_*}) from heap dumps.
      */
     static String computeTokenHash(AgentConfig agent) {
         String token = "";
@@ -220,20 +242,23 @@ public final class ProtocolClient implements AutoCloseable {
         } else if (agent.basicAuth() != null) {
             token = agent.basicAuth().username() + ":" + agent.basicAuth().password();
         } else if (agent.oauthClientCredentials() != null) {
-            // Client-credentials flow: key on clientId to distinguish
-            // different OAuth apps hitting the same endpoint.
             token = "cc:" + agent.oauthClientCredentials().clientId();
         }
         if (token.isEmpty()) {
             return "anonymous";
         }
+        Mac mac = createHmac();
+        return HexFormat.of().formatHex(
+                mac.doFinal(token.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private static Mac createHmac() {
         try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(token.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            // SHA-256 is required by every JRE; this should never happen
-            throw new AssertionError("SHA-256 not available", e);
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(HMAC_KEY, "HmacSHA256"));
+            return mac;
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new AssertionError("HmacSHA256 not available", e);
         }
     }
 }

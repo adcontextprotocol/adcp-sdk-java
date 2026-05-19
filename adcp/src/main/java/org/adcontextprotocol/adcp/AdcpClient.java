@@ -47,13 +47,6 @@ public final class AdcpClient implements AutoCloseable {
         this.agent = builder.agent;
         this.adcpVersion = builder.adcpVersion;
 
-        // Fail fast: A2A transport is not yet implemented
-        if (this.agent.protocol() == Protocol.A2A) {
-            throw new org.adcontextprotocol.adcp.error.FeatureUnsupportedError(
-                    java.util.List.of("A2A transport"),
-                    java.util.List.of("MCP"));
-        }
-
         this.objectMapper = builder.objectMapper != null
                 ? builder.objectMapper
                 : AdcpObjectMapperFactory.create();

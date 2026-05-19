@@ -72,13 +72,21 @@ class AdcpClientTest {
     }
 
     @Test
-    void builder_rejects_a2a_protocol() {
+    void a2a_protocol_rejected_at_call_time() {
         AgentConfig a2aAgent = AgentConfig.builder()
                 .id("a2a")
                 .agentUri(AGENT_URI)
                 .protocol(Protocol.A2A)
                 .build();
-        assertThrows(org.adcontextprotocol.adcp.error.FeatureUnsupportedError.class,
-                () -> AdcpClient.builder().agent(a2aAgent).build());
+        // A2A rejection happens at callTool dispatch (ProtocolClient)
+        try (AdcpClient client = AdcpClient.builder()
+                .agent(a2aAgent)
+                .ssrfPolicy(SsrfPolicy.permissive())
+                .build()) {
+            var ex = assertThrows(org.adcontextprotocol.adcp.error.FeatureUnsupportedError.class,
+                    () -> client.callTool("get_products",
+                            java.util.Map.of(), java.util.Map.class));
+            assertTrue(ex.getMessage().contains("A2A"));
+        }
     }
 }

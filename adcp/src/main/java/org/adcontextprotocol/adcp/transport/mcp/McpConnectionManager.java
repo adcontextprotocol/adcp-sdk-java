@@ -6,6 +6,8 @@ import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpError;
+import org.adcontextprotocol.adcp.auth.AuthChallengeInfo;
+import org.adcontextprotocol.adcp.auth.WwwAuthenticateParser;
 import org.adcontextprotocol.adcp.error.AuthenticationRequiredError;
 import org.adcontextprotocol.adcp.error.ProtocolError;
 import org.slf4j.Logger;
@@ -13,6 +15,8 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -169,6 +173,29 @@ public final class McpConnectionManager implements AutoCloseable {
         }
     }
 
+    /**
+     * Evicts all cached connections for the given agent URI, regardless of
+     * token hash. Use this when auth credentials rotate so that stale
+     * connections with the old token don't linger until LRU eviction.
+     */
+    public void invalidateForAgent(URI agentUri) {
+        String prefix = agentUri + "::";
+        cacheLock.lock();
+        try {
+            var it = cache.entrySet().iterator();
+            while (it.hasNext()) {
+                var entry = it.next();
+                if (entry.getKey().startsWith(prefix)) {
+                    it.remove();
+                    knownStreamableKeys.remove(entry.getKey());
+                    closeQuietly(entry.getValue());
+                }
+            }
+        } finally {
+            cacheLock.unlock();
+        }
+    }
+
     @Override
     public void close() {
         cacheLock.lock();
@@ -194,6 +221,11 @@ public final class McpConnectionManager implements AutoCloseable {
         }
     }
 
+    // TODO(v0.2): MCP recommends a content-type probe (OPTIONS or HEAD with
+    // Accept: application/json) to pick StreamableHTTP vs SSE, instead of
+    // catching exceptions from a failed connect. The current approach masks
+    // legitimate 5xx errors and double-charges every cold connect. Revisit
+    // when MCP SDK 2.x provides explicit transport negotiation.
     private McpSyncClient connectWithFallback(URI agentUri, Map<String, String> headers,
                                                String cacheKey) {
         String url = agentUri.toString();
@@ -207,7 +239,7 @@ public final class McpConnectionManager implements AutoCloseable {
             return client;
         } catch (Exception e) {
             if (isAuthError(e)) {
-                throw new AuthenticationRequiredError(agentUri, null, null, e);
+                throw probeAndBuildAuthError(agentUri, e);
             }
             log.debug("StreamableHTTP failed for {}: {}", agentUri, e.getMessage());
         }
@@ -220,7 +252,7 @@ public final class McpConnectionManager implements AutoCloseable {
                 return client;
             } catch (Exception e) {
                 if (isAuthError(e)) {
-                    throw new AuthenticationRequiredError(agentUri, null, null, e);
+                    throw probeAndBuildAuthError(agentUri, e);
                 }
                 throw new ProtocolError("mcp",
                         "Failed to connect to " + agentUri
@@ -295,21 +327,65 @@ public final class McpConnectionManager implements AutoCloseable {
     // on errors. When it does, parse WWW-Authenticate via WwwAuthenticateParser
     // and populate AuthenticationRequiredError.challenge(). Until then, callers
     // receive challenge=null on auth errors from the MCP path.
+    // TODO(7.2.0-delta): MCP SDK 1.1.2 does not expose HTTP response headers
+    // on errors. We work around this by sending a HEAD probe to the agent URI
+    // to retrieve the WWW-Authenticate challenge for the caller.
+
+    /**
+     * Probes the agent URI with a HEAD request to retrieve WWW-Authenticate.
+     * If the probe fails (e.g. network error, non-401 response), returns
+     * an AuthenticationRequiredError with challenge=null.
+     */
+    private AuthenticationRequiredError probeAndBuildAuthError(URI agentUri, Exception cause) {
+        AuthChallengeInfo challenge = null;
+        try {
+            HttpRequest probe = HttpRequest.newBuilder()
+                    .uri(agentUri)
+                    .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                    .timeout(Duration.ofSeconds(5))
+                    .build();
+            HttpClient probeClient = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(5))
+                    .followRedirects(HttpClient.Redirect.NEVER)
+                    .build();
+            try {
+                HttpResponse<Void> resp = probeClient.send(probe,
+                        HttpResponse.BodyHandlers.discarding());
+                if (resp.statusCode() == 401) {
+                    String wwwAuth = resp.headers()
+                            .firstValue("WWW-Authenticate").orElse(null);
+                    challenge = WwwAuthenticateParser.parse(wwwAuth);
+                }
+            } finally {
+                probeClient.close();
+            }
+        } catch (Exception probeEx) {
+            log.debug("HEAD probe for auth challenge failed for {}: {}",
+                    agentUri, probeEx.getMessage());
+        }
+        return new AuthenticationRequiredError(agentUri, challenge, null, cause);
+    }
+
     private boolean isAuthError(Exception e) {
         for (Throwable t = e; t != null; t = t.getCause()) {
+            String msg = t.getMessage();
+            if (msg == null) continue;
             // Check MCP SDK's error type first
             if (t instanceof McpError) {
-                String msg = t.getMessage();
-                if (msg != null && msg.contains("401")) return true;
+                if (isAuthMessage(msg)) return true;
             }
-            String msg = t.getMessage();
-            if (msg != null && (msg.contains("HTTP 401")
-                    || msg.contains("status: 401")
-                    || msg.contains("401 Unauthorized"))) {
-                return true;
-            }
+            if (isAuthMessage(msg)) return true;
         }
         return false;
+    }
+
+    /** Word-bounded 401 matching to avoid false positives like "401234". */
+    private static final java.util.regex.Pattern AUTH_401_PATTERN =
+            java.util.regex.Pattern.compile("\\b401\\b");
+
+    private static boolean isAuthMessage(String msg) {
+        return AUTH_401_PATTERN.matcher(msg).find()
+                || msg.contains("Unauthorized");
     }
 
     private void closeQuietly(McpSyncClient client) {

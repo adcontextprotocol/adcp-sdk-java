@@ -2,12 +2,14 @@ package org.adcontextprotocol.adcp.server;
 
 import org.adcontextprotocol.adcp.error.UnsupportedTaskError;
 
+import java.util.Map;
+
 /**
  * Service Provider Interface for AdCP agent implementations.
  *
  * <p>Adopters extend this class, override {@link #supportedTools()} to
  * declare which tools to advertise via MCP {@code tools/list}, and
- * override {@link #handleTool(String, Object, AdcpContext)} to dispatch
+ * override {@link #handleTool(String, Map, AdcpContext)} to dispatch
  * them. Only tools returned by {@link #supportedTools()} are registered
  * with the MCP server — unregistered tools are never advertised.
  *
@@ -23,7 +25,7 @@ import org.adcontextprotocol.adcp.error.UnsupportedTaskError;
  *     }
  *
  *     @Override
- *     public Object handleTool(String toolName, Object request, AdcpContext ctx) {
+ *     public Object handleTool(String toolName, Map<String, Object> request, AdcpContext ctx) {
  *         return switch (toolName) {
  *             case "get_products" -> getProducts(request, ctx);
  *             case "get_creatives" -> getCreatives(request, ctx);
@@ -42,12 +44,12 @@ public abstract class AdcpPlatform {
      * signaling that the tool is not implemented.
      *
      * @param toolName the MCP tool name (e.g. "get_products")
-     * @param request  the deserialized request object
+     * @param request  the deserialized request arguments
      * @param ctx      per-request context
      * @return the response object (will be serialized by the framework)
      * @throws UnsupportedTaskError if the tool is not implemented
      */
-    public Object handleTool(String toolName, Object request, AdcpContext ctx) {
+    public Object handleTool(String toolName, Map<String, Object> request, AdcpContext ctx) {
         throw new UnsupportedTaskError(toolName);
     }
 
@@ -73,6 +75,19 @@ public abstract class AdcpPlatform {
      * @return map of tool name → description
      */
     public java.util.Map<String, String> toolDescriptions() {
+        return java.util.Map.of();
+    }
+
+    /**
+     * Returns JSON Schemas for each tool's input, keyed by tool name.
+     *
+     * <p>Override this to expose typed validation schemas to MCP clients.
+     * If a tool has no entry, a permissive open-object schema is used.
+     * Each value must be a valid {@link io.modelcontextprotocol.spec.McpSchema.JsonSchema}.
+     *
+     * @return map of tool name → input schema
+     */
+    public java.util.Map<String, io.modelcontextprotocol.spec.McpSchema.JsonSchema> toolSchemas() {
         return java.util.Map.of();
     }
 }

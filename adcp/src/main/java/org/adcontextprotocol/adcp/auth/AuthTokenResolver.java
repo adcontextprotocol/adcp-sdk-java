@@ -1,10 +1,12 @@
 package org.adcontextprotocol.adcp.auth;
 
 import org.adcontextprotocol.adcp.AgentConfig;
+import org.adcontextprotocol.adcp.error.FeatureUnsupportedError;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -48,8 +50,16 @@ public final class AuthTokenResolver {
         } else if (config.oauthTokens() != null) {
             // OAuth auth-code tokens
             headers.put("Authorization", "Bearer " + config.oauthTokens().accessToken());
+        } else if (config.oauthClientCredentials() != null) {
+            // OAuth client-credentials flow is not yet implemented.
+            // Throw explicitly so callers know (rather than silently
+            // sending an unauthenticated request that fails with 401).
+            throw new FeatureUnsupportedError(
+                    List.of("OAuth client-credentials token exchange"),
+                    List.of("Static bearer token (authToken)",
+                            "HTTP Basic auth (basicAuth)",
+                            "OAuth auth-code tokens (oauthTokens)"));
         }
-        // oauthClientCredentials: token exchange is done upstream before resolve()
 
         return Map.copyOf(headers);
     }

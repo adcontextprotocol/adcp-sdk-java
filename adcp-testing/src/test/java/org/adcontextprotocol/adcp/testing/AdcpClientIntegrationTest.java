@@ -60,11 +60,22 @@ class AdcpClientIntegrationTest {
                 .adcpVersion(AdcpVersion.V3)
                 .ssrfPolicy(SsrfPolicy.permissive())
                 .build()) {
-            // get_adcp_capabilities requires no arguments and every
-            // mock-server specialism should support it
             Map<String, Object> result = client.callTool(
                     "get_adcp_capabilities", Map.of(), Map.class);
-            assertNotNull(result);
+
+            // Validate spec shape — not just non-null
+            assertNotNull(result, "get_adcp_capabilities should return a response");
+            assertFalse(result.isEmpty(),
+                    "Response should contain at least one field");
+
+            // The response should carry either 'capabilities' or version fields
+            // depending on the mock-server implementation
+            boolean hasCapabilities = result.containsKey("capabilities");
+            boolean hasVersion = result.containsKey("adcp_version")
+                    || result.containsKey("adcp_major_version");
+            assertTrue(hasCapabilities || hasVersion,
+                    "Response should contain 'capabilities' or version fields, got: "
+                            + result.keySet());
         }
     }
 }

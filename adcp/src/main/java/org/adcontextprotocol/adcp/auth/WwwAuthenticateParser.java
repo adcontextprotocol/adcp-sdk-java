@@ -16,18 +16,26 @@ import java.util.regex.Pattern;
  *   <li>{@code Basic realm="Agent"}</li>
  *   <li>{@code Bearer} (no parameters)</li>
  * </ul>
+ *
+ * <p>Only parses the first challenge in multi-challenge headers.
+ * Quoted-pair escapes ({@code \"}) inside quoted strings are handled
+ * per RFC 9110 §5.6.4.
  */
 public final class WwwAuthenticateParser {
 
     // Matches: scheme followed by optional key=value pairs
-    // Group 1: scheme (one or more non-space characters)
-    // Group 2: the rest (parameters)
     private static final Pattern SCHEME_PATTERN =
             Pattern.compile("^(\\S+)\\s*(.*)$");
 
-    // Matches: key="value" or key=token (unquoted)
+    // Matches: key="value" (with quoted-pair support) or key=token
+    // Group 1: key
+    // Group 2: quoted string content (may contain escaped chars)
+    // Group 3: unquoted token value
     private static final Pattern PARAM_PATTERN =
-            Pattern.compile("(\\w+)\\s*=\\s*(?:\"([^\"]*)\"|([^\\s,]+))");
+            Pattern.compile("(\\w+)\\s*=\\s*(?:\"((?:[^\"\\\\]|\\\\.)*)\"|([^\\s,]+))");
+
+    /** Maximum number of parameters to parse (DoS guard). */
+    private static final int MAX_PARAMS = 16;
 
     private WwwAuthenticateParser() {}
 
@@ -68,13 +76,19 @@ public final class WwwAuthenticateParser {
         }
 
         Matcher paramMatcher = PARAM_PATTERN.matcher(paramString);
-        while (paramMatcher.find()) {
+        int count = 0;
+        while (paramMatcher.find() && count < MAX_PARAMS) {
             String key = paramMatcher.group(1).toLowerCase(java.util.Locale.ROOT);
-            // Prefer quoted value (group 2), fall back to unquoted (group 3)
-            String value = paramMatcher.group(2) != null
-                    ? paramMatcher.group(2)
-                    : paramMatcher.group(3);
+            String value;
+            if (paramMatcher.group(2) != null) {
+                // Quoted string — unescape quoted-pairs (RFC 9110 §5.6.4)
+                value = paramMatcher.group(2).replace("\\\"", "\"")
+                                             .replace("\\\\", "\\");
+            } else {
+                value = paramMatcher.group(3);
+            }
             params.put(key, value);
+            count++;
         }
 
         return params;

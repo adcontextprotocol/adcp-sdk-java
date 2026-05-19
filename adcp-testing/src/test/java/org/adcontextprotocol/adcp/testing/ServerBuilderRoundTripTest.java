@@ -1,10 +1,12 @@
 package org.adcontextprotocol.adcp.testing;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpServerTransportProvider;
 import org.adcontextprotocol.adcp.AdcpVersion;
 import org.adcontextprotocol.adcp.error.UnsupportedTaskError;
+import org.adcontextprotocol.adcp.schema.AdcpObjectMapperFactory;
 import org.adcontextprotocol.adcp.server.AdcpContext;
 import org.adcontextprotocol.adcp.server.AdcpPlatform;
 import org.adcontextprotocol.adcp.server.AdcpServerBuilder;
@@ -24,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * <ul>
  *   <li>Introspects supported tools from the platform</li>
  *   <li>Builds an MCP server with the correct tool registrations</li>
- *   <li>Dispatches tool calls through the platform</li>
+ *   <li>Dispatches tool calls through the builder's handleToolCall path</li>
  *   <li>Handles errors correctly</li>
  * </ul>
  */
@@ -44,7 +46,7 @@ class ServerBuilderRoundTripTest {
         }
 
         @Override
-        public Object handleTool(String toolName, Object request, AdcpContext ctx) {
+        public Object handleTool(String toolName, Map<String, Object> request, AdcpContext ctx) {
             lastContext = ctx;
             return switch (toolName) {
                 case "get_products" -> {
@@ -66,11 +68,25 @@ class ServerBuilderRoundTripTest {
     void builder_creates_server_with_correct_tool_count() {
         TestPlatform platform = new TestPlatform();
 
-        // Building with a null transport would normally fail, but we can
-        // test the platform wiring by verifying the tool set
         assertEquals(2, platform.supportedTools().size());
         assertTrue(platform.supportedTools().contains("get_products"));
         assertTrue(platform.supportedTools().contains("list_accounts"));
+    }
+
+    @Test
+    void builder_build_creates_mcp_server() {
+        TestPlatform platform = new TestPlatform();
+        // Use a StubTransport so we exercise the builder.build() path
+        McpServerTransportProvider transport = new StubMcpTransport();
+
+        McpSyncServer server = AdcpServerBuilder.create(platform)
+                .transport(transport)
+                .serverName("test-server")
+                .serverVersion("0.0.1")
+                .adcpVersion(AdcpVersion.V3)
+                .build();
+
+        assertNotNull(server, "build() should return a non-null MCP server");
     }
 
     @Test
@@ -131,7 +147,6 @@ class ServerBuilderRoundTripTest {
     void server_builder_requires_transport() {
         TestPlatform platform = new TestPlatform();
 
-        // Building without a transport should throw
         assertThrows(Exception.class, () ->
                 AdcpServerBuilder.create(platform).build());
     }
@@ -140,7 +155,6 @@ class ServerBuilderRoundTripTest {
     void server_builder_accepts_custom_server_info() {
         TestPlatform platform = new TestPlatform();
 
-        // Verify builder fluent API works without throwing
         AdcpServerBuilder builder = AdcpServerBuilder.create(platform)
                 .serverName("test-agent")
                 .serverVersion("1.0.0")
@@ -150,13 +164,12 @@ class ServerBuilderRoundTripTest {
     }
 
     @Test
-    void version_extraction_from_args() {
+    void version_extraction_strips_envelope_from_args() {
         TestPlatform platform = new TestPlatform();
-        // Test that version envelope args are accepted by the platform
-        Map<String, Object> argsWithVersion = Map.of(
+        Map<String, Object> argsWithVersion = new java.util.LinkedHashMap<>(Map.of(
                 "adcp_major_version", 3,
                 "adcp_version", "3.1",
-                "query", "test");
+                "query", "test"));
 
         AdcpContext ctx = new AdcpContext(AdcpVersion.V3_1, Map.of(), null);
         Object result = platform.handleTool("get_products", argsWithVersion, ctx);
@@ -168,7 +181,6 @@ class ServerBuilderRoundTripTest {
         TestPlatform platform = new TestPlatform();
         AdcpContext ctx = new AdcpContext(AdcpVersion.V3, Map.of(), null);
 
-        // Call both tools
         assertFalse(platform.getProductsCalled);
         assertFalse(platform.listAccountsCalled);
 
@@ -178,5 +190,30 @@ class ServerBuilderRoundTripTest {
 
         platform.handleTool("list_accounts", Map.of(), ctx);
         assertTrue(platform.listAccountsCalled);
+    }
+
+    /**
+     * Minimal stub transport that satisfies the non-null requirement for
+     * {@link AdcpServerBuilder#build()} without starting a real server.
+     * The MCP server builder calls no methods on the transport during build().
+     */
+    private static class StubMcpTransport implements McpServerTransportProvider {
+        @Override
+        public void setSessionFactory(
+                io.modelcontextprotocol.spec.McpServerSession.Factory factory) {
+            // no-op
+        }
+
+        @Override
+        public reactor.core.publisher.Mono<Void> notifyClients(
+                String method,
+                Object params) {
+            return reactor.core.publisher.Mono.empty();
+        }
+
+        @Override
+        public reactor.core.publisher.Mono<Void> closeGracefully() {
+            return reactor.core.publisher.Mono.empty();
+        }
     }
 }

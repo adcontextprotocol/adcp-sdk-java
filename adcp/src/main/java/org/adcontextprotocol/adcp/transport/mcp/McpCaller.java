@@ -65,11 +65,29 @@ public final class McpCaller {
             throw new ProtocolError("mcp", "MCP tool returned an error: " + errorText, null);
         }
 
+        // MCP 2025-06-18: prefer structuredContent over content[] for typed payloads.
+        Object structured = result.structuredContent();
+        if (structured != null) {
+            try {
+                JsonNode node = objectMapper.valueToTree(structured);
+                return objectMapper.treeToValue(node, responseType);
+            } catch (Exception e) {
+                log.debug("Failed to parse structuredContent as {}: {}",
+                        responseType.getSimpleName(), e.getMessage());
+                // Fall through to content[] path
+            }
+        }
+
         if (result.content() == null || result.content().isEmpty()) {
+            if (structured != null) {
+                throw new ProtocolError("mcp",
+                        "Cannot deserialize structuredContent to "
+                                + responseType.getSimpleName(), null);
+            }
             throw new ProtocolError("mcp", "Empty response from MCP callTool", null);
         }
 
-        // Try to find structured (JSON) content
+        // Fall back to content[] TextContent path
         Exception firstParseError = null;
         for (McpSchema.Content content : result.content()) {
             if (content instanceof McpSchema.TextContent textContent) {

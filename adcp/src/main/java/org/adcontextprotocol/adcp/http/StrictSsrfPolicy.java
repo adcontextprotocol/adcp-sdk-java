@@ -53,8 +53,19 @@ final class StrictSsrfPolicy implements SsrfPolicy {
                 return new SsrfDecision.Deny("reserved (240.0.0.0/4)");
             }
         }
-        if (effective instanceof Inet6Address v6 && isIpv6UniqueLocal(v6)) {
-            return new SsrfDecision.Deny("IPv6 unique local (fc00::/7)");
+        if (effective instanceof Inet6Address v6) {
+            if (isIpv6UniqueLocal(v6)) {
+                return new SsrfDecision.Deny("IPv6 unique local (fc00::/7)");
+            }
+            if (is6to4(v6)) {
+                return new SsrfDecision.Deny("6to4 relay (2002::/16) embedding private IPv4");
+            }
+            if (isTeredo(v6)) {
+                return new SsrfDecision.Deny("Teredo (2001:0000::/32) embedding private IPv4");
+            }
+            if (isNat64(v6)) {
+                return new SsrfDecision.Deny("NAT64 well-known (64:ff9b::/96) embedding private IPv4");
+            }
         }
         return SsrfDecision.ALLOW;
     }
@@ -125,5 +136,70 @@ final class StrictSsrfPolicy implements SsrfPolicy {
         int firstByte = v6.getAddress()[0] & 0xFF;
         // fc00::/7 — the first byte is 0xFC or 0xFD.
         return firstByte == 0xFC || firstByte == 0xFD;
+    }
+
+    /**
+     * 6to4 (2002::/16) — embeds an IPv4 address in bytes 2-5.
+     * A 6to4 address embedding a private IPv4 (e.g. 2002:7f00:0001:: → 127.0.0.1)
+     * is an SSRF vector.
+     */
+    private boolean is6to4(Inet6Address v6) {
+        byte[] b = v6.getAddress();
+        if ((b[0] & 0xFF) != 0x20 || (b[1] & 0xFF) != 0x02) {
+            return false;
+        }
+        // Extract embedded IPv4 from bytes 2-5
+        byte[] embedded = new byte[]{b[2], b[3], b[4], b[5]};
+        try {
+            InetAddress embeddedV4 = InetAddress.getByAddress(embedded);
+            return evaluate(embeddedV4) instanceof SsrfDecision.Deny;
+        } catch (Exception e) {
+            return true; // fail-closed
+        }
+    }
+
+    /**
+     * Teredo (2001:0000::/32) — embeds an obfuscated IPv4 in the last 4 bytes
+     * (XOR'd with 0xFF). Block if the decoded IPv4 is private.
+     */
+    private boolean isTeredo(Inet6Address v6) {
+        byte[] b = v6.getAddress();
+        if ((b[0] & 0xFF) != 0x20 || (b[1] & 0xFF) != 0x01
+                || b[2] != 0 || b[3] != 0) {
+            return false;
+        }
+        // Teredo client IPv4 is in bytes 12-15, XOR'd with 0xFF
+        byte[] embedded = new byte[]{
+                (byte) (~b[12] & 0xFF), (byte) (~b[13] & 0xFF),
+                (byte) (~b[14] & 0xFF), (byte) (~b[15] & 0xFF)};
+        try {
+            InetAddress embeddedV4 = InetAddress.getByAddress(embedded);
+            return evaluate(embeddedV4) instanceof SsrfDecision.Deny;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /**
+     * NAT64 well-known prefix (64:ff9b::/96) — embeds an IPv4 in the
+     * last 4 bytes. Block if the embedded IPv4 is private.
+     */
+    private boolean isNat64(Inet6Address v6) {
+        byte[] b = v6.getAddress();
+        // 64:ff9b:: → 0x00, 0x64, 0xff, 0x9b, then 8 zero bytes
+        if (b[0] != 0x00 || (b[1] & 0xFF) != 0x64
+                || (b[2] & 0xFF) != 0xFF || (b[3] & 0xFF) != 0x9B) {
+            return false;
+        }
+        for (int i = 4; i < 12; i++) {
+            if (b[i] != 0) return false;
+        }
+        byte[] embedded = new byte[]{b[12], b[13], b[14], b[15]};
+        try {
+            InetAddress embeddedV4 = InetAddress.getByAddress(embedded);
+            return evaluate(embeddedV4) instanceof SsrfDecision.Deny;
+        } catch (Exception e) {
+            return true;
+        }
     }
 }

@@ -82,7 +82,7 @@ class AdcpErrorTest {
         var error = new ValidationError("Invalid field value", "brief");
 
         assertEquals("VALIDATION_ERROR", error.code());
-        assertEquals("brief", error.field());
+        assertEquals(java.util.List.of("brief"), error.path());
     }
 
     @Test

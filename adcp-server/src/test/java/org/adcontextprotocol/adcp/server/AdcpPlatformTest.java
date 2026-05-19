@@ -38,7 +38,7 @@ class AdcpPlatformTest {
             }
 
             @Override
-            public Object handleTool(String toolName, Object request, AdcpContext ctx) {
+            public Object handleTool(String toolName, Map<String, Object> request, AdcpContext ctx) {
                 if ("get_products".equals(toolName)) {
                     return Map.of("products", java.util.List.of());
                 }
@@ -74,6 +74,12 @@ class AdcpPlatformTest {
     void default_toolDescriptions_returns_empty() {
         AdcpPlatform platform = new AdcpPlatform() {};
         assertTrue(platform.toolDescriptions().isEmpty());
+    }
+
+    @Test
+    void default_toolSchemas_returns_empty() {
+        AdcpPlatform platform = new AdcpPlatform() {};
+        assertTrue(platform.toolSchemas().isEmpty());
     }
 
     @Test

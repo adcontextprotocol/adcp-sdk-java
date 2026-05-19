@@ -3,6 +3,9 @@ package org.adcontextprotocol.adcp.transport;
 import org.adcontextprotocol.adcp.AdcpVersion;
 import org.jspecify.annotations.Nullable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -16,9 +19,13 @@ import java.util.Map;
  *       is pinned (e.g. {@code "3.1"})</li>
  * </ul>
  *
- * <p>Caller-supplied args win if they collide (conformance override).
+ * <p>SDK-set version fields take precedence over caller args. If a caller
+ * attempts to override {@code adcp_major_version}, a warning is logged and
+ * the SDK value is used.
  */
 public final class VersionEnvelope {
+
+    private static final Logger log = LoggerFactory.getLogger(VersionEnvelope.class);
 
     private VersionEnvelope() {}
 
@@ -40,17 +47,31 @@ public final class VersionEnvelope {
 
     /**
      * Merges the version envelope into the tool call arguments.
-     * Caller-supplied args take precedence (conformance override).
+     * SDK version fields take precedence — caller overrides are logged
+     * as warnings and discarded.
      *
-     * @param callerArgs the caller's arguments (may be empty, never null)
+     * @param callerArgs the caller's arguments (may be empty or null)
      * @param version    the AdCP version
      * @return merged arguments with version envelope
      */
     public static Map<String, Object> mergeInto(
-            Map<String, Object> callerArgs,
+            @Nullable Map<String, Object> callerArgs,
             @Nullable AdcpVersion version) {
-        Map<String, Object> merged = new LinkedHashMap<>(build(version));
-        merged.putAll(callerArgs); // caller wins
+        Map<String, Object> envelope = build(version);
+        Map<String, Object> merged = new LinkedHashMap<>();
+        if (callerArgs != null) {
+            for (var entry : callerArgs.entrySet()) {
+                if (envelope.containsKey(entry.getKey())) {
+                    log.warn("Caller attempted to override SDK version field '{}' "
+                            + "(caller={}, SDK={}); SDK value wins",
+                            entry.getKey(), entry.getValue(),
+                            envelope.get(entry.getKey()));
+                } else {
+                    merged.put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+        merged.putAll(envelope); // SDK wins
         return merged;
     }
 }

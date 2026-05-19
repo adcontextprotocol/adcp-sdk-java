@@ -38,15 +38,15 @@ class VersionEnvelopeTest {
     }
 
     @Test
-    void mergeInto_caller_args_win() {
+    void mergeInto_sdk_version_wins_over_caller() {
         Map<String, Object> callerArgs = new LinkedHashMap<>();
         callerArgs.put("adcp_major_version", 99);
         callerArgs.put("my_param", "value");
 
         Map<String, Object> merged = VersionEnvelope.mergeInto(callerArgs, AdcpVersion.V3);
 
-        // Caller's override wins
-        assertEquals(99, merged.get("adcp_major_version"));
+        // SDK value wins — caller override is discarded with a warning
+        assertEquals(3, merged.get("adcp_major_version"));
         // Caller's own param preserved
         assertEquals("value", merged.get("my_param"));
     }
@@ -59,5 +59,13 @@ class VersionEnvelopeTest {
 
         assertEquals(3, merged.get("adcp_major_version"));
         assertEquals("val", merged.get("param"));
+    }
+
+    @Test
+    void mergeInto_null_callerArgs_returns_envelope_only() {
+        Map<String, Object> merged = VersionEnvelope.mergeInto(null, AdcpVersion.V3);
+
+        assertEquals(3, merged.get("adcp_major_version"));
+        assertEquals(1, merged.size());
     }
 }

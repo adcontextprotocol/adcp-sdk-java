@@ -22,9 +22,8 @@ public record BasicCredentials(String username, String password) {
         if (username.contains(":")) {
             throw new IllegalArgumentException("username must not contain ':' (RFC 7617 §2)");
         }
-        if (password.isBlank()) {
-            throw new IllegalArgumentException("password must not be blank");
-        }
+        // Blank passwords are allowed — many platforms use the
+        // username=token, password="" pattern (e.g. GitHub PATs, Stripe).
     }
 
     @Override

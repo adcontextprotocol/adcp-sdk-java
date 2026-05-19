@@ -103,6 +103,18 @@ public final class AdcpHttpClient implements AutoCloseable {
                 .timeout(readTimeout)
                 .header("User-Agent", userAgent);
 
+        // If the URI was rewritten to an IP literal for DNS pinning,
+        // inject the original Host header so the server sees the right
+        // hostname (and TLS SNI matches via SSLParameters).
+        String originalHost = uri.getHost();
+        String pinnedHost = pinnedUri.getHost();
+        if (originalHost != null && !originalHost.equals(pinnedHost)) {
+            String hostHeader = uri.getPort() > 0 && uri.getPort() != 443 && uri.getPort() != 80
+                    ? originalHost + ":" + uri.getPort()
+                    : originalHost;
+            requestBuilder.header("Host", hostHeader);
+        }
+
         // Add caller-supplied headers, skipping protected headers
         headers.forEach((name, value) -> {
             if (!isProtectedHeader(name)) {
@@ -177,22 +189,18 @@ public final class AdcpHttpClient implements AutoCloseable {
             throw new IOException("URI has no host: " + uri);
         }
 
-        // Syntactic check for IP literals: IPv4 dotted-quad or IPv6
-        // brackets. No DNS call needed.
+        // Syntactic check for IP literals
         if (isIpLiteral(host)) {
             InetAddress literal = InetAddress.getByName(host);
             DnsPinResolver.validateAddress(literal, ssrfPolicy);
             return uri;
         }
 
-        // Resolve hostname, validate all addresses.
-        // We validate but do NOT rewrite the URI with the resolved IP
-        // because that would break HTTPS SNI/TLS hostname verification.
-        // Instead we rely on HttpClient's built-in resolution using the
-        // same hostname. The SSRF check is advisory — it catches the
-        // common case where a hostname resolves to a private address.
-        DnsPinResolver.resolveAndPin(host, ssrfPolicy);
-        return uri;
+        // Resolve hostname, validate all addresses, and rewrite the URI
+        // to use the pinned IP so that the JDK HttpClient cannot re-resolve
+        // to a different address (DNS rebinding).
+        InetAddress pinned = DnsPinResolver.resolveAndPin(host, ssrfPolicy);
+        return DnsPinResolver.rewriteUri(uri, pinned, host);
     }
 
     private static boolean isIpLiteral(String host) {
@@ -200,14 +208,24 @@ public final class AdcpHttpClient implements AutoCloseable {
         if (host.startsWith("[")) {
             return true;
         }
-        // IPv4 dotted-quad: all digits and dots, at least one dot
+        // Must have at least one dot for IPv4
         if (host.indexOf('.') < 0) {
             return false;
         }
+        // Check: all characters are digits and dots
         for (int i = 0; i < host.length(); i++) {
             char c = host.charAt(i);
             if (c != '.' && (c < '0' || c > '9')) {
                 return false;
+            }
+        }
+        // Reject ambiguous octal/decimal literals (e.g. 0177.0.0.1).
+        // InetAddress.getAllByName may interpret leading-zero octets as
+        // octal on some JDKs, allowing SSRF bypass.
+        for (String octet : host.split("\\.", -1)) {
+            if (octet.length() > 1 && octet.startsWith("0")) {
+                throw new org.adcontextprotocol.adcp.http.SsrfBlockedException(
+                        host, "Ambiguous IP literal with leading zeros (possible octal)");
             }
         }
         return true;

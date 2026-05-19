@@ -14,7 +14,8 @@ public final class ProtectedHeaders {
     /** Headers that SDK-managed transports must not allow callers to set. */
     public static final Set<String> NAMES = Set.of(
             "host", "user-agent", "content-length", "transfer-encoding",
-            "connection", "upgrade");
+            "connection", "upgrade",
+            "authorization", "cookie", "proxy-authorization");
 
     private ProtectedHeaders() {}
 

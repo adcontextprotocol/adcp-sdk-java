@@ -98,19 +98,21 @@ public final class AdcpServerBuilder {
 
         Set<String> tools = platform.supportedTools();
         Map<String, String> descriptions = platform.toolDescriptions();
+        Map<String, McpSchema.JsonSchema> schemas = platform.toolSchemas();
         log.info("Building AdCP server with {} tool(s): {}", tools.size(), tools);
 
         // Build the MCP server with tool handlers
         var spec = McpServer.sync(transport)
                 .serverInfo(serverName, serverVersion);
 
+        // Permissive open-object schema used when the platform doesn't
+        // provide a typed schema for a tool.
+        McpSchema.JsonSchema defaultSchema = new McpSchema.JsonSchema(
+                "object", Map.of(), List.of(), true, null, null);
+
         for (String toolName : tools) {
             String description = descriptions.getOrDefault(toolName, toolName);
-            // MCP spec requires inputSchema on every tool. Use a permissive
-            // open-object schema as the default since AdCP tools accept
-            // arbitrary JSON args (version envelope + caller args).
-            McpSchema.JsonSchema inputSchema = new McpSchema.JsonSchema(
-                    "object", Map.of(), List.of(), true, null, null);
+            McpSchema.JsonSchema inputSchema = schemas.getOrDefault(toolName, defaultSchema);
             McpSchema.Tool tool = McpSchema.Tool.builder()
                     .name(toolName)
                     .description(description)

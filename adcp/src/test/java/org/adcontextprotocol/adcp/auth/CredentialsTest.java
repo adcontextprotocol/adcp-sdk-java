@@ -27,9 +27,10 @@ class CredentialsTest {
     }
 
     @Test
-    void basicCredentials_rejects_blank_password() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new BasicCredentials("user", ""));
+    void basicCredentials_allows_blank_password() {
+        // Blank passwords are valid — many platforms use username=token, password=""
+        var creds = new BasicCredentials("user", "");
+        assertEquals("", creds.password());
     }
 
     @Test
