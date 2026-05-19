@@ -1,0 +1,87 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/ProtocolClient.java
+  s_5a10c71ca4b03f::t_8bef0a5b0858e0 198-206,217-228,232-234,250-255,257-261
+  s_5a10c71ca4b03f::t_27e50cb7e50936 19,21,27-28
+  s_5a10c71ca4b03f::t_5b7a6366f68f9a 78-85
+  s_5a10c71ca4b03f::t_08fb5abc7ce069 96-106
+  s_5a10c71ca4b03f::t_32b5fe1d9896c7 113-114
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpConnectionManager.java
+  s_5a10c71ca4b03f::t_ee5b933913aefa 371-372,375,377,382-388
+  s_5a10c71ca4b03f::t_9d844c12813f8e 330-368
+  s_5a10c71ca4b03f::t_a2eee57c90a404 224-228
+  s_5a10c71ca4b03f::t_746a7ce25f26f4 176-198
+  s_5a10c71ca4b03f::t_d04b0ce4f9c92f 242,255
+  s_5a10c71ca4b03f::t_e41325241d4935 9-10,18-19
+adcp/src/test/java/org/adcontextprotocol/adcp/error/AdcpErrorTest.java
+  s_5a10c71ca4b03f::t_49b23a297e30b7 85
+adcp/src/main/java/org/adcontextprotocol/adcp/error/ValidationError.java
+  s_5a10c71ca4b03f::t_50f934c5135308 5-14,21-22,24-25,27-37,40-42
+  s_5a10c71ca4b03f::t_bd75da8a4fab83 20
+adcp-testing/src/test/java/org/adcontextprotocol/adcp/testing/ServerBuilderRoundTripTest.java
+  s_5a10c71ca4b03f::t_ba965330225ab5 3,9,29,49,76-91,167,169,172,194-202,204-209,216-217
+  s_5a10c71ca4b03f::t_c07e30355dc799 203,210-215
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/AdcpServerBuilder.java
+  s_5a10c71ca4b03f::t_1cf35beacb07af 101,108-112,115
+adcp/src/main/java/org/adcontextprotocol/adcp/http/AdcpHttpClient.java
+  s_5a10c71ca4b03f::t_e5c9937ccdd2a0 106-117
+  s_5a10c71ca4b03f::t_0bcf077124b668 192,199-203
+  s_5a10c71ca4b03f::t_5c8a5d7934c95e 211,215,222-228
+adcp/src/main/java/org/adcontextprotocol/adcp/http/DnsPinResolver.java
+  s_5a10c71ca4b03f::t_01c2af2ba989cf 5,14-16,59-102
+adcp-cli/gradle.lockfile
+  s_5a10c71ca4b03f::t_80d63834d4e94b 5-15,17-19,30,33
+adcp/src/test/java/org/adcontextprotocol/adcp/auth/CredentialsTest.java
+  s_5a10c71ca4b03f::t_d2235632153309 30-33
+adcp/src/main/java/org/adcontextprotocol/adcp/http/ProtectedHeaders.java
+  s_5a10c71ca4b03f::t_230a974a4159be 17-18
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/WwwAuthenticateParser.java
+  s_5a10c71ca4b03f::t_4195f66ea4b1cd 19-22,30-33,35-38,79-80,82-89,91
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/AuthTokenResolver.java
+  s_5a10c71ca4b03f::t_d7b1e480389bdc 53-61
+  s_5a10c71ca4b03f::t_6c7e3c97e6df54 4,9
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/McpCaller.java
+  s_5a10c71ca4b03f::t_5564759c8ed4dd 68-80,82-86,90
+adcp-reactor/gradle.lockfile
+  s_5a10c71ca4b03f::t_55734434e4ee50 5-15,17-18,32
+adcp-mutiny/gradle.lockfile
+  s_5a10c71ca4b03f::t_55734434e4ee50 5-15,17-19,33,35
+adcp-kotlin/gradle.lockfile
+  s_5a10c71ca4b03f::t_55734434e4ee50 5-15,17-19,54,56
+adcp-server/src/test/java/org/adcontextprotocol/adcp/server/AdcpPlatformTest.java
+  s_5a10c71ca4b03f::t_67f1f0cdecd289 80-84
+  s_5a10c71ca4b03f::t_e97664c25edd99 41
+adcp/src/test/java/org/adcontextprotocol/adcp/AdcpClientTest.java
+  s_5a10c71ca4b03f::t_ca72518dcff7e2 81-86,89
+  s_5a10c71ca4b03f::t_23c3641ed0181e 75,87-88,90
+adcp-testing/src/test/java/org/adcontextprotocol/adcp/testing/AdcpClientIntegrationTest.java
+  s_5a10c71ca4b03f::t_edd50c37fd37a8 65-78
+adcp/src/test/java/org/adcontextprotocol/adcp/transport/VersionEnvelopeTest.java
+  s_5a10c71ca4b03f::t_814b18da0629e9 63-70
+  s_5a10c71ca4b03f::t_b1f68a512d09a6 41,48-49
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/VersionEnvelope.java
+  s_5a10c71ca4b03f::t_e98707d64f4a6d 50-51,53,58,60-74
+  s_5a10c71ca4b03f::t_4f3f2482c7b2d3 6-8,22-24,28
+adcp/src/main/java/org/adcontextprotocol/adcp/http/StrictSsrfPolicy.java
+  s_5a10c71ca4b03f::t_752ef1f3afa5f1 56-68
+  s_5a10c71ca4b03f::t_935be5c252e35c 140-204
+adcp/src/main/java/org/adcontextprotocol/adcp/auth/BasicCredentials.java
+  s_5a10c71ca4b03f::t_c0b9665e8a173b 25-26
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/AdcpPlatform.java
+  s_5a10c71ca4b03f::t_d0e8033d2895ae 5-6,12,28,47,52
+  s_5a10c71ca4b03f::t_9bad6339806bda 80-92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "88c8402923cb689818c049fd2d1b8527f05584eb",
+  "prompts": {},
+  "sessions": {
+    "s_5a10c71ca4b03f": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "d1f94672-b91c-4292-9268-f716ab6c995f",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
