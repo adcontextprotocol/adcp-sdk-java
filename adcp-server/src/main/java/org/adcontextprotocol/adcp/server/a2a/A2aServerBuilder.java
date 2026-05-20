@@ -33,9 +33,9 @@ import java.util.Objects;
 public final class A2aServerBuilder {
 
     private final AdcpPlatform platform;
-    private String agentName;
-    private String agentUrl;
-    private String agentVersion;
+    private @Nullable String agentName;
+    private @Nullable String agentUrl;
+    private @Nullable String agentVersion;
     private @Nullable AgentCard builtCard;
 
     private A2aServerBuilder(AdcpPlatform platform) {
@@ -111,7 +111,7 @@ public final class A2aServerBuilder {
         return builtCard;
     }
 
-    private void require(String value, String field) {
+    private void require(@Nullable String value, String field) {
         if (value == null || value.isBlank()) {
             throw new ConfigurationError("A2aServerBuilder." + field + " is required", field);
         }

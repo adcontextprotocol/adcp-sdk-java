@@ -111,9 +111,10 @@ class A2aConnectionManagerTest {
                 "X-Tenant", "tenant-a"), "hash-1");
 
         String cacheKey = onlyCacheKey(manager);
-        assertTrue(cacheKey.contains("X-Tenant"));
+        assertTrue(cacheKey.contains("x-tenant"), "cache key should contain lowercased header name");
         assertTrue(cacheKey.contains("tenant-a"));
         assertFalse(cacheKey.contains("Authorization"));
+        assertFalse(cacheKey.contains("authorization"), "Authorization header must not appear in cache key");
         assertFalse(cacheKey.contains("secret"));
         assertEquals(List.of(Map.of(
                 "Authorization", "Bearer secret",

@@ -184,8 +184,14 @@ public final class A2aConnectionManager implements AutoCloseable {
             return sb.toString();
         }
         sb.append('?');
+        // Normalize header key case so semantically-identical headers with different casing
+        // (e.g. X-Tenant vs x-tenant) always produce the same cache key.
+        TreeMap<String, String> normalizedHeaders = new TreeMap<>();
+        for (var entry : sanitizedHeaders.entrySet()) {
+            normalizedHeaders.putIfAbsent(entry.getKey().toLowerCase(java.util.Locale.ROOT), entry.getValue());
+        }
         boolean first = true;
-        for (var entry : new TreeMap<>(sanitizedHeaders).entrySet()) {
+        for (var entry : normalizedHeaders.entrySet()) {
             if (!first) {
                 sb.append('&');
             }

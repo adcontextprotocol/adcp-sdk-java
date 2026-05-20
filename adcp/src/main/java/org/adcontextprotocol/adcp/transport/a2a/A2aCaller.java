@@ -84,7 +84,7 @@ public final class A2aCaller {
             throw new IllegalArgumentException(
                     "toolName exceeds max length of " + MAX_TOOL_NAME_LENGTH + ": " + toolName.length());
         }
-        if (toolName.chars().anyMatch(c -> Character.isISOControl(c) && c != '\t')) {
+        if (toolName.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("toolName must not contain control characters");
         }
         // Sanitized copy used only in log/error strings — the original is sent on the wire
