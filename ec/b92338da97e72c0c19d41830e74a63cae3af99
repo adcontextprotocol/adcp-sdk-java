@@ -1,0 +1,23 @@
+adcp/build.gradle.kts
+  s_5231ba5a8f295b::t_632aadcdedca8c 25-27
+gradle/libs.versions.toml
+  s_5231ba5a8f295b::t_7514f94cbd89b9 70-73
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/a2a/A2aServlet.java
+  s_5231ba5a8f295b::t_6edc29981ffd4c 180
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "ecb92338da97e72c0c19d41830e74a63cae3af99",
+  "prompts": {},
+  "sessions": {
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
