@@ -337,23 +337,25 @@ public final class A2aServlet extends HttpServlet {
     private static void writeTimeoutResponse(HttpServletResponse response, Object requestId,
                                              AtomicLong sequence, AsyncContext asyncContext, Object writerLock,
                                              AtomicBoolean completed) throws IOException {
-        // If the response is not yet committed, send a plain HTTP error response atomically.
-        // If it is committed, send a final SSE error event and complete atomically.
+        // Both the committed and uncommitted cases are handled atomically under a single lock
+        // acquisition to prevent onNext() from writing another SSE event between the timeout
+        // decision and the final timeout event / completion.
         synchronized (writerLock) {
             if (completed.get()) {
                 return;
             }
+            completed.set(true);
             if (!response.isCommitted()) {
-                completed.set(true);
                 writeError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, requestId,
                         new InternalError("Streaming response timed out"));
-                asyncContext.complete();
-                return;
+            } else {
+                response.getWriter().write(SseFormatter.formatResponseAsSSE(
+                        new SendStreamingMessageResponse(requestId, new InternalError("Streaming response timed out")),
+                        sequence.getAndIncrement()));
+                response.getWriter().flush();
             }
+            asyncContext.complete();
         }
-        writeFinalStreamingResponse(response,
-                new SendStreamingMessageResponse(requestId, new InternalError("Streaming response timed out")),
-                sequence, asyncContext, writerLock, completed);
     }
 
     private static void writeFinalStreamingResponse(HttpServletResponse response, SendStreamingMessageResponse payload,

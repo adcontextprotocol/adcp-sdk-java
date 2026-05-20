@@ -46,10 +46,10 @@ public final class A2aAgentExecutor implements AgentExecutor {
     @Override
     public void execute(RequestContext ctx, AgentEmitter emitter) throws A2AError {
         Message message = ctx.getMessage();
-        String toolName = extractToolName(message);
-        Map<String, Object> args = extractArgs(message);
-
+        String toolName = "<unknown>";
         try {
+            toolName = extractToolName(message);
+            Map<String, Object> args = extractArgs(message);
             AdcpVersion version = extractVersion(args);
             args.remove("adcp_major_version");
             args.remove("adcp_version");
