@@ -48,11 +48,11 @@ public final class A2aAgentExecutor implements AgentExecutor {
         Message message = ctx.getMessage();
         String toolName = extractToolName(message);
         Map<String, Object> args = extractArgs(message);
-        AdcpVersion version = extractVersion(args);
-        args.remove("adcp_major_version");
-        args.remove("adcp_version");
 
         try {
+            AdcpVersion version = extractVersion(args);
+            args.remove("adcp_major_version");
+            args.remove("adcp_version");
             emitter.startWork();
             String rawMessageId = message != null ? message.messageId() : ctx.getTaskId();
             String safeMessageId = rawMessageId == null ? null

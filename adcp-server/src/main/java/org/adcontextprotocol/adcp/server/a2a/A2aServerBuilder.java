@@ -4,6 +4,7 @@ import org.a2aproject.sdk.server.events.InMemoryQueueManager;
 import org.a2aproject.sdk.server.events.MainEventBus;
 import org.a2aproject.sdk.server.events.MainEventBusProcessor;
 import org.a2aproject.sdk.server.requesthandlers.DefaultRequestHandler;
+import org.a2aproject.sdk.server.requesthandlers.RequestHandler;
 import org.a2aproject.sdk.server.tasks.InMemoryPushNotificationConfigStore;
 import org.a2aproject.sdk.server.tasks.InMemoryTaskStore;
 import org.a2aproject.sdk.spec.AgentCapabilities;
@@ -21,7 +22,7 @@ import java.util.Objects;
  *
  * <p><b>Authentication:</b> This builder produces a {@link DefaultRequestHandler} that
  * is then wrapped in an {@link A2aServlet}. Authentication is configured on the servlet,
- * not here. Use {@link A2aServlet#A2aServlet(DefaultRequestHandler, A2aAuthProvider)} to
+ * not here. Use {@link A2aServlet#A2aServlet(RequestHandler, A2aAuthProvider)} to
  * wire a real {@link A2aAuthProvider} before deploying to production.
  *
  * <p><b>In-memory stores:</b> {@link #build()} creates in-memory task and queue stores

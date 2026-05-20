@@ -301,7 +301,7 @@ public final class A2aConnectionManager implements AutoCloseable {
 
         DefaultClientFactory(AdcpHttpClient adcpHttpClient) {
             this.safeHttpClient = new JdkA2AHttpClient(
-                    adcpHttpClient.newMcpClientBuilder().build());
+                    adcpHttpClient.newHttpClientBuilder().build());
         }
 
         @Override

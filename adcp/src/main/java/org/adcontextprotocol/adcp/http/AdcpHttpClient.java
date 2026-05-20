@@ -190,6 +190,14 @@ public final class AdcpHttpClient implements AutoCloseable {
      * and redirect policy used by this client.
      */
     public HttpClient.Builder newMcpClientBuilder() {
+        return newHttpClientBuilder();
+    }
+
+    /**
+     * Creates an HTTP client builder with this client's connection-timeout and
+     * redirect policy ({@code NEVER}). Suitable for any transport (MCP, A2A, etc.).
+     */
+    public HttpClient.Builder newHttpClientBuilder() {
         return HttpClient.newBuilder()
                 .connectTimeout(connectTimeout)
                 .followRedirects(HttpClient.Redirect.NEVER);

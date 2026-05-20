@@ -43,6 +43,8 @@ public final class A2aCaller {
     private static final int MAX_HISTORY_SCAN = 20;
     private static final int MAX_PARTS_SCAN = 20;
 
+    private static final int MAX_TOOL_NAME_LENGTH = 256;
+
     private final ObjectMapper objectMapper;
 
     public A2aCaller(ObjectMapper objectMapper) {
@@ -73,10 +75,19 @@ public final class A2aCaller {
     <T> T callTool(A2aMessageClient client, String toolName,
                    Map<String, Object> args, Class<T> responseType,
                    Map<String, String> headers) {
-        // Sanitize caller-supplied toolName before it enters error messages or log strings
-        final String safeToolName = toolName == null ? "(null)"
-                : (toolName.length() > 256 ? toolName.substring(0, 256) : toolName)
-                        .replaceAll("[\\p{Cc}]", "");
+        // Validate toolName before use — reject rather than silently mutate the outbound request
+        if (toolName == null || toolName.isBlank()) {
+            throw new IllegalArgumentException("toolName must not be null or blank");
+        }
+        if (toolName.length() > MAX_TOOL_NAME_LENGTH) {
+            throw new IllegalArgumentException(
+                    "toolName exceeds max length of " + MAX_TOOL_NAME_LENGTH + ": " + toolName.length());
+        }
+        if (toolName.chars().anyMatch(c -> Character.isISOControl(c) && c != '\t')) {
+            throw new IllegalArgumentException("toolName must not contain control characters");
+        }
+        // Sanitized copy used only in log/error strings — the original is sent on the wire
+        final String safeToolName = toolName.replaceAll("[\\p{Cc}]", "");
 
         CountDownLatch completion = new CountDownLatch(1);
         AtomicReference<Message> latestMessage = new AtomicReference<>();
@@ -107,7 +118,7 @@ public final class A2aCaller {
         };
 
         try {
-            client.sendMessage(buildRequest(safeToolName, args), consumers, errorHandler,
+            client.sendMessage(buildRequest(toolName, args), consumers, errorHandler,
                     new ClientCallContext(Map.of(), headers));
 
             // Guard for synchronous-delivery clients that invoke callbacks inline
