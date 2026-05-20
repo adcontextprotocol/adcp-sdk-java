@@ -84,7 +84,7 @@ npx changeset
 
 Pick the affected packages (one or more of the eight artifacts), pick a bump level (`patch` / `minor` / `major`), and write a short summary. The `changeset-check` CI job fails if a non-trivial PR is missing a changeset.
 
-For pure refactors, docs, or test-only PRs, no changeset is needed.
+For pure refactors, docs, test-only PRs, and `chore:` / `ci:` commits, no changeset is needed.
 
 ## Design decisions
 
