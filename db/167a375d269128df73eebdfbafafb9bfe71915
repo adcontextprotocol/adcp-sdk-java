@@ -1,0 +1,21 @@
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/a2a/A2aAgentExecutor.java
+  s_5231ba5a8f295b::t_2627591af36463 87-90,99-102
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/a2a/A2aServlet.java
+  s_5231ba5a8f295b::t_6135bdd80eedd5 112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "db167a375d269128df73eebdfbafafb9bfe71915",
+  "prompts": {},
+  "sessions": {
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
