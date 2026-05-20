@@ -126,8 +126,9 @@ public final class A2aCaller {
             // before sendMessage() returns; the latch is already at 0 in that case
             // so this countDown() is a no-op — but we ensure we don't await forever
             // if the client is synchronous and never fires the error handler.
+            // Only trigger on terminal results to avoid counting down on in-progress tasks.
             if (completion.getCount() > 0
-                    && (latestMessage.get() != null || latestTask.get() != null || failure.get() != null)) {
+                    && (latestMessage.get() != null || isTerminal(latestTask.get()) || failure.get() != null)) {
                 completion.countDown();
             }
 
