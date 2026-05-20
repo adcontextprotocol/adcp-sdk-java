@@ -84,7 +84,10 @@ public final class A2aAgentExecutor implements AgentExecutor {
         if (message.metadata() != null && message.metadata().get(TOOL_NAME_KEY) instanceof String toolName
                 && !toolName.isBlank()) {
             String capped = toolName.length() > 256 ? toolName.substring(0, 256) : toolName;
-            return capped.replaceAll("[\\p{Cc}]", "");
+            String sanitized = capped.replaceAll("[\\p{Cc}]", "");
+            if (!sanitized.isBlank()) {
+                return sanitized;
+            }
         }
         if (message.parts() != null) {
             int limit = Math.min(message.parts().size(), MAX_PARTS_SCAN);
@@ -93,7 +96,10 @@ public final class A2aAgentExecutor implements AgentExecutor {
                 if (part instanceof TextPart textPart && textPart.text() != null && !textPart.text().isBlank()) {
                     String name = textPart.text();
                     String capped = name.length() > 256 ? name.substring(0, 256) : name;
-                    return capped.replaceAll("[\\p{Cc}]", "");
+                    String sanitized = capped.replaceAll("[\\p{Cc}]", "");
+                    if (!sanitized.isBlank()) {
+                        return sanitized;
+                    }
                 }
             }
         }

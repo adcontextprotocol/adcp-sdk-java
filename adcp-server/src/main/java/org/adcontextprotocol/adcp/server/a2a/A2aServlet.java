@@ -109,6 +109,7 @@ public final class A2aServlet extends HttpServlet {
             requestId = extractId(envelope.get("id"));
             JsonElement methodElement = envelope.get("method");
             String method = methodElement != null && methodElement.isJsonPrimitive()
+                    && methodElement.getAsJsonPrimitive().isString()
                     ? methodElement.getAsString()
                     : null;
             if (method == null || method.isBlank()) {
