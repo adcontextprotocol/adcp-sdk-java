@@ -50,4 +50,34 @@ class SchemaBundleTest {
         assertEquals("Format", schema.path("title").asText());
         assertTrue(schema.has("$defs"), "format.json should have $defs");
     }
+
+    @Test
+    void load_throws_on_null_path() {
+        assertThrows(IllegalArgumentException.class, () -> SchemaBundle.load(null));
+    }
+
+    @Test
+    void load_throws_on_path_traversal() {
+        assertThrows(IllegalArgumentException.class, () -> SchemaBundle.load("../secret.json"));
+    }
+
+    @Test
+    void load_throws_on_leading_slash() {
+        assertThrows(IllegalArgumentException.class, () -> SchemaBundle.load("/3.0.11/core/format.json"));
+    }
+
+    @Test
+    void exists_returns_false_for_null_path() {
+        assertFalse(SchemaBundle.exists(null));
+    }
+
+    @Test
+    void exists_returns_false_for_path_traversal() {
+        assertFalse(SchemaBundle.exists("../secret.json"));
+    }
+
+    @Test
+    void exists_returns_false_for_leading_slash() {
+        assertFalse(SchemaBundle.exists("/3.0.11/core/format.json"));
+    }
 }

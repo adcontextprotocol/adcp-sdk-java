@@ -116,6 +116,11 @@ public final class A2aServlet extends HttpServlet {
                         new InvalidRequestError("JSON-RPC method is required"));
                 return;
             }
+            if (method.length() > MAX_METHOD_LENGTH) {
+                writeError(response, HttpServletResponse.SC_BAD_REQUEST, requestId,
+                        new InvalidRequestError("JSON-RPC method too long"));
+                return;
+            }
 
             ServerCallContext callContext = authProvider.authenticate(request);
 
@@ -266,22 +271,22 @@ public final class A2aServlet extends HttpServlet {
             public void onTimeout(AsyncEvent event) {
                 cancelSubscription(subRef);
                 try {
-                    writeTimeoutResponse(response, requestId, sequence, writerLock, completed);
+                    writeTimeoutResponse(response, requestId, sequence, asyncContext, writerLock, completed);
                 } catch (IOException ignored) {
-                    // Best-effort: timeout already terminates the stream
+                    completeAsync(asyncContext, writerLock, completed);
                 }
-                completeAsync(asyncContext, writerLock, completed);
             }
 
             @Override
             public void onError(AsyncEvent event) {
                 cancelSubscription(subRef);
                 try {
-                    writeStreamingError(response, requestId, toA2aError(event.getThrowable()), sequence, writerLock, completed);
+                    writeFinalStreamingResponse(response,
+                            new SendStreamingMessageResponse(requestId, toA2aError(event.getThrowable())),
+                            sequence, asyncContext, writerLock, completed);
                 } catch (IOException ignored) {
-                    // Best-effort: container is already failing the async request
+                    completeAsync(asyncContext, writerLock, completed);
                 }
-                completeAsync(asyncContext, writerLock, completed);
             }
 
             @Override
@@ -314,11 +319,12 @@ public final class A2aServlet extends HttpServlet {
             @Override
             public void onError(Throwable throwable) {
                 try {
-                    writeStreamingError(response, requestId, toA2aError(throwable), sequence, writerLock, completed);
+                    writeFinalStreamingResponse(response,
+                            new SendStreamingMessageResponse(requestId, toA2aError(throwable)),
+                            sequence, asyncContext, writerLock, completed);
                 } catch (IOException ignored) {
-                    // Best-effort: stream is already failing
+                    completeAsync(asyncContext, writerLock, completed);
                 }
-                completeAsync(asyncContext, writerLock, completed);
             }
 
             @Override
@@ -329,32 +335,37 @@ public final class A2aServlet extends HttpServlet {
     }
 
     private static void writeTimeoutResponse(HttpServletResponse response, Object requestId,
-                                             AtomicLong sequence, Object writerLock,
+                                             AtomicLong sequence, AsyncContext asyncContext, Object writerLock,
                                              AtomicBoolean completed) throws IOException {
-        // If the response is not yet committed, send a plain HTTP error response.
-        // If it is committed, fall through to send an SSE error event via writeStreamingResponse.
+        // If the response is not yet committed, send a plain HTTP error response atomically.
+        // If it is committed, send a final SSE error event and complete atomically.
         synchronized (writerLock) {
             if (completed.get()) {
                 return;
             }
             if (!response.isCommitted()) {
-                // Mark completed here so no further SSE writes can occur after we release the lock.
                 completed.set(true);
                 writeError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, requestId,
                         new InternalError("Streaming response timed out"));
+                asyncContext.complete();
                 return;
             }
         }
-        writeStreamingResponse(response,
+        writeFinalStreamingResponse(response,
                 new SendStreamingMessageResponse(requestId, new InternalError("Streaming response timed out")),
-                sequence, writerLock, completed);
+                sequence, asyncContext, writerLock, completed);
     }
 
-    private static void writeStreamingError(HttpServletResponse response, Object requestId, A2AError error,
-                                            AtomicLong sequence, Object writerLock,
-                                            AtomicBoolean completed) throws IOException {
-        writeStreamingResponse(response, new SendStreamingMessageResponse(requestId, error),
-                sequence, writerLock, completed);
+    private static void writeFinalStreamingResponse(HttpServletResponse response, SendStreamingMessageResponse payload,
+                                                     AtomicLong sequence, AsyncContext asyncContext,
+                                                     Object writerLock, AtomicBoolean completed) throws IOException {
+        synchronized (writerLock) {
+            if (completed.compareAndSet(false, true)) {
+                response.getWriter().write(SseFormatter.formatResponseAsSSE(payload, sequence.getAndIncrement()));
+                response.getWriter().flush();
+                asyncContext.complete();
+            }
+        }
     }
 
     private static void writeStreamingResponse(HttpServletResponse response, SendStreamingMessageResponse payload,
