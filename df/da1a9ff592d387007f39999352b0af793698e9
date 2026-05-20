@@ -1,0 +1,27 @@
+gradle/libs.versions.toml
+  s_5231ba5a8f295b::t_45ca9abbc2bb34 13
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/A2aCaller.java
+  s_5231ba5a8f295b::t_1db41565bb18d4 23,207-208,211,214,229-230,233
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/a2a/A2aServlet.java
+  s_5231ba5a8f295b::t_69db536504e4e5 341-342
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/A2aConnectionManager.java
+  s_5231ba5a8f295b::t_3022dbb16edc4f 352-354
+adcp-cli/gradle.lockfile
+  s_5231ba5a8f295b::t_eedcba540cf53e 52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "dfda1a9ff592d387007f39999352b0af793698e9",
+  "prompts": {},
+  "sessions": {
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
