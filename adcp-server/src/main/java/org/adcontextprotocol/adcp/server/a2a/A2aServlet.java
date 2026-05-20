@@ -338,6 +338,8 @@ public final class A2aServlet extends HttpServlet {
                 return;
             }
             if (!response.isCommitted()) {
+                // Mark completed here so no further SSE writes can occur after we release the lock.
+                completed.set(true);
                 writeError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, requestId,
                         new InternalError("Streaming response timed out"));
                 return;

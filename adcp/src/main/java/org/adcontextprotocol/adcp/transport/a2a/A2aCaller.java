@@ -20,6 +20,7 @@ import org.adcontextprotocol.adcp.error.ProtocolError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -203,14 +204,14 @@ public final class A2aCaller {
             Part<?> part = parts.get(i);
             if (part instanceof DataPart dataPart) {
                 try {
-                    String serialized = objectMapper.writeValueAsString(dataPart.data());
-                    if (serialized.length() > MAX_CONTENT_LENGTH) {
+                    byte[] bytes = objectMapper.writeValueAsBytes(dataPart.data());
+                    if (bytes.length > MAX_CONTENT_LENGTH) {
                         throw new ProtocolError("a2a",
                                 "A2A DataPart response exceeds size limit ("
-                                        + serialized.length() + " > " + MAX_CONTENT_LENGTH + ")",
+                                        + bytes.length + " > " + MAX_CONTENT_LENGTH + ")",
                                 null);
                     }
-                    return objectMapper.readValue(serialized, responseType);
+                    return objectMapper.readValue(bytes, responseType);
                 } catch (ProtocolError e) {
                     throw e;
                 } catch (Exception e) {
@@ -225,10 +226,11 @@ public final class A2aCaller {
                 if (text == null) {
                     continue;
                 }
-                if (text.length() > MAX_CONTENT_LENGTH) {
+                int textBytes = text.getBytes(StandardCharsets.UTF_8).length;
+                if (textBytes > MAX_CONTENT_LENGTH) {
                     throw new ProtocolError("a2a",
                             "A2A response content exceeds size limit ("
-                                    + text.length() + " > " + MAX_CONTENT_LENGTH + ")",
+                                    + textBytes + " > " + MAX_CONTENT_LENGTH + ")",
                             null);
                 }
                 try {

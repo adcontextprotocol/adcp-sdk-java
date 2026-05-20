@@ -349,11 +349,9 @@ public final class A2aConnectionManager implements AutoCloseable {
         }
 
         private static URI buildAgentCardUri(URI baseUri) {
-            String base = baseUri.toString();
-            while (base.endsWith("/")) {
-                base = base.substring(0, base.length() - 1);
-            }
-            return URI.create(base + "/.well-known/agent.json");
+            // The A2A Agent Card is always at /.well-known/agent.json on the origin root
+            // (scheme + authority), not appended to the agent URI's path component.
+            return URI.create(baseUri.getScheme() + "://" + baseUri.getAuthority() + "/.well-known/agent.json");
         }
 
         private static AgentCard normalize(AgentCard card, URI baseUri) {
