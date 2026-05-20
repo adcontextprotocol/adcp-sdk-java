@@ -17,8 +17,12 @@ dependencies {
     // tree per RFC §JSON. See specs/mcp-prototype-findings.md.
     api(libs.mcp.core)
     api(libs.mcp.json.jackson2)
+    api(libs.a2a.sdk.server.common)
+    implementation(libs.a2a.sdk.jsonrpc.common)
     // The servlet transport classes use jakarta.servlet.* at compile time;
     // the adopter brings their own Servlet container at runtime (Jetty,
     // Tomcat, Undertow, embedded Spring Boot, etc.).
     compileOnly(libs.jakarta.servlet.api)
+
+    testImplementation(libs.jakarta.servlet.api)
 }

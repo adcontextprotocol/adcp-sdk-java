@@ -6,9 +6,10 @@ import org.adcontextprotocol.adcp.AdcpVersion;
 import org.adcontextprotocol.adcp.AgentConfig;
 import org.adcontextprotocol.adcp.Protocol;
 import org.adcontextprotocol.adcp.auth.AuthTokenResolver;
-import org.adcontextprotocol.adcp.error.FeatureUnsupportedError;
 import org.adcontextprotocol.adcp.error.ProtocolError;
 import org.adcontextprotocol.adcp.http.SsrfPolicy;
+import org.adcontextprotocol.adcp.transport.a2a.A2aCaller;
+import org.adcontextprotocol.adcp.transport.a2a.A2aConnectionManager;
 import org.adcontextprotocol.adcp.transport.mcp.McpCaller;
 import org.adcontextprotocol.adcp.transport.mcp.McpConnectionManager;
 import org.jspecify.annotations.Nullable;
@@ -38,8 +39,10 @@ public final class ProtocolClient implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(ProtocolClient.class);
 
-    private final McpConnectionManager connectionManager;
+    private final McpConnectionManager mcpConnectionManager;
+    private final A2aConnectionManager a2aConnectionManager;
     private final McpCaller mcpCaller;
+    private final A2aCaller a2aCaller;
     private final SsrfPolicy ssrfPolicy;
     private final @Nullable AdcpVersion adcpVersion;
 
@@ -49,13 +52,17 @@ public final class ProtocolClient implements AutoCloseable {
      * @param objectMapper       Jackson ObjectMapper for serialization
      * @param ssrfPolicy         SSRF policy for URL validation
      * @param adcpVersion        protocol version for the version envelope
-     * @param connectionManager  MCP connection manager (shared)
+     * @param mcpConnectionManager  MCP connection manager (shared)
+     * @param a2aConnectionManager  A2A connection manager (shared)
      */
     public ProtocolClient(ObjectMapper objectMapper, SsrfPolicy ssrfPolicy,
                           @Nullable AdcpVersion adcpVersion,
-                          McpConnectionManager connectionManager) {
-        this.connectionManager = connectionManager;
+                          McpConnectionManager mcpConnectionManager,
+                          A2aConnectionManager a2aConnectionManager) {
+        this.mcpConnectionManager = mcpConnectionManager;
+        this.a2aConnectionManager = a2aConnectionManager;
         this.mcpCaller = new McpCaller(objectMapper);
+        this.a2aCaller = new A2aCaller(objectMapper);
         this.ssrfPolicy = ssrfPolicy;
         this.adcpVersion = adcpVersion;
     }
@@ -75,14 +82,7 @@ public final class ProtocolClient implements AutoCloseable {
                           Map<String, Object> args, Class<T> responseType,
                           CallToolOptions options) {
 
-        // 1. Check protocol support early so unsupported transports fail fast
-        if (agent.protocol() == org.adcontextprotocol.adcp.Protocol.A2A) {
-            throw new FeatureUnsupportedError(
-                    List.of("A2A transport"),
-                    List.of("MCP"));
-        }
-
-        // 2. Validate agent URL against SSRF policy
+        // 1. Validate agent URL against SSRF policy
         validateUrl(agent);
 
         // 2. Warn if non-default options are passed (not yet enforced in v0.1)
@@ -110,8 +110,10 @@ public final class ProtocolClient implements AutoCloseable {
         AdcpVersion version = agent.adcpVersion() != null ? agent.adcpVersion() : adcpVersion;
         Map<String, Object> mergedArgs = VersionEnvelope.mergeInto(args, version);
 
-        // 6. Dispatch to transport (A2A already rejected in step 1)
-        return callViaMcp(agent, toolName, mergedArgs, allHeaders, responseType);
+        // 6. Dispatch to transport
+        return agent.protocol() == Protocol.A2A
+                ? callViaA2a(agent, toolName, mergedArgs, allHeaders, responseType)
+                : callViaMcp(agent, toolName, mergedArgs, allHeaders, responseType);
     }
 
     /**
@@ -124,7 +126,11 @@ public final class ProtocolClient implements AutoCloseable {
 
     @Override
     public void close() {
-        connectionManager.close();
+        try {
+            mcpConnectionManager.close();
+        } finally {
+            a2aConnectionManager.close();
+        }
     }
 
     private <T> T callViaMcp(AgentConfig agent, String toolName,
@@ -132,7 +138,7 @@ public final class ProtocolClient implements AutoCloseable {
                              Map<String, String> headers,
                              Class<T> responseType) {
         String cacheHash = computeCacheHash(agent);
-        McpSyncClient client = connectionManager.getOrConnect(
+        McpSyncClient client = mcpConnectionManager.getOrConnect(
                 agent.agentUri(), headers, cacheHash);
 
         try {
@@ -142,12 +148,12 @@ public final class ProtocolClient implements AutoCloseable {
                 throw e;
             }
             // On transport error, evict and retry once
-            connectionManager.evict(agent.agentUri(), cacheHash);
+            mcpConnectionManager.evict(agent.agentUri(), cacheHash);
             log.debug("MCP transport error for {}, retrying after evict: {}",
                     toolName, e.getMessage());
 
             ProtocolError original = e;
-            client = connectionManager.getOrConnect(
+            client = mcpConnectionManager.getOrConnect(
                     agent.agentUri(), headers, cacheHash);
             try {
                 return mcpCaller.callTool(client, toolName, mergedArgs, responseType);
@@ -169,15 +175,43 @@ public final class ProtocolClient implements AutoCloseable {
         return false;
     }
 
+    private <T> T callViaA2a(AgentConfig agent, String toolName,
+                             Map<String, Object> mergedArgs,
+                             Map<String, String> headers,
+                             Class<T> responseType) {
+        String cacheHash = computeCacheHash(agent);
+        var client = a2aConnectionManager.getOrConnect(agent, headers, cacheHash);
+        try {
+            return a2aCaller.callTool(client, toolName, mergedArgs, responseType, headers);
+        } catch (ProtocolError e) {
+            if (!isTransportError(e)) {
+                throw e;
+            }
+            a2aConnectionManager.evict(agent.agentUri(), cacheHash);
+            log.debug("A2A transport error for {}, retrying after evict: {}",
+                    toolName, e.getMessage());
+
+            ProtocolError original = e;
+            client = a2aConnectionManager.getOrConnect(agent, headers, cacheHash);
+            try {
+                return a2aCaller.callTool(client, toolName, mergedArgs, responseType, headers);
+            } catch (ProtocolError retry) {
+                retry.addSuppressed(original);
+                throw retry;
+            }
+        }
+    }
+
     private void validateUrl(AgentConfig agent) {
+        String protocol = agent.protocol() == Protocol.A2A ? "a2a" : "mcp";
         String scheme = agent.agentUri().getScheme();
         if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
-            throw new ProtocolError("mcp",
+            throw new ProtocolError(protocol,
                     "Agent URI scheme must be http or https: " + agent.agentUri(), null);
         }
         String host = agent.agentUri().getHost();
         if (host == null) {
-            throw new ProtocolError("mcp",
+            throw new ProtocolError(protocol,
                     "Agent URI has no host: " + agent.agentUri(), null);
         }
         // Resolve DNS and validate all addresses against SSRF policy.
@@ -192,10 +226,10 @@ public final class ProtocolClient implements AutoCloseable {
                         addr, ssrfPolicy);
             }
         } catch (org.adcontextprotocol.adcp.http.SsrfBlockedException e) {
-            throw new ProtocolError("mcp",
+            throw new ProtocolError(protocol,
                     "Agent URI blocked by SSRF policy", e);
         } catch (java.net.UnknownHostException e) {
-            throw new ProtocolError("mcp",
+            throw new ProtocolError(protocol,
                     "Cannot resolve agent host", e);
         }
     }

@@ -21,6 +21,7 @@ dependencies {
     implementation(libs.mcp.json.jackson2) {
         exclude(group = "com.networknt", module = "json-schema-validator")
     }
+    api(libs.a2a.sdk.client)
 }
 
 // -- Build-time SDK version constant ----------------------------------------

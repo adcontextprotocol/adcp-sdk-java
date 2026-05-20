@@ -19,6 +19,9 @@ json-schema-validator = "1.5.6"
 # MCP SDK (D9 — pinned 1.1.2; plan a deliberate 2.x migration PR ~6 months out).
 mcp-sdk = "1.1.2"
 
+# A2A SDK (D10 — pinned 1.0.0.CR1; upgrade to 1.0.0 final is a straight version bump)
+a2a-sdk = "1.0.0.CR1"
+
 # Jakarta Servlet API — pulled in by mcp-core's HTTP server transport (D9 R1
 # prototype question: can it run without Jetty/Tomcat?).
 jakarta-servlet = "6.1.0"
@@ -59,6 +62,13 @@ mcp-json-jackson2 = { module = "io.modelcontextprotocol.sdk:mcp-json-jackson2", 
 
 # Servlet (for mcp-core HTTP transport)
 jakarta-servlet-api = { module = "jakarta.servlet:jakarta.servlet-api", version.ref = "jakarta-servlet" }
+
+# A2A — client-side: connects to A2A agents. Uses JDK HttpClient internally.
+a2a-sdk-client = { module = "org.a2aproject.sdk:a2a-java-sdk-client", version.ref = "a2a-sdk" }
+# A2A — server-side: AgentExecutor SPI, DefaultRequestHandler, SseFormatter, TaskStore
+a2a-sdk-server-common = { module = "org.a2aproject.sdk:a2a-java-sdk-server-common", version.ref = "a2a-sdk" }
+# A2A — JSON-RPC framing: JsonUtil, A2ARequest/Response wrappers
+a2a-sdk-jsonrpc-common = { module = "org.a2aproject.sdk:a2a-java-sdk-jsonrpc-common", version.ref = "a2a-sdk" }
 
 # Test
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
