@@ -1,0 +1,22 @@
+adcp-server/build.gradle.kts
+  s_5231ba5a8f295b::t_2e1c635d5a0f80 22-24
+gradle/libs.versions.toml
+  s_5231ba5a8f295b::t_da7d043af4b36a 15
+  s_5231ba5a8f295b::t_eaaaa0b358c1d6 52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "4f987e99fca64d23648a7f72b158ac0fa5af6139",
+  "prompts": {},
+  "sessions": {
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
