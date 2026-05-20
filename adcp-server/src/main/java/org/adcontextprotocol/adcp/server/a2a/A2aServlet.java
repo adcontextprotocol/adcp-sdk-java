@@ -177,7 +177,7 @@ public final class A2aServlet extends HttpServlet {
 
     private static boolean wantsStreaming(HttpServletRequest request) {
         String accept = request.getHeader("Accept");
-        return accept != null && accept.contains("text/event-stream");
+        return accept != null && accept.toLowerCase(java.util.Locale.ROOT).contains("text/event-stream");
     }
 
     private static String readRequestBody(InputStream inputStream) throws IOException {

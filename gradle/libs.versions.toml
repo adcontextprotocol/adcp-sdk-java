@@ -67,6 +67,10 @@ jakarta-servlet-api = { module = "jakarta.servlet:jakarta.servlet-api", version.
 
 # A2A — client-side: connects to A2A agents. Uses JDK HttpClient internally.
 a2a-sdk-client = { module = "org.a2aproject.sdk:a2a-java-sdk-client", version.ref = "a2a-sdk" }
+# A2A — JSON-RPC transport impl: JSONRPCTransport, JSONRPCTransportConfigBuilder
+a2a-sdk-client-transport-jsonrpc = { module = "org.a2aproject.sdk:a2a-java-sdk-client-transport-jsonrpc", version.ref = "a2a-sdk" }
+# A2A — JDK HTTP client impl: JdkA2AHttpClient
+a2a-sdk-http-client = { module = "org.a2aproject.sdk:a2a-java-sdk-http-client", version.ref = "a2a-sdk" }
 # A2A — server-side: AgentExecutor SPI, DefaultRequestHandler, SseFormatter, TaskStore
 a2a-sdk-server-common = { module = "org.a2aproject.sdk:a2a-java-sdk-server-common", version.ref = "a2a-sdk" }
 # A2A — JSON-RPC framing: JsonUtil, A2ARequest/Response wrappers
