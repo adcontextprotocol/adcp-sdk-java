@@ -1,0 +1,29 @@
+adcp/gradle.lockfile
+  s_5231ba5a8f295b::t_7d9fe0c677d447 11-16,21-34,46
+adcp-mutiny/gradle.lockfile
+  s_5231ba5a8f295b::t_7d9fe0c677d447 16-21,28-41,54
+adcp-reactor/gradle.lockfile
+  s_5231ba5a8f295b::t_7d9fe0c677d447 16-21,26-39,51
+adcp-kotlin/gradle.lockfile
+  s_5231ba5a8f295b::t_7d9fe0c677d447 16-21,26-39,75
+adcp-testing/gradle.lockfile
+  s_5231ba5a8f295b::t_7d9fe0c677d447 17-22,29-40,42-43,55
+adcp-spring-boot-starter/gradle.lockfile
+  s_5231ba5a8f295b::t_7d9fe0c677d447 11-16,23-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "57f7b4dc72c89b622620c5eddf94623927ddb31b",
+  "prompts": {},
+  "sessions": {
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
