@@ -12,6 +12,7 @@ kotlin = "2.1.10"
 jackson = "2.18.2"
 slf4j = "2.0.16"
 jspecify = "1.0.0"
+gson = "2.14.0"
 
 # Schema validation (RFC §Schema validation).
 json-schema-validator = "1.5.6"
@@ -48,6 +49,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 
 # Validation
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }

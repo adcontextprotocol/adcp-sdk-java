@@ -19,6 +19,9 @@ dependencies {
     api(libs.mcp.json.jackson2)
     api(libs.a2a.sdk.server.common)
     implementation(libs.a2a.sdk.jsonrpc.common)
+    // A2aServlet uses Gson (pulled transitively by the A2A SDK); declare explicitly
+    // so the dependency is stable regardless of upstream transitive changes.
+    implementation(libs.gson)
     // The servlet transport classes use jakarta.servlet.* at compile time;
     // the adopter brings their own Servlet container at runtime (Jetty,
     // Tomcat, Undertow, embedded Spring Boot, etc.).
