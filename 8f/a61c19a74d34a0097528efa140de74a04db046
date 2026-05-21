@@ -1,0 +1,35 @@
+adcp-testing/gradle.lockfile
+  s_5231ba5a8f295b::t_a0843f6992ab1e 6-8,10-11
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/A2aCaller.java
+  s_5231ba5a8f295b::t_e84e9ae38d5fd4 244
+adcp-mutiny/gradle.lockfile
+  s_5231ba5a8f295b::t_a0843f6992ab1e 5-7,9-10
+adcp-cli/gradle.lockfile
+  s_5231ba5a8f295b::t_a0843f6992ab1e 5-7,9-10
+gradle/libs.versions.toml
+  s_5231ba5a8f295b::t_edcbd8c3a68e82 12
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/A2aConnectionManager.java
+  s_5231ba5a8f295b::t_1ffafa449dcdb1 290-297
+  s_5231ba5a8f295b::t_c5ef5b7d631fac 188-191,193-194
+  s_5231ba5a8f295b::t_9e8f7356c7f992 286
+adcp-reactor/gradle.lockfile
+  s_5231ba5a8f295b::t_a0843f6992ab1e 5-7,9-10
+adcp-kotlin/gradle.lockfile
+  s_5231ba5a8f295b::t_a0843f6992ab1e 5-7,9-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "8fa61c19a74d34a0097528efa140de74a04db046",
+  "prompts": {},
+  "sessions": {
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
