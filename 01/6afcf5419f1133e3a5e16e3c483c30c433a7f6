@@ -1,0 +1,22 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/A2aConnectionManager.java
+  s_5231ba5a8f295b::t_dbb17c14077ae1 132-134
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/ProtocolClient.java
+  s_5231ba5a8f295b::t_b9a64f7d1cd6f0 10
+  s_5231ba5a8f295b::t_205c0e40032b3b 261-263,265
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "016afcf5419f1133e3a5e16e3c483c30c433a7f6",
+  "prompts": {},
+  "sessions": {
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
