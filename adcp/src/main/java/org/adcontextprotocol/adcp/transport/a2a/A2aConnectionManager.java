@@ -129,10 +129,9 @@ public final class A2aConnectionManager implements AutoCloseable {
     }
 
     public void evict(URI agentUri) {
-        evictMatching(key -> {
-            String prefix = agentUri.toString();
-            return key.equals(prefix) || key.startsWith(prefix + "#");
-        });
+        // buildCacheKey always produces "agentUri#cacheHash[?headers]", so the bare
+        // agentUri.toString() can never equal a cache key — only startsWith is needed.
+        evictMatching(key -> key.startsWith(agentUri + "#"));
     }
 
     public void evict(URI agentUri, String cacheHash) {

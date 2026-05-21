@@ -7,6 +7,7 @@ import org.adcontextprotocol.adcp.AgentConfig;
 import org.adcontextprotocol.adcp.Protocol;
 import org.adcontextprotocol.adcp.auth.AuthTokenResolver;
 import org.adcontextprotocol.adcp.error.ProtocolError;
+import org.adcontextprotocol.adcp.http.ProtectedHeaders;
 import org.adcontextprotocol.adcp.http.SsrfPolicy;
 import org.adcontextprotocol.adcp.transport.a2a.A2aCaller;
 import org.adcontextprotocol.adcp.transport.a2a.A2aConnectionManager;
@@ -257,7 +258,11 @@ public final class ProtocolClient implements AutoCloseable {
         Mac mac = createHmac();
         mac.update(tokenHash.getBytes(StandardCharsets.UTF_8));
         mac.update((byte) '\0');
+        // Only hash headers that are actually sent on the wire — protected headers
+        // (Authorization, Cookie, etc.) are stripped by AdcpHttpClient before each
+        // request, so including them would fragment the cache without any effect.
         agent.extraHeaders().entrySet().stream()
+                .filter(e -> !ProtectedHeaders.isProtected(e.getKey()))
                 .sorted(Map.Entry.comparingByKey())
                 .forEach(e -> {
                     mac.update(e.getKey().getBytes(StandardCharsets.UTF_8));
