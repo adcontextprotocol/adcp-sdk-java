@@ -241,7 +241,7 @@ public final class A2aCaller {
                         firstParseError = e;
                     }
                     log.debug("Failed to parse A2A TextPart as {}: {}",
-                            responseType.getSimpleName(), e.getMessage());
+                            responseType.getSimpleName(), sanitizeErrorText(e.getMessage()));
                 }
             }
         }

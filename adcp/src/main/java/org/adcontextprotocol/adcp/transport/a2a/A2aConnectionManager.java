@@ -185,10 +185,13 @@ public final class A2aConnectionManager implements AutoCloseable {
         }
         sb.append('?');
         // Normalize header key case so semantically-identical headers with different casing
-        // (e.g. X-Tenant vs x-tenant) always produce the same cache key.
+        // (e.g. X-Tenant vs x-tenant) always produce the same cache key. Pre-sort by the
+        // original key (case-sensitive TreeMap) before lowercasing so that among
+        // case-insensitive duplicates the alphabetically-last original key always wins,
+        // making resolution deterministic regardless of the input map's iteration order.
         TreeMap<String, String> normalizedHeaders = new TreeMap<>();
-        for (var entry : sanitizedHeaders.entrySet()) {
-            normalizedHeaders.putIfAbsent(entry.getKey().toLowerCase(java.util.Locale.ROOT), entry.getValue());
+        for (var entry : new TreeMap<>(sanitizedHeaders).entrySet()) {
+            normalizedHeaders.put(entry.getKey().toLowerCase(java.util.Locale.ROOT), entry.getValue());
         }
         boolean first = true;
         for (var entry : normalizedHeaders.entrySet()) {
@@ -280,8 +283,16 @@ public final class A2aConnectionManager implements AutoCloseable {
                 client.close();
             }
         } catch (Exception e) {
-            log.debug("Error closing A2A client: {}", e.getMessage());
+            log.debug("Error closing A2A client: {}", sanitizeLogText(e.getMessage()));
         }
+    }
+
+    private static String sanitizeLogText(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "(no detail)";
+        }
+        String truncated = raw.length() > 256 ? raw.substring(0, 256) + "..." : raw;
+        return truncated.replaceAll("[\\p{Cc}]", "");
     }
 
     interface AgentCardLoader {
