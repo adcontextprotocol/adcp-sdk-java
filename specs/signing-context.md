@@ -17,12 +17,16 @@ package org.adcontextprotocol.adcp.signing;
 
 import org.jspecify.annotations.Nullable;
 
-public record SigningContext(
-        AdcpUse use,
-        @Nullable TenantId tenant,
-        @Nullable PrincipalRef principal) {
+public interface SigningContext {
+    AdcpUse use();
+    @Nullable TenantId tenant();
+    @Nullable PrincipalRef principal();
+
+    static Builder builder(AdcpUse use) { ... }
 }
 ```
+
+`tenant` is the operator-side tenant identity used for key selection. `principal` is the on-behalf-of account/principal identity, such as an advertiser or buyer principal represented by an agency/DSP caller. They may be equal in simple deployments, but the API keeps them separate.
 
 The public signing SPI takes `SigningContext` on the outbound signing path:
 
@@ -36,13 +40,19 @@ Inbound verification starts from the signed request, especially the `kid` header
 
 ```java
 public interface VerificationKeyResolver {
-    VerificationKey resolve(VerificationInput input);
+    VerificationKeyLookup resolve(VerificationInput input);
 }
 
 public record VerificationInput(
         AdcpUse expectedUse,
         String kid,
         SignedInput input) {
+}
+
+public sealed interface VerificationKeyLookup {
+    record Found(VerificationKey key, @Nullable TenantId tenant, @Nullable PrincipalRef principal)
+            implements VerificationKeyLookup {}
+    record Missing(String kid) implements VerificationKeyLookup {}
 }
 ```
 
@@ -59,4 +69,4 @@ There is no release API shaped as `SigningProvider.forUse(AdcpUse)`. If a protot
 
 ## Milestone contract
 
-v0.2 freezes the `SigningContext`, `SigningProvider`, and `VerificationKeyResolver` shapes. v0.3 wires `AccountStore` / `adagents.json` principal resolution into the context passed to webhook and signed-request providers.
+v0.2 freezes the `SigningContext` parameter set and the `SigningProvider` / `VerificationKeyResolver` SPI direction. v0.3 wires `AccountStore` / `adagents.json` principal resolution into the context passed to webhook and signed-request providers.

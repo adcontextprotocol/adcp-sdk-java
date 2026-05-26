@@ -48,3 +48,15 @@ This is separate from polymorphic envelope handling in Track 2. Envelope types m
 ## Error-code handling
 
 `ErrorCode` is open. Transport and caller helpers classify known values directly, and classify unknown values from recovery metadata when present. If no recovery metadata is present, callers default conservatively and preserve the raw code for logs and telemetry.
+
+## Initial open vocabulary list
+
+The first generator pass treats at least these vocabularies as open:
+
+- `ErrorCode`
+- `media_buy_status`
+- `creative_status`
+- `recovery`
+- action-discovery enums used in `allowed_actions[]` and `available_actions[]`
+
+The schema post-processor may mark more vocabularies open as the protocol evolves. Contributors should not treat this list as exhaustive.
