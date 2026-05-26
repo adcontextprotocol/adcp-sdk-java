@@ -30,11 +30,18 @@ public sealed interface ErrorCode permits ErrorCode.Known, ErrorCode.Unknown {
 
 The generated JSON adapter maps recognized wire values to `Known` and unrecognized wire values to `Unknown`. Serialization preserves `rawValue()` exactly.
 
+## Jackson binding
+
+Open enum wrappers do not use Jackson `@JsonTypeInfo`; they serialize as the flat protocol string. The generator emits a custom `JsonDeserializer<T>` for each open vocabulary that maps the incoming string to `Known` or `Unknown`, plus a matching `JsonSerializer<T>` that writes `rawValue()`.
+
+This is separate from polymorphic envelope handling in Track 2. Envelope types may use discriminator-based Jackson handling; open vocabularies must not, because the wire value is a scalar string.
+
 ## Generator rules
 
 - Open vocabularies generate a sealed wrapper with `Known` and `Unknown`.
 - The nested known-value type may be a Java enum when the known value set is useful for switch exhaustiveness.
 - Unknown raw values are never rewritten, lowercased, uppercased, or mapped to a generic `UNKNOWN` sentinel that loses the original string.
+- Each open vocabulary emits Jackson serializer/deserializer bindings that preserve the flat scalar wire shape.
 - Closed vocabularies may generate plain Java enums.
 - The schema post-processor owns the open/closed classification; contributors must not infer it from value count.
 

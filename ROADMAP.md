@@ -61,7 +61,8 @@ Read from the TS and Python SDK changelogs plus the AdCP 3.1 beta release notes.
 - **Open error-code decoding.** As SDK forward-compatibility practice, receivers should not fail closed on unknown `error.code`; classify from `recovery` and default conservatively when absent. Java generated enums need an unknown-value strategy, not a hard enum parse failure. → [`codegen`](#track-2--l0-types--codegen) + [`transport`](#track-3--l0-transport-mcp--a2a).
 - **Advisory `errors[]` on success payloads.** `STALE_RESPONSE`, canonical-format projection warnings, pixel-tracker downgrade/upgrade warnings, and similar advisories ride in payload `errors[]` while transport/task success remains success. Java callers and validators must not promote advisory payload errors to thrown failures. → [`transport`](#track-3--l0-transport-mcp--a2a) + [`testing`](#track-9--testing--conformance).
 - **Universal request `idempotency_key`.** 3.1 read tools accept every-request envelope fields and the compliance suite probes this. Java request builders and MCP wrapper validation must tolerate and emit envelope fields on every task request, not only write calls. → [`codegen`](#track-2--l0-types--codegen) + [`transport`](#track-3--l0-transport-mcp--a2a) + [`async-l3`](#track-6--l3-idempotency-async-tasks-webhooks).
-- **Webhook token round-trip and endpoint proof-of-control.** `McpWebhookPayload.token` is typed; durable account-level webhook configs require proof-of-control semantics and stable `subscriber_id` replace/upsert behavior. → [`signing`](#track-4--l1-signing) + [`async-l3`](#track-6--l3-idempotency-async-tasks-webhooks) + [`multitenant`](#track-5--l2-account-store-registry-multi-tenant).
+- **Webhook token round-trip.** `McpWebhookPayload.token` is typed and must echo through webhook dispatch/receipt paths. → [`signing`](#track-4--l1-signing) + [`async-l3`](#track-6--l3-idempotency-async-tasks-webhooks).
+- **Endpoint proof-of-control.** Durable account-level webhook configs require proof-of-control semantics and stable `subscriber_id` replace/upsert behavior. → [`async-l3`](#track-6--l3-idempotency-async-tasks-webhooks) + [`multitenant`](#track-5--l2-account-store-registry-multi-tenant).
 
 **3.1 buying, catalog, and signal surface**
 
@@ -71,10 +72,12 @@ Read from the TS and Python SDK changelogs plus the AdCP 3.1 beta release notes.
 - **Canonical creative formats.** `format_options[]`, `format_option_refs`, `format_option_id`, `v1_format_ref`, named canonical format helpers, v1↔v2 projection, pixel-tracker advisory downgrades, and cache-backed canonical registries. The beta.2 `capability_ids` write path was removed before beta.5; Java should model the beta.5 `format_option_*` names from the start. → [`codegen`](#track-2--l0-types--codegen) + [`transport`](#track-3--l0-transport-mcp--a2a).
 - **Public placement catalogs.** `adagents.json` can publish placement catalogs and publisher-scoped `placement_refs`; seller-private routing stays out of public placement schemas. → [`multitenant`](#track-5--l2-account-store-registry-multi-tenant).
 - **Vendor-attested measurement.** `vendor_metric` optimization goals, per-product `vendor_metric_optimization`, reporting-coherence preconditions, and compliance coverage. → [`codegen`](#track-2--l0-types--codegen) + [`testing`](#track-9--testing--conformance).
-- **Delivery and billing finality.** `reach_window`, `viewability.viewed_seconds`, windowed pull recovery, row-level delivery finality, `report_usage` finality, and `BILLING_OUT_OF_BAND`. → [`codegen`](#track-2--l0-types--codegen) + [`testing`](#track-9--testing--conformance).
+- **Delivery and billing finality.** `reach_window`, `viewability.viewed_seconds`, windowed pull recovery, row-level delivery finality, `report_usage` finality, and `BILLING_OUT_OF_BAND` as an error-code surface. → [`codegen`](#track-2--l0-types--codegen) + [`testing`](#track-9--testing--conformance).
 - **Action discovery.** `allowed_actions[]`, `available_actions[]`, finer media-buy action enum values, `ACTION_NOT_ALLOWED`, and helper-level request decomposition in TS/Python. Java should expose typed helpers around `update_media_buy` mutations instead of forcing every adopter to re-parse action intent. → [`lifecycle`](#track-7--l3-lifecycle--transitions) + [`transport`](#track-3--l0-transport-mcp--a2a).
 
 **Cross-SDK helper surface to match**
+
+TS/Python helper names are references, not Java naming requirements. Java idioms win: `*Request` builders, records/sealed types, instance or namespaced helpers where clearer than free functions, and `@Nullable` rather than `Optional` on public model fields.
 
 - **TS `@adcp/sdk@8.1` helper additions.** Root exports now include canonical creative format helpers, format projection/write-side helpers, `ensureGetProductsCacheScope()` / `validateGetProductsCacheScope()`, `parseWholesaleFeedWebhookNotification()` / `normalizeWholesaleFeedWebhookNotification()`, signal discovery helpers, `decomposeUpdateMediaBuy()` / `assertUpdateMediaBuyAllowed()`, per-tool type slices, SSRF-safe networking helpers, typed server `*Payload` aliases, and 3.1 compliance/cache selection in the runner. Java equivalents belong in the main `adcp`, `adcp-server`, and `adcp-testing` artifacts rather than new artifacts.
 - **Python `adcp@6.x` helper additions.** Python now has version-routed validation, 2.5/3.0/3.1 beta schema caches, canonical-format projection, webhook proof-of-control helpers, wholesale feed sender, request-scoped capabilities hooks, unknown-field policy and hook composition, media-buy version handling/update actions, externally managed webhook signing capabilities, and permissive property resolution. Java server APIs should mirror the capability/hook seams even if implementation names differ.
@@ -196,7 +199,7 @@ Each track entry has:
 
 | Milestone | Target | Release gate |
 |---|---|---|
-| v0.1 alpha | M+3 | L0 surface compiles against the D23 target bundle (`3.1.0-beta.5`, or 3.1 GA if cut before the codegen PR), wire-version negotiation works for stable and prerelease tokens, multi-bundle validators can serve 3.0 and 3.1 traffic, SSRF/auth discovery baseline lands, storyboards green against reference mock-server in CI. Local Gradle artifacts only (per D6 — first Maven Central publish at v0.3). |
+| v0.1 alpha | M+3 | D23 target bundle compiles (`3.1.0-beta.5`, or 3.1 GA if cut before the codegen PR).<br>Wire-version negotiation works for stable and prerelease tokens.<br>Multi-bundle validators can serve 3.0 and 3.1 traffic.<br>SSRF/auth discovery baseline lands.<br>Storyboards green against reference mock-server in CI.<br>Local Gradle artifacts only (per D6 — first Maven Central publish at v0.3). |
 | v0.2 alpha | M+4 | L1: RFC 9421 signing/verification, AWS+GCP KMS providers (lazy-init, tenant-aware per-`adcp_use` key selector per D22), webhook signing, typed webhook token / proof-of-control foundations |
 | v0.3 alpha | M+6 | L2 + partial L3: account store, idempotency, async tasks, wholesale feed cache-scope semantics, canonical-format / signal-targeting helpers, Spring Boot starter alpha. **First Maven Central publish** (per D6). |
 | v0.4 beta | M+9 | Full L3: transition validators, webhook emission, wholesale feed webhooks, `comply_test_controller`, A2A transport, 3.1 compliance bundle parity |
@@ -231,7 +234,7 @@ The RFC's M+12 target is the realistic line. Pre-committing M+9 and slipping is 
 
 ### Track 2 — L0 types & codegen
 
-**ID:** `codegen` | **Owner:** TBD | **Size:** 2.0 person-months
+**ID:** `codegen` | **Owner:** TBD | **Size:** 2.5 person-months
 
 **Scope:**
 
@@ -259,7 +262,7 @@ The RFC's M+12 target is the realistic line. Pre-committing M+9 and slipping is 
 
 ### Track 3 — L0 transport: MCP + A2A
 
-**ID:** `transport` | **Owner:** @MichielDean (#17) | **Size:** 1.5 person-months
+**ID:** `transport` | **Owner:** @MichielDean (#17) | **Size:** 2.0 person-months
 
 **Scope:**
 
@@ -289,7 +292,7 @@ The RFC's M+12 target is the realistic line. Pre-committing M+9 and slipping is 
 **Scope:**
 
 - Hand-rolled RFC 9421 canonicalizer (it's small and spec-tight; `org.tomitribe:http-signatures` is the wrong spec). Verifier test harness mirrors the TS one.
-- `SigningProvider` SPI via `META-INF/services/`. API shape takes explicit `SigningContext` rather than a single `AdcpUse`; receivers enforce purpose at JWK `adcp_use`.
+- `SigningProvider` + `VerificationKeyResolver` SPIs via `META-INF/services/`. Signing takes explicit `SigningContext` rather than a single `AdcpUse`; verification starts from inbound `kid` and only then maps to tenant/principal context. Receivers enforce purpose at JWK `adcp_use`.
 - Tenant-aware key selection at the signing boundary (D22). The API cannot model one global key per `adcp_use`: multi-tenant operators need one JWKS endpoint with distinct `kid` values per publisher tenant under the same `adcp_use`. The v0.2 signing surface freezes `SigningContext` in [`specs/signing-context.md`](specs/signing-context.md); v0.3 connects it to `AccountStore` tenant resolution.
 - In-process provider via JCA Ed25519 / ECDSA. **No Bouncy Castle in core** — JDK 21 has Ed25519 natively.
 - AWS KMS provider via `software.amazon.awssdk:kms`. Lazy-init.
@@ -336,7 +339,7 @@ The RFC's M+12 target is the realistic line. Pre-committing M+9 and slipping is 
 
 ### Track 6 — L3 idempotency, async tasks, webhooks
 
-**ID:** `async-l3` | **Owner:** TBD | **Size:** 2.0 person-months
+**ID:** `async-l3` | **Owner:** TBD | **Size:** 2.5 person-months
 
 **Scope:**
 
@@ -567,7 +570,7 @@ Additional decisions added post-RFC that remain open:
 
 9. **MIT-licensed dependency position.** D9 picked the MIT-licensed `io.modelcontextprotocol.sdk`. License is compatible with Apache 2.0 downstream use, but the foundation may want an explicit position on accepting MIT deps in officially supported SDKs.
 10. **Funding model shape.** RFC framing (contributed engineer at 50%+ for ~12 months + named maintainer + 2–3 design partners) is the right ask; whether it's pooled member funding, single-anchor-org contribution, or foundation grant is open.
-11. **Design partner outreach.** Anchor candidates by audience segment: one publisher running Spring Boot, one SSP, one broadcaster middleware team, and one EU ad-server vendor on Spring Boot 3.x / OAuth 2.1 / multi-tenant signing shape. ADvendio is a concrete reviewer candidate in that last segment, but has not committed engineering time or an LOI; still need 2–3 committed design partners before scaling.
+11. **Design partner outreach.** Anchor candidates by audience segment: one publisher running Spring Boot, one SSP, one broadcaster middleware team, and one EU ad-server vendor on Spring Boot 3.x / OAuth 2.1 / multi-tenant signing shape. Concrete company names belong in a private outreach tracker until they commit engineering time or an LOI; still need 2–3 committed design partners before scaling.
 12. **WG vote timing.** Recommendation: hold the vote at v0.1 alpha milestone (concrete working code) rather than now (abstract commitment).
 
 ## What's not in this plan (yet)

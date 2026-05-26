@@ -24,12 +24,25 @@ public record SigningContext(
 }
 ```
 
-The public signing SPI takes `SigningContext`:
+The public signing SPI takes `SigningContext` on the outbound signing path:
 
 ```java
 public interface SigningProvider {
     Signature sign(SigningContext context, SigningInput input);
-    VerificationResult verify(SigningContext context, SignedInput input);
+}
+```
+
+Inbound verification starts from the signed request, especially the `kid` header. The resolver maps the inbound key id to a verification key and any resolved tenant/principal metadata; the verifier then checks the signature and `adcp_use` purpose.
+
+```java
+public interface VerificationKeyResolver {
+    VerificationKey resolve(VerificationInput input);
+}
+
+public record VerificationInput(
+        AdcpUse expectedUse,
+        String kid,
+        SignedInput input) {
 }
 ```
 
@@ -41,8 +54,9 @@ There is no release API shaped as `SigningProvider.forUse(AdcpUse)`. If a protot
 - `tenant` is nullable for single-tenant deployments and caller-side signing where no publisher account has been resolved yet.
 - `principal` is nullable and carries the resolved account/principal when available.
 - Providers may use `tenant`, `principal`, or both to select `kid`; they must not ignore `use`.
-- Verification still enforces the key purpose at JWK `adcp_use`; tenant context only narrows which key is expected or acceptable.
+- Verification starts from inbound `kid`; tenant context is derived after key lookup and never assumed before signature verification.
+- Verification still enforces the key purpose at JWK `adcp_use`.
 
 ## Milestone contract
 
-v0.2 freezes the `SigningContext` type and SPI method signatures. v0.3 wires `AccountStore` / `adagents.json` principal resolution into the context passed to webhook and signed-request providers.
+v0.2 freezes the `SigningContext`, `SigningProvider`, and `VerificationKeyResolver` shapes. v0.3 wires `AccountStore` / `adagents.json` principal resolution into the context passed to webhook and signed-request providers.
