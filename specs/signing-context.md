@@ -56,7 +56,7 @@ public sealed interface VerificationKeyLookup {
 }
 ```
 
-There is no release API shaped as `SigningProvider.forUse(AdcpUse)`. If a prototype includes that helper, it is removed before v0.2.
+There is no shipped API shaped as `SigningProvider.forUse(AdcpUse)`. v0.2 ships the `SigningContext`-based surface only.
 
 ## Selection rules
 
@@ -64,8 +64,15 @@ There is no release API shaped as `SigningProvider.forUse(AdcpUse)`. If a protot
 - `tenant` is nullable for single-tenant deployments and caller-side signing where no publisher account has been resolved yet.
 - `principal` is nullable and carries the resolved account/principal when available.
 - Providers may use `tenant`, `principal`, or both to select `kid`; they must not ignore `use`.
+- `kid` is an opaque lookup key into a pre-provisioned key set. Resolver implementations must not parse authority, tenant, or URL semantics out of `kid`.
+- Resolver implementations must not dereference attacker-controlled URLs from an inbound signed object. If a resolver refreshes a JWKS or other key source over HTTP, that fetch uses the strict SSRF-safe HTTP client from [`ssrf-baseline.md`](ssrf-baseline.md).
 - Verification starts from inbound `kid`; tenant context is derived after key lookup and never assumed before signature verification.
 - Verification still enforces the key purpose at JWK `adcp_use`.
+- If verification returns `Found(key, null, null)`, receivers treat the request as untenanted and reject tenant-scoped operations. They must not recover tenant identity from unsigned body, header, or query fields after the fact.
+
+## Release notes
+
+The v0.2 release notes must warn `SigningContext.tenant()` may be null until v0.3 wires tenant resolution from `AccountStore` / `adagents.json`. Provider implementations must not bake in a single-tenant assumption just because early alpha contexts are null.
 
 ## Milestone contract
 

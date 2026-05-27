@@ -43,7 +43,7 @@ This is separate from polymorphic envelope handling in Track 2. Envelope types m
 - Unknown raw values are never rewritten, lowercased, uppercased, or mapped to a generic `UNKNOWN` sentinel that loses the original string.
 - Each open vocabulary emits Jackson serializer/deserializer bindings that preserve the flat scalar wire shape.
 - Closed vocabularies may generate plain Java enums.
-- The schema post-processor owns the open/closed classification; contributors must not infer it from value count.
+- The schema post-processor owns the open/closed classification from spec metadata such as `enumMetadata`; contributors must not infer it from value count.
 
 ## Error-code handling
 
@@ -58,5 +58,7 @@ The first generator pass treats at least these vocabularies as open:
 - `creative_status`
 - `recovery`
 - action-discovery enums used in `allowed_actions[]` and `available_actions[]`
+- notification types, including wholesale-feed webhook events
+- task status values
 
 The schema post-processor may mark more vocabularies open as the protocol evolves. Contributors should not treat this list as exhaustive.
