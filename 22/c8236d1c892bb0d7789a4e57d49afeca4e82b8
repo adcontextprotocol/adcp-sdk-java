@@ -1,0 +1,103 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/A2aConnectionManager.java
+  s_60a719e5bad32d::t_5420fb14ce4ce9 1-5,7-16,18-22,26-29,31-34,41-46,48-57,59-69,71-73,79-111,113-131,146-159,161,163-170,204-219,224-225,228-232,264-267,275-282,284-295,313-320,323-357,361-364,380-418,192
+  s_5231ba5a8f295b::t_61667e212a7629 6,23-24
+  s_a443c324e77676::t_3509e09e7baba5 17,76-78,112,141-144,175,233-243
+  s_5231ba5a8f295b::t_19fc303d885e86 25,30,37-38
+  s_1d55fa33eca8c2::t_0dd0de22af4625 35,70,74,136-140,145,174,176-177,179-182,184-186,193,195-201,226,244-263
+  s_a443c324e77676::t_0ecbd4572ba08a 36,39-40
+  s_5231ba5a8f295b::t_532f0552c8cb51 47,220-223
+  s_5231ba5a8f295b::t_56a0fbd3e13204 58
+  s_a443c324e77676::t_b2106e4cdf7dd4 75
+  s_5231ba5a8f295b::t_2deb590e5137c4 160,162,171-173,178,183,202-203
+  s_5231ba5a8f295b::t_bde3194f7b50eb 227,268-274
+  s_5231ba5a8f295b::t_02c4b561e206dc 296-309,311-312,321-322
+  s_5231ba5a8f295b::t_4228895d86e357 365-370
+  s_60a719e5bad32d::t_be6b3861d718c7 371-379
+  s_5231ba5a8f295b::t_ee302fead78061 310
+  s_5231ba5a8f295b::t_3022dbb16edc4f 358-360
+  s_5231ba5a8f295b::t_74aa9a2e9716c9 187,189,194
+adcp/src/test/java/org/adcontextprotocol/adcp/transport/a2a/A2aConnectionManagerTest.java
+  s_60a719e5bad32d::t_a2dc4765951e1d 1-16,18-54,57-63,154-168,170,172-190,205-209,211-228
+  s_1d55fa33eca8c2::t_b4b79534e60be6 17,55-56,64,66,68-71,83-84,86,88-90,125,140-141,144,146-150,169,171,191
+  s_5231ba5a8f295b::t_af1e31550e3484 65,67,72-82,85,87,91-93,126-139,142-143,145,151-153
+  s_a443c324e77676::t_328f8f45159cf5 94-113,116,118-124,192-204
+  s_a443c324e77676::t_0a39aa20c70375 115
+  s_60a719e5bad32d::t_d112a874d92e2c 210
+  s_5231ba5a8f295b::t_9d9d860d87b2f9 114,117
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/a2a/A2aServerBuilder.java
+  s_60a719e5bad32d::t_0043fb2c24d94b 1-6,8-9,13-14,16,18-21,32-35,40-64,66-85,112-113,115-119
+  s_60a719e5bad32d::t_329c187969a812 10-12,17,86-103
+  s_72595db24573ea::t_c24d836c8f16ee 15,39,65,104-111
+  s_5231ba5a8f295b::t_6f9dc01d17dde7 22-24,26-31
+  s_5231ba5a8f295b::t_e910765c6c93c9 7
+  s_5231ba5a8f295b::t_e5bd67bde67bdc 25
+  s_5231ba5a8f295b::t_16e20a47b1c881 36-38
+  s_5231ba5a8f295b::t_0711e85ba2bdbd 114
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/A2aCaller.java
+  s_60a719e5bad32d::t_494405ad5e0b5c 1-22,24-43,46,49-60,73-75,93-100,102-121,123-124,130,132-136,138-139,141-145,147-149,151-184,187-201,203,206-207,218-229,232-233,235-243,245-248,250-278,282,285-296,298-316,48,82,86,89
+  s_5231ba5a8f295b::t_7dbc5be5e211ff 44
+  s_5231ba5a8f295b::t_771957bfc3f188 45,92,137,140,146,150,202,204-205,249,279-281
+  s_60a719e5bad32d::t_dbbb9a7d1e0b31 61-63
+  s_5231ba5a8f295b::t_782ea351727ab5 64-72
+  s_60a719e5bad32d::t_9e7ee7e489adb7 76-78
+  s_60a719e5bad32d::t_d7bb6c39701a75 101
+  s_72595db24573ea::t_9a087c6d81583f 125-128
+  s_5231ba5a8f295b::t_3582d6112aa671 185-186
+  s_5231ba5a8f295b::t_76059b3c5965cb 210-211,213-214,216-217
+  s_5231ba5a8f295b::t_84be5ea4a0bcb7 283-284
+  s_5231ba5a8f295b::t_fdc5c366a56f12 297
+  s_5231ba5a8f295b::t_a2ea855bf855ef 47
+  s_5231ba5a8f295b::t_1a41aecaa7ec8f 79-81,83-85,88,90-91
+  s_5231ba5a8f295b::t_34dd75e0ea03f6 122
+  s_5231ba5a8f295b::t_1db41565bb18d4 23,208-209,212,215,230-231,234
+  s_5231ba5a8f295b::t_ad7b9d3664db70 129,131
+  s_5231ba5a8f295b::t_2b41aafe7f12f9 87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "22c8236d1c892bb0d7789a4e57d49afeca4e82b8",
+  "prompts": {},
+  "sessions": {
+    "s_1d55fa33eca8c2": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_017Uk1WLve4EpFxHRaz3Zjmn",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_60a719e5bad32d": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_017S2LNK9gTWZqRsmQ32hTLz",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_72595db24573ea": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_015SMZhAiNdykRqfYL6tzTuQ",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_a443c324e77676": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_01Qg7K4E3MAPSHEhHAspcxqW",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}

@@ -1,0 +1,183 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/A2aCaller.java
+  s_60a719e5bad32d::t_494405ad5e0b5c 1-42,45-57,70-72,81-88,90-109,111-112,117,119-123,125-126,128-132,134-136,138-171,174-188,190,193-194,205-216,218-219,221-229,231-234,236-264,268,271-282,284-302
+  s_5231ba5a8f295b::t_7dbc5be5e211ff 43
+  s_5231ba5a8f295b::t_771957bfc3f188 44,80,124,127,133,137,189,191-192,235,265-267
+  s_60a719e5bad32d::t_dbbb9a7d1e0b31 58-60
+  s_5231ba5a8f295b::t_782ea351727ab5 61-69
+  s_60a719e5bad32d::t_9e7ee7e489adb7 73-75
+  s_60a719e5bad32d::t_d7bb6c39701a75 89
+  s_72595db24573ea::t_9a087c6d81583f 113-116
+  s_5231ba5a8f295b::t_3582d6112aa671 172-173
+  s_5231ba5a8f295b::t_76059b3c5965cb 197-198,200-201,203-204
+  s_5231ba5a8f295b::t_84be5ea4a0bcb7 269-270
+  s_5231ba5a8f295b::t_fdc5c366a56f12 283
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/A2aConnectionManager.java
+  s_60a719e5bad32d::t_5420fb14ce4ce9 1-5,7-16,18-22,26-29,31-34,41-46,48-57,59-69,71-73,79-111,113-131,146-159,161,163-170,198-213,218-219,222-226,258-261,269-276,278-289,307-314,317-351,357-360,376-414
+  s_5231ba5a8f295b::t_61667e212a7629 6,23-24
+  s_a443c324e77676::t_3509e09e7baba5 17,76-78,112,141-144,175,227-237
+  s_5231ba5a8f295b::t_19fc303d885e86 25,30,37-38
+  s_1d55fa33eca8c2::t_0dd0de22af4625 35,70,74,136-140,145,174,176-177,179-182,184-187,189-195,220,238-257
+  s_a443c324e77676::t_0ecbd4572ba08a 36,39-40
+  s_5231ba5a8f295b::t_532f0552c8cb51 47,214-217
+  s_5231ba5a8f295b::t_56a0fbd3e13204 58
+  s_a443c324e77676::t_b2106e4cdf7dd4 75
+  s_5231ba5a8f295b::t_2deb590e5137c4 160,162,171-173,178,183,196-197
+  s_5231ba5a8f295b::t_bde3194f7b50eb 221,262-268
+  s_5231ba5a8f295b::t_02c4b561e206dc 290-303,305-306,315-316
+  s_5231ba5a8f295b::t_4228895d86e357 361-366
+  s_60a719e5bad32d::t_be6b3861d718c7 367-375
+gradle/libs.versions.toml
+  s_60a719e5bad32d::t_dd7f7a06352347 22-24,66-71
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/a2a/A2aServlet.java
+  s_60a719e5bad32d::t_a217762579cb68 1-4,6,10-40,42-43,45-49,57-59,67,70,97-103,109,114-119,121-125,127-135,137-152,154-156,159,161-162,170-179,181-204,207-210,212,223-228,234-241,243,250-255,291-294,297-301,308,311-315,322-325,327-328,330,364,382,389-390
+  s_72595db24573ea::t_c3307c79eb63ec 5,41,63,76
+  s_1d55fa33eca8c2::t_178a7c1d51ce58 7-9,44,54-56,126,136,153,242,244-249,257-268,270,272,274-279,281,283,285-290,302-307,309,316,318,320,329,331,345,349-350,356-362,365-376,383-388
+  s_5231ba5a8f295b::t_b439158c1aa614 50-53,64-65,69,71-75,77-86,89,91-96
+  s_60a719e5bad32d::t_7943aa4e5370a7 60-62,68
+  s_5231ba5a8f295b::t_81e433f5b96e97 66,87-88,90,256,295,363
+  s_1d55fa33eca8c2::t_222a27fabd23d4 104-108,110-113,160
+  s_5231ba5a8f295b::t_e04672356a4594 120,157-158
+  s_60a719e5bad32d::t_472947f7cceaf0 163-165,167-169
+  s_5231ba5a8f295b::t_007f364a9559f2 166
+  s_5231ba5a8f295b::t_515b1a82d39823 205-206,211,213-222
+  s_60a719e5bad32d::t_38689ccccdf32d 229-233
+  s_5231ba5a8f295b::t_7a8c43c0627bfa 296
+  s_a443c324e77676::t_69831cc6709197 310,326
+  s_1d55fa33eca8c2::t_8b136a75fd22f0 333
+  s_1d55fa33eca8c2::t_1e2d724149a38c 336-342
+  s_a443c324e77676::t_e2023662261b18 377-381
+adcp-server/gradle.lockfile
+  s_72595db24573ea::t_5dc5e9df6334d6 11-16,21-37
+adcp/src/test/java/org/adcontextprotocol/adcp/transport/a2a/A2aCallerTest.java
+  s_60a719e5bad32d::t_d47433b929641b 1-4,6-10,12-22,25-89,91-103
+  s_60a719e5bad32d::t_91cd51bc06f046 90
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/a2a/package-info.java
+  s_60a719e5bad32d::t_18417da765a567 1-7
+adcp-cli/gradle.lockfile
+  s_60a719e5bad32d::t_59f7811f8ff1cb 16-21,26-39,51
+adcp-testing/gradle.lockfile
+  s_60a719e5bad32d::t_59f7811f8ff1cb 28,41
+adcp/build.gradle.kts
+  s_60a719e5bad32d::t_6c3b032f3116a2 24
+adcp/src/main/java/org/adcontextprotocol/adcp/AdcpClient.java
+  s_60a719e5bad32d::t_fcb6d69821a5bd 10,65,67-68,70-71
+adcp/src/main/java/org/adcontextprotocol/adcp/schema/SchemaBundle.java
+  s_5231ba5a8f295b::t_6f1d7696c911f9 19-23,36-38
+  s_5231ba5a8f295b::t_313a9fc59ea894 67-69
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/package-info.java
+  s_60a719e5bad32d::t_8a6dc009e6cbdc 1-6
+adcp-server/build.gradle.kts
+  s_60a719e5bad32d::t_85a2f2f930a311 20
+  s_72595db24573ea::t_bc021c46937b4e 21,26-27
+adcp/src/main/java/org/adcontextprotocol/adcp/schema/AdcpSchemaValidator.java
+  s_5231ba5a8f295b::t_ca9808a3a64dd9 81-83
+ROADMAP.md
+  s_5231ba5a8f295b::t_cfc91655fffd2c 22
+  s_60a719e5bad32d::t_58d3b7b4496063 271-272
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/mcp/package-info.java
+  s_60a719e5bad32d::t_8095199ebc2f5a 1-4
+adcp-server/src/test/java/org/adcontextprotocol/adcp/server/a2a/A2aAgentExecutorTest.java
+  s_60a719e5bad32d::t_2329c0b14ae705 1-2,4,6-8,10-55,81-94,100-101,107-193
+  s_1d55fa33eca8c2::t_6e5f74b3c7d1a3 3,5,9,56-66,71-80,95-99,102-106
+  s_fe81b8cdc470b1::t_0300b3f00ea86d 67-70
+adcp-server/src/test/java/org/adcontextprotocol/adcp/server/a2a/A2aServerBuilderTest.java
+  s_60a719e5bad32d::t_d67d5d1a713600 1-3,5-53,69-79
+  s_72595db24573ea::t_3b6b635077dcb1 4,54-68
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/ProtocolClient.java
+  s_60a719e5bad32d::t_7bd8b165bd75f8 11-12,42-43,45,55-56,60-63,65,85,113-116,129-133,141,151,156,178-181,184-189,191-194,196-204,206,209,214,229,232
+  s_1d55fa33eca8c2::t_87d7571bf94783 182-183,190,195
+adcp-server/src/test/java/org/adcontextprotocol/adcp/server/a2a/A2aServletTest.java
+  s_72595db24573ea::t_2d546caf589916 1-2,6,9,12-37,39-44,47,50-53,55-68,70-136,163,169-171,173-225,303,375-378,386-439,441-472,474-509,511-513,515,522-525,554-556
+  s_1d55fa33eca8c2::t_90959539d774b9 3-5,7-8,10-11,45-46,48-49,137-162,164-168,226-302,304-374,379-385,440,473,516-521,526-533,541-553
+  s_1d55fa33eca8c2::t_a2162c434835a9 38,510,514
+  s_5231ba5a8f295b::t_a30ad96f8df7f6 54
+  s_5231ba5a8f295b::t_eb1891994abfaf 69
+  s_72595db24573ea::t_ea227151ee82a5 172
+  s_1d55fa33eca8c2::t_587a7f5f64d91e 534-540
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/package-info.java
+  s_60a719e5bad32d::t_cc660caba76dac 1-6
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/a2a/A2aAuthProvider.java
+  s_5231ba5a8f295b::t_494c356ed2f368 1-40
+adcp/src/main/java/org/adcontextprotocol/adcp/schema/AdcpObjectMapperFactory.java
+  s_5231ba5a8f295b::t_b021c54b3cc5f7 52-54
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/a2a/A2aServerBuilder.java
+  s_60a719e5bad32d::t_0043fb2c24d94b 1-8,12-13,15,17-20,31-34,39-63,65-84,111-112,114-118
+  s_60a719e5bad32d::t_329c187969a812 9-11,16,85-102
+  s_72595db24573ea::t_c24d836c8f16ee 14,38,64,103-110
+  s_5231ba5a8f295b::t_6f9dc01d17dde7 21-23,25-30
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/a2a/A2aAgentExecutor.java
+  s_60a719e5bad32d::t_a3f8c76e00d098 1-35,37-48,55-56,61,63-65,68-85,88-89,93,97-111,115-162,169-170,188-196,198-199
+  s_5231ba5a8f295b::t_e67a87586b1fbb 36,90-92,95,112-114
+  s_5231ba5a8f295b::t_839474f394099e 57-60,163-168
+  s_1d55fa33eca8c2::t_19923dbf2bbc78 62,171-179,182,185-187
+  s_5231ba5a8f295b::t_5cc9ba33df653c 66-67,86
+  s_72595db24573ea::t_a684664cf1895c 94
+  s_fe81b8cdc470b1::t_d91f0b9a532e00 180-181,183-184
+  s_5231ba5a8f295b::t_3c9eff656e0a7b 197
+adcp/src/test/java/org/adcontextprotocol/adcp/AdcpClientTest.java
+  s_60a719e5bad32d::t_a05724207bfe20 75,81,86,97
+  s_60a719e5bad32d::t_4ca6c1e251ddd9 91,94,102
+adcp/src/test/java/org/adcontextprotocol/adcp/transport/a2a/A2aConnectionManagerTest.java
+  s_60a719e5bad32d::t_a2dc4765951e1d 1-16,18-54,57-63,153-167,169,171-189,204-208,210-227
+  s_1d55fa33eca8c2::t_b4b79534e60be6 17,55-56,64,66,68-71,83-84,86,88-90,124,139-140,143,145-149,168,170,190
+  s_5231ba5a8f295b::t_af1e31550e3484 65,67,72-82,85,87,91-93,125-138,141-142,144,150-152
+  s_a443c324e77676::t_328f8f45159cf5 94-113,116-123,191-203
+  s_a443c324e77676::t_0a39aa20c70375 115
+  s_60a719e5bad32d::t_d112a874d92e2c 209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "36bb0e22cad65bee037f4f1a5cd6a621209e980c",
+  "prompts": {},
+  "sessions": {
+    "s_1d55fa33eca8c2": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_017Uk1WLve4EpFxHRaz3Zjmn",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_60a719e5bad32d": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_017S2LNK9gTWZqRsmQ32hTLz",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_72595db24573ea": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_015SMZhAiNdykRqfYL6tzTuQ",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_a443c324e77676": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_01Qg7K4E3MAPSHEhHAspcxqW",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_fe81b8cdc470b1": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_01JL8p3nwUnapf9AsYHowhyb",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}

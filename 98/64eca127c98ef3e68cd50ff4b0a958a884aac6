@@ -1,0 +1,51 @@
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/A2aCaller.java
+  s_60a719e5bad32d::t_494405ad5e0b5c 1-22,24-43,46,49-60,73-75,93-100,102-121,123-124,130,132-136,138-139,141-145,147-149,151-184,187-201,203,206-207,218-229,232-233,235-243,245-248,250-278,282,285-296,298-316,48,82,86,89
+  s_5231ba5a8f295b::t_7dbc5be5e211ff 44
+  s_5231ba5a8f295b::t_771957bfc3f188 45,92,137,140,146,150,202,204-205,249,279-281
+  s_60a719e5bad32d::t_dbbb9a7d1e0b31 61-63
+  s_5231ba5a8f295b::t_782ea351727ab5 64-72
+  s_60a719e5bad32d::t_9e7ee7e489adb7 76-78
+  s_60a719e5bad32d::t_d7bb6c39701a75 101
+  s_72595db24573ea::t_9a087c6d81583f 125-128
+  s_5231ba5a8f295b::t_3582d6112aa671 185-186
+  s_5231ba5a8f295b::t_76059b3c5965cb 210-211,213-214,216-217
+  s_5231ba5a8f295b::t_84be5ea4a0bcb7 283-284
+  s_5231ba5a8f295b::t_fdc5c366a56f12 297
+  s_5231ba5a8f295b::t_a2ea855bf855ef 47
+  s_5231ba5a8f295b::t_1a41aecaa7ec8f 79-81,83-85,88,90-91
+  s_5231ba5a8f295b::t_34dd75e0ea03f6 122
+  s_5231ba5a8f295b::t_1db41565bb18d4 23,208-209,212,215,230-231,234
+  s_5231ba5a8f295b::t_ad7b9d3664db70 129,131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9864eca127c98ef3e68cd50ff4b0a958a884aac6",
+  "prompts": {},
+  "sessions": {
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_60a719e5bad32d": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_017S2LNK9gTWZqRsmQ32hTLz",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_72595db24573ea": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_015SMZhAiNdykRqfYL6tzTuQ",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}

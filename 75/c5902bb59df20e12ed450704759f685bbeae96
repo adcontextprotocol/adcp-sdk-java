@@ -1,0 +1,111 @@
+gradle/libs.versions.toml
+  s_60a719e5bad32d::t_dd7f7a06352347 23-25,68-69,74-77
+  s_5231ba5a8f295b::t_da7d043af4b36a 15
+  s_5231ba5a8f295b::t_eaaaa0b358c1d6 52
+  s_5231ba5a8f295b::t_7514f94cbd89b9 70-73
+  s_5231ba5a8f295b::t_45ca9abbc2bb34 13
+adcp-cli/gradle.lockfile
+  s_60a719e5bad32d::t_59f7811f8ff1cb 16-21,26-39,51
+  s_5231ba5a8f295b::t_eedcba540cf53e 52
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/a2a/A2aServlet.java
+  s_60a719e5bad32d::t_a217762579cb68 1-4,6,10-40,42-43,45-49,57-59,67,70,97-103,109,114-119,121-125,127-135,137-152,154-156,159,161-162,170-179,181-204,207-210,212,223-228,234-241,243,250-255,291-294,297-301,308,311-315,322-325,327-328,330,366,384,391-392
+  s_72595db24573ea::t_c3307c79eb63ec 5,41,63,76
+  s_1d55fa33eca8c2::t_178a7c1d51ce58 7-9,44,54-56,126,136,153,242,244-249,257-268,270,272,274-279,281,283,285-290,302-307,309,316,318,320,329,331,347,351-352,358-364,367-378,385-390
+  s_5231ba5a8f295b::t_b439158c1aa614 50-53,64-65,69,71-75,77-86,89,91-96
+  s_60a719e5bad32d::t_7943aa4e5370a7 60-62,68
+  s_5231ba5a8f295b::t_81e433f5b96e97 66,87-88,90,256,295,365
+  s_1d55fa33eca8c2::t_222a27fabd23d4 104-108,110-113,160
+  s_5231ba5a8f295b::t_e04672356a4594 120,157-158
+  s_60a719e5bad32d::t_472947f7cceaf0 163-165,167-169
+  s_5231ba5a8f295b::t_007f364a9559f2 166
+  s_5231ba5a8f295b::t_515b1a82d39823 205-206,211,213-222
+  s_60a719e5bad32d::t_38689ccccdf32d 229-233
+  s_5231ba5a8f295b::t_7a8c43c0627bfa 296
+  s_a443c324e77676::t_69831cc6709197 310,326
+  s_1d55fa33eca8c2::t_8b136a75fd22f0 333
+  s_1d55fa33eca8c2::t_1e2d724149a38c 336-340,343-344
+  s_a443c324e77676::t_e2023662261b18 379-383
+  s_5231ba5a8f295b::t_6edc29981ffd4c 180
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/A2aConnectionManager.java
+  s_60a719e5bad32d::t_5420fb14ce4ce9 1-5,7-16,18-22,26-29,31-34,41-46,48-57,59-69,71-73,79-111,113-131,146-159,161,163-170,198-213,218-219,222-226,258-261,269-276,278-289,307-314,317-351,355-358,374-412
+  s_5231ba5a8f295b::t_61667e212a7629 6,23-24
+  s_a443c324e77676::t_3509e09e7baba5 17,76-78,112,141-144,175,227-237
+  s_5231ba5a8f295b::t_19fc303d885e86 25,30,37-38
+  s_1d55fa33eca8c2::t_0dd0de22af4625 35,70,74,136-140,145,174,176-177,179-182,184-187,189-195,220,238-257
+  s_a443c324e77676::t_0ecbd4572ba08a 36,39-40
+  s_5231ba5a8f295b::t_532f0552c8cb51 47,214-217
+  s_5231ba5a8f295b::t_56a0fbd3e13204 58
+  s_a443c324e77676::t_b2106e4cdf7dd4 75
+  s_5231ba5a8f295b::t_2deb590e5137c4 160,162,171-173,178,183,196-197
+  s_5231ba5a8f295b::t_bde3194f7b50eb 221,262-268
+  s_5231ba5a8f295b::t_02c4b561e206dc 290-303,305-306,315-316
+  s_5231ba5a8f295b::t_4228895d86e357 359-364
+  s_60a719e5bad32d::t_be6b3861d718c7 365-373
+  s_5231ba5a8f295b::t_ee302fead78061 304
+  s_5231ba5a8f295b::t_3022dbb16edc4f 352-354
+adcp/src/main/java/org/adcontextprotocol/adcp/transport/a2a/A2aCaller.java
+  s_60a719e5bad32d::t_494405ad5e0b5c 1-22,24-43,46,49-60,73-75,93-100,102-121,123-124,129,131-135,137-138,140-144,146-148,150-183,186-200,202,205-206,217-228,231-232,234-242,244-247,249-277,281,284-295,297-315,48,82,86,89
+  s_5231ba5a8f295b::t_7dbc5be5e211ff 44
+  s_5231ba5a8f295b::t_771957bfc3f188 45,92,136,139,145,149,201,203-204,248,278-280
+  s_60a719e5bad32d::t_dbbb9a7d1e0b31 61-63
+  s_5231ba5a8f295b::t_782ea351727ab5 64-72
+  s_60a719e5bad32d::t_9e7ee7e489adb7 76-78
+  s_60a719e5bad32d::t_d7bb6c39701a75 101
+  s_72595db24573ea::t_9a087c6d81583f 125-128
+  s_5231ba5a8f295b::t_3582d6112aa671 184-185
+  s_5231ba5a8f295b::t_76059b3c5965cb 209-210,212-213,215-216
+  s_5231ba5a8f295b::t_84be5ea4a0bcb7 282-283
+  s_5231ba5a8f295b::t_fdc5c366a56f12 296
+  s_5231ba5a8f295b::t_a2ea855bf855ef 47
+  s_5231ba5a8f295b::t_1a41aecaa7ec8f 79-81,83-85,88,90-91
+  s_5231ba5a8f295b::t_34dd75e0ea03f6 122
+  s_5231ba5a8f295b::t_1db41565bb18d4 23,207-208,211,214,229-230,233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "75c5902bb59df20e12ed450704759f685bbeae96",
+  "prompts": {},
+  "sessions": {
+    "s_1d55fa33eca8c2": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_017Uk1WLve4EpFxHRaz3Zjmn",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_60a719e5bad32d": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_017S2LNK9gTWZqRsmQ32hTLz",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_72595db24573ea": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_015SMZhAiNdykRqfYL6tzTuQ",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_a443c324e77676": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_01Qg7K4E3MAPSHEhHAspcxqW",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}

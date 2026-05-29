@@ -1,0 +1,41 @@
+gradle/libs.versions.toml
+  s_60a719e5bad32d::t_dd7f7a06352347 23-25,68-73
+  s_5231ba5a8f295b::t_da7d043af4b36a 15
+  s_5231ba5a8f295b::t_eaaaa0b358c1d6 52
+adcp-server/build.gradle.kts
+  s_60a719e5bad32d::t_85a2f2f930a311 20
+  s_72595db24573ea::t_bc021c46937b4e 21,29-30
+  s_5231ba5a8f295b::t_2e1c635d5a0f80 22-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ddcbf0ed905d6f7fa9ecc5095da0d766aaae7ef7",
+  "prompts": {},
+  "sessions": {
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_60a719e5bad32d": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_017S2LNK9gTWZqRsmQ32hTLz",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_72595db24573ea": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_015SMZhAiNdykRqfYL6tzTuQ",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}

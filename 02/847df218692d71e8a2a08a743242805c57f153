@@ -1,0 +1,76 @@
+adcp/build.gradle.kts
+  s_60a719e5bad32d::t_6c3b032f3116a2 24
+  s_5231ba5a8f295b::t_632aadcdedca8c 25-27
+gradle/libs.versions.toml
+  s_60a719e5bad32d::t_dd7f7a06352347 23-25,68-69,74-77
+  s_5231ba5a8f295b::t_da7d043af4b36a 15
+  s_5231ba5a8f295b::t_eaaaa0b358c1d6 52
+  s_5231ba5a8f295b::t_7514f94cbd89b9 70-73
+adcp-server/src/main/java/org/adcontextprotocol/adcp/server/a2a/A2aServlet.java
+  s_60a719e5bad32d::t_a217762579cb68 1-4,6,10-40,42-43,45-49,57-59,67,70,97-103,109,114-119,121-125,127-135,137-152,154-156,159,161-162,170-179,181-204,207-210,212,223-228,234-241,243,250-255,291-294,297-301,308,311-315,322-325,327-328,330,364,382,389-390
+  s_72595db24573ea::t_c3307c79eb63ec 5,41,63,76
+  s_1d55fa33eca8c2::t_178a7c1d51ce58 7-9,44,54-56,126,136,153,242,244-249,257-268,270,272,274-279,281,283,285-290,302-307,309,316,318,320,329,331,345,349-350,356-362,365-376,383-388
+  s_5231ba5a8f295b::t_b439158c1aa614 50-53,64-65,69,71-75,77-86,89,91-96
+  s_60a719e5bad32d::t_7943aa4e5370a7 60-62,68
+  s_5231ba5a8f295b::t_81e433f5b96e97 66,87-88,90,256,295,363
+  s_1d55fa33eca8c2::t_222a27fabd23d4 104-108,110-113,160
+  s_5231ba5a8f295b::t_e04672356a4594 120,157-158
+  s_60a719e5bad32d::t_472947f7cceaf0 163-165,167-169
+  s_5231ba5a8f295b::t_007f364a9559f2 166
+  s_5231ba5a8f295b::t_515b1a82d39823 205-206,211,213-222
+  s_60a719e5bad32d::t_38689ccccdf32d 229-233
+  s_5231ba5a8f295b::t_7a8c43c0627bfa 296
+  s_a443c324e77676::t_69831cc6709197 310,326
+  s_1d55fa33eca8c2::t_8b136a75fd22f0 333
+  s_1d55fa33eca8c2::t_1e2d724149a38c 336-342
+  s_a443c324e77676::t_e2023662261b18 377-381
+  s_5231ba5a8f295b::t_6edc29981ffd4c 180
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "02847df218692d71e8a2a08a743242805c57f153",
+  "prompts": {},
+  "sessions": {
+    "s_1d55fa33eca8c2": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_017Uk1WLve4EpFxHRaz3Zjmn",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_5231ba5a8f295b": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "2a89f9ea-83e6-4bf5-b2f2-f275830c49cb",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_60a719e5bad32d": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_017S2LNK9gTWZqRsmQ32hTLz",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_72595db24573ea": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_015SMZhAiNdykRqfYL6tzTuQ",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    },
+    "s_a443c324e77676": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "toolu_bdrk_01Qg7K4E3MAPSHEhHAspcxqW",
+        "model": "unknown"
+      },
+      "human_author": "Bugher-Michiel-1124273_TDX <Michiel.Bugher@Tritondigital.com>"
+    }
+  }
+}
