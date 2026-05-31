@@ -66,6 +66,11 @@ public final class A2aAgentExecutor implements AgentExecutor {
             log.warn("A2A tool call failed ({}) [{}]: {}", toolName, e.code(),
                     sanitizeErrorMessage(e.getMessage()));
             emitter.fail(errorMessage(e.code(), sanitizeErrorMessage(e.getMessage())));
+        } catch (A2AError e) {
+            // Let A2AError (e.g. InvalidRequestError from extractToolName/extractArgs) propagate
+            // as-is so the upstream handler can map it to the correct JSON-RPC error code
+            // rather than collapsing it into internal_error.
+            throw e;
         } catch (Exception e) {
             log.error("A2A tool call failed: {}", toolName, e);
             emitter.fail(errorMessage("internal_error", "internal error"));
@@ -112,14 +117,25 @@ public final class A2aAgentExecutor implements AgentExecutor {
             return new LinkedHashMap<>();
         }
         if (message.metadata() != null && message.metadata().get("adcp_args") != null) {
-            return objectMapper.convertValue(message.metadata().get("adcp_args"), LinkedHashMap.class);
+            Object adcpArgs = message.metadata().get("adcp_args");
+            if (!(adcpArgs instanceof Map)) {
+                throw new InvalidRequestError(
+                        "adcp_args must be a JSON object, got: " + adcpArgs.getClass().getSimpleName());
+            }
+            return objectMapper.convertValue(adcpArgs, LinkedHashMap.class);
         }
         if (message.parts() != null) {
             int limit = Math.min(message.parts().size(), MAX_PARTS_SCAN);
             for (int i = 0; i < limit; i++) {
                 Part<?> part = message.parts().get(i);
                 if (part instanceof DataPart dataPart && dataPart.data() != null) {
-                    return objectMapper.convertValue(dataPart.data(), LinkedHashMap.class);
+                    Object data = dataPart.data();
+                    if (!(data instanceof Map)) {
+                        throw new InvalidRequestError(
+                                "A2A DataPart data must be a JSON object, got: "
+                                        + data.getClass().getSimpleName());
+                    }
+                    return objectMapper.convertValue(data, LinkedHashMap.class);
                 }
             }
         }

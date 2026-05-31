@@ -10,12 +10,16 @@ import org.a2aproject.sdk.server.tasks.InMemoryTaskStore;
 import org.a2aproject.sdk.spec.AgentCapabilities;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.AgentInterface;
+import org.a2aproject.sdk.spec.AgentSkill;
 import org.adcontextprotocol.adcp.error.ConfigurationError;
 import org.adcontextprotocol.adcp.server.AdcpPlatform;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 
 /**
  * Builds A2A server-side request handling backed by an {@link AdcpPlatform}.
@@ -32,11 +36,23 @@ import java.util.Objects;
  */
 public final class A2aServerBuilder {
 
+    /**
+     * Default executor: spawns one virtual thread per task. No lifecycle management needed —
+     * each virtual thread is created on demand and terminates when its task completes.
+     * Using a plain lambda avoids the {@link java.util.concurrent.ExecutorService} resource
+     * that {@link java.util.concurrent.Executors#newVirtualThreadPerTaskExecutor()} returns
+     * and would need to be shut down.
+     */
+    private static final Executor VIRTUAL_THREAD_EXECUTOR =
+            task -> Thread.ofVirtual().start(task);
+
     private final AdcpPlatform platform;
     private @Nullable String agentName;
     private @Nullable String agentUrl;
     private @Nullable String agentVersion;
     private @Nullable AgentCard builtCard;
+    private @Nullable Executor agentExecutor;
+    private @Nullable Executor eventConsumerExecutor;
 
     private A2aServerBuilder(AdcpPlatform platform) {
         this.platform = Objects.requireNonNull(platform, "platform");
@@ -61,6 +77,27 @@ public final class A2aServerBuilder {
         return this;
     }
 
+    /**
+     * Sets the executor used for agent execution (the {@link A2aAgentExecutor} call).
+     * Defaults to a virtual-thread-per-task executor.
+     *
+     * <p>Inject a custom executor in tests to control execution order or assert
+     * that work is dispatched off the caller thread.
+     */
+    public A2aServerBuilder agentExecutor(Executor agentExecutor) {
+        this.agentExecutor = Objects.requireNonNull(agentExecutor, "agentExecutor");
+        return this;
+    }
+
+    /**
+     * Sets the executor used for SSE event consumption.
+     * Defaults to a virtual-thread-per-task executor.
+     */
+    public A2aServerBuilder eventConsumerExecutor(Executor eventConsumerExecutor) {
+        this.eventConsumerExecutor = Objects.requireNonNull(eventConsumerExecutor, "eventConsumerExecutor");
+        return this;
+    }
+
     public DefaultRequestHandler build() {
         this.builtCard = buildAgentCard();
 
@@ -75,20 +112,45 @@ public final class A2aServerBuilder {
                 queueManager);
         mainEventBusProcessor.ensureStarted();
 
+        // Use virtual-thread-per-task executors by default so agent execution and SSE event
+        // consumption run off the caller thread. This prevents the streaming response from
+        // being delayed or blocked while the SSE stream is being established.
+        Executor resolvedAgentExecutor =
+                agentExecutor != null ? agentExecutor : VIRTUAL_THREAD_EXECUTOR;
+        Executor resolvedEventExecutor =
+                eventConsumerExecutor != null ? eventConsumerExecutor : VIRTUAL_THREAD_EXECUTOR;
+
         return DefaultRequestHandler.create(
                 new A2aAgentExecutor(platform),
                 taskStore,
                 queueManager,
                 pushConfigStore,
                 mainEventBusProcessor,
-                Runnable::run,
-                Runnable::run);
+                resolvedAgentExecutor,
+                resolvedEventExecutor);
     }
 
     public AgentCard buildAgentCard() {
         require(agentName, "agentName");
         require(agentUrl, "agentUrl");
         require(agentVersion, "agentVersion");
+
+        Map<String, String> descriptions = platform.toolDescriptions();
+        List<AgentSkill> skills = new ArrayList<>();
+        // Sort for stable, deterministic card output across JVM runs
+        platform.supportedTools().stream().sorted().forEach(toolName -> {
+            String description = descriptions.getOrDefault(toolName, toolName);
+            skills.add(AgentSkill.builder()
+                    .id(toolName)
+                    .name(toolName)
+                    .description(description)
+                    .tags(List.of())
+                    .examples(List.of())
+                    .inputModes(List.of("text"))
+                    .outputModes(List.of("text"))
+                    .build());
+        });
+
         return AgentCard.builder()
                 .name(agentName)
                 .description("AdCP A2A agent")
@@ -99,7 +161,7 @@ public final class A2aServerBuilder {
                 .supportedInterfaces(List.of(new AgentInterface("JSONRPC", agentUrl)))
                 .defaultInputModes(List.of("text"))
                 .defaultOutputModes(List.of("text"))
-                .skills(List.of())
+                .skills(skills)
                 .build();
     }
 

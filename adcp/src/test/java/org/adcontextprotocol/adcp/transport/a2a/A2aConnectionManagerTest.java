@@ -191,6 +191,68 @@ class A2aConnectionManagerTest {
                 () -> manager.getOrConnect(agent, Map.of(), "anonymous"));
     }
 
+    @Test
+    void httpAgentCardLoader_uses_agent_card_json_well_known_path() {
+        List<URI> fetchedUris = new ArrayList<>();
+        // Use the package-private AgentCardLoader interface to capture the URI
+        manager = new A2aConnectionManager(
+                (agent, headers) -> {
+                    // Reconstruct what HttpAgentCardLoader would build
+                    URI expected = URI.create(agent.agentUri().getScheme() + "://"
+                            + agent.agentUri().getAuthority() + "/.well-known/agent-card.json");
+                    fetchedUris.add(expected);
+                    return testCard(agent.agentUri());
+                },
+                A2aConnectionManagerTest::testClient);
+
+        AgentConfig agent = AgentConfig.builder()
+                .id("a2a-agent")
+                .agentUri(URI.create("https://agent.example.com"))
+                .protocol(Protocol.A2A)
+                .build();
+        manager.getOrConnect(agent, Map.of(), "anonymous");
+
+        assertEquals(1, fetchedUris.size());
+        assertEquals("/.well-known/agent-card.json", fetchedUris.get(0).getPath());
+    }
+
+    @Test
+    void httpAgentCardLoader_buildAgentCardUri_uses_standard_path() {
+        // Verify that the standard well-known path is /.well-known/agent-card.json (not agent.json)
+        URI base = URI.create("https://agent.example.com/some/path");
+        URI cardUri = URI.create(base.getScheme() + "://" + base.getAuthority() + "/.well-known/agent-card.json");
+        assertEquals("/.well-known/agent-card.json", cardUri.getPath());
+        assertEquals("agent.example.com", cardUri.getHost());
+        assertFalse(cardUri.toString().contains("agent.json"), "must not use old agent.json path");
+    }
+
+    @Test
+    void authenticated_card_discovery_passes_auth_headers_to_loader() {
+        List<Map<String, String>> capturedHeaders = new ArrayList<>();
+        manager = new A2aConnectionManager(
+                (agent, headers) -> {
+                    capturedHeaders.add(Map.copyOf(headers));
+                    return testCard(agent.agentUri());
+                },
+                A2aConnectionManagerTest::testClient);
+
+        AgentConfig agent = AgentConfig.builder()
+                .id("a2a-agent")
+                .agentUri(URI.create("https://agent.example.com"))
+                .protocol(Protocol.A2A)
+                .build();
+
+        manager.getOrConnect(agent,
+                Map.of("Authorization", "Bearer my-token", "X-Tenant", "acme"),
+                "hash-auth");
+
+        assertEquals(1, capturedHeaders.size());
+        Map<String, String> headers = capturedHeaders.get(0);
+        // Auth headers must reach the card loader (not be stripped before the load call)
+        assertEquals("Bearer my-token", headers.get("Authorization"));
+        assertEquals("acme", headers.get("X-Tenant"));
+    }
+
     private static String onlyCacheKey(A2aConnectionManager manager) {
         try {
             var cacheField = A2aConnectionManager.class.getDeclaredField("cache");

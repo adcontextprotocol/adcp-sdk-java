@@ -8,6 +8,7 @@ import org.a2aproject.sdk.server.events.EventQueueItem;
 import org.a2aproject.sdk.server.tasks.AgentEmitter;
 import org.a2aproject.sdk.spec.AgentInterface;
 import org.a2aproject.sdk.spec.DataPart;
+import org.a2aproject.sdk.spec.InvalidRequestError;
 import org.a2aproject.sdk.spec.Message;
 import org.a2aproject.sdk.spec.MessageSendParams;
 import org.a2aproject.sdk.spec.Part;
@@ -89,6 +90,63 @@ class A2aAgentExecutorTest {
         executor.cancel(context, emitter);
 
         assertTrue(emitter.canceled);
+    }
+
+    @Test
+    void execute_propagates_invalid_request_error_for_missing_tool_name() throws Exception {
+        A2aAgentExecutor executor = new A2aAgentExecutor(new RecordingPlatform());
+        // Message with no tool name in metadata and no non-blank text parts
+        RequestContext context = requestContext(Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .parts(new DataPart(java.util.Map.of("key", "value")))
+                .build());
+        RecordingEmitter emitter = new RecordingEmitter(context);
+
+        // Should propagate as InvalidRequestError (A2AError), not be swallowed as internal_error
+        assertThrows(InvalidRequestError.class, () -> executor.execute(context, emitter));
+    }
+
+    @Test
+    void execute_propagates_invalid_request_error_for_non_object_adcp_args() throws Exception {
+        A2aAgentExecutor executor = new A2aAgentExecutor(new RecordingPlatform());
+        // adcp_args is a String, not a JSON object — should be InvalidRequestError
+        RequestContext context = requestContext(Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .metadata(java.util.Map.of(
+                        "adcp_tool_name", "echo",
+                        "adcp_args", "not-an-object"))
+                .parts(new TextPart("echo"))
+                .build());
+        RecordingEmitter emitter = new RecordingEmitter(context);
+
+        assertThrows(InvalidRequestError.class, () -> executor.execute(context, emitter));
+    }
+
+    @Test
+    void execute_propagates_invalid_request_error_for_control_char_in_tool_name() throws Exception {
+        A2aAgentExecutor executor = new A2aAgentExecutor(new RecordingPlatform());
+        RequestContext context = requestContext(Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .metadata(java.util.Map.of("adcp_tool_name", "echo\u0000bad"))
+                .parts(new TextPart("echo"))
+                .build());
+        RecordingEmitter emitter = new RecordingEmitter(context);
+
+        assertThrows(InvalidRequestError.class, () -> executor.execute(context, emitter));
+    }
+
+    @Test
+    void execute_propagates_invalid_request_error_for_non_object_data_part() throws Exception {
+        A2aAgentExecutor executor = new A2aAgentExecutor(new RecordingPlatform());
+        // DataPart with a List instead of a Map — should be InvalidRequestError
+        RequestContext context = requestContext(Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .metadata(java.util.Map.of("adcp_tool_name", "echo"))
+                .parts(new DataPart(java.util.List.of("not", "a", "map")))
+                .build());
+        RecordingEmitter emitter = new RecordingEmitter(context);
+
+        assertThrows(InvalidRequestError.class, () -> executor.execute(context, emitter));
     }
 
     private static RequestContext requestContext(Message message) throws Exception {

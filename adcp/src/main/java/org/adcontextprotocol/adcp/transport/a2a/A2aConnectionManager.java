@@ -348,7 +348,11 @@ public final class A2aConnectionManager implements AutoCloseable {
         public AgentCard load(AgentConfig agent, Map<String, String> headers) {
             URI cardUri = buildAgentCardUri(agent.agentUri());
             try {
-                AdcpHttpResponse response = adcpHttpClient.get(cardUri, headers);
+                // Use getForAgentCard so that auth headers (e.g. Authorization) are forwarded
+                // to private agent-card endpoints. Redirect-following is already blocked by
+                // the underlying HttpClient (followRedirects=NEVER) and SSRF validation is
+                // enforced inside getForAgentCard, so header leakage is not possible.
+                AdcpHttpResponse response = adcpHttpClient.getForAgentCard(cardUri, headers);
                 if (response.statusCode() >= 200 && response.statusCode() < 300 && !response.truncated()) {
                     AgentCard parsed = objectMapper.readValue(response.body(), AgentCard.class);
                     return normalize(parsed, agent.agentUri());
@@ -365,9 +369,9 @@ public final class A2aConnectionManager implements AutoCloseable {
         }
 
         private static URI buildAgentCardUri(URI baseUri) {
-            // The A2A Agent Card is always at /.well-known/agent.json on the origin root
+            // The A2A spec default is /.well-known/agent-card.json on the origin root
             // (scheme + authority), not appended to the agent URI's path component.
-            return URI.create(baseUri.getScheme() + "://" + baseUri.getAuthority() + "/.well-known/agent.json");
+            return URI.create(baseUri.getScheme() + "://" + baseUri.getAuthority() + "/.well-known/agent-card.json");
         }
 
         private static AgentCard normalize(AgentCard card, URI baseUri) {
