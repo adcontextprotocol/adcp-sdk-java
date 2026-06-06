@@ -29,3 +29,6 @@ At minimum: `./gradlew build` green.
 - [ ] `./gradlew build` green
 - [ ] New tests added for new behavior
 - [ ] Public API surface change → changeset added
+- [ ] Builder/transport/lifecycle/third-party SDK change → integration or manual smoke test proves the real composed path runs (not only stubs/mocks)
+- [ ] Invalid/overlong public names or IDs are rejected, not silently truncated or normalized server-side
+- [ ] No workspace-local artifacts committed (`.wt-claim`, `.wt-*`, `.context/`, `.local/`, `.DS_Store`)
