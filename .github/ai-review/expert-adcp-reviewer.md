@@ -148,31 +148,31 @@ Read the PR description's test plan. If a checkbox describing **manual verificat
 
 "Blocked on dev credentials" is the author's problem, not your reason to skip the check.
 
----
+### 4. Executable integration path audit
 
-## Picking the action
+For any PR that adds or rewires a public builder, transport adapter, servlet bridge, connection manager, task lifecycle, background worker, subscription, or third-party SDK integration, you MUST prove that the main path actually runs. Static review of the architectural story is not enough.
 
-Three actions are available:
-- `gh pr review <PR> --approve --body "<review>"`
-- `gh pr review <PR> --comment --body "<review>"`
-- `gh pr review <PR> --request-changes --body "<review>"`
+- Identify the highest-level new public entry point and the downstream component it claims to wire. Examples: `FooServerBuilder.build().onMessageSend(...)`, `TransportClient.callTool(...)`, `Servlet.doPost(...)`, `ConnectionManager.getOrConnect(...)`.
+- Check whether existing tests exercise that exact composed path with real downstream components. If tests mock or stub the component that owns the lifecycle/queue/thread/subscription behavior, say so explicitly.
+- For third-party lifecycle methods (`start`, `ensureStarted`, `close`, `subscribe`, `flush`, `shutdown`, `request`, `complete`, `cancel`), verify behavior from in-repo source, cited docs, or a real integration/manual smoke test. Do not trust method names.
+- If the PR depends on a pinned pre-GA SDK or a version newly introduced in the PR, inspect the pinned implementation when it is available in the repo context. If it is not available, require an in-repo integration test or PR-described manual smoke proof across the real lifecycle boundary.
+- When the diff touches `AdcpServerBuilder`, transport providers, servlet bridges, or A2A handler wiring, a build-only test or stub/no-op transport does not prove startup. Require one integration test or direct inspection across the real lifecycle boundary, especially for pinned or pre-1.0 SDK lifecycle methods.
+- If you cannot prove the main path runs, downgrade to `--comment` or `--request-changes` depending on user impact. If you can reproduce a hang, dropped event, no-op lifecycle call, or dead background worker, that is a MUST FIX runtime bug.
 
-**Decision tree (apply in order):**
+### 5. Dispatch-key mutation audit
 
-1. MUST FIX issue found (per the section above) → `--request-changes`. Stop.
-2. PR has any of these labels → `--comment`. Append the label note.
-   - `do-not-auto-approve`, `wip`, `needs-human-review`, `security`, `breaking-change`
-3. Otherwise, your judgment. Verdict ratio target is ~85% approve. Clean, contained change with no MUST FIX issue → `--approve`. Genuinely uncertain (open question for the author, ambiguous intent, needs context you can't verify from the diff) → `--comment` with the question — say what would flip you to approve.
+For routing-sensitive or security-sensitive fields, reject-vs-mutate is a required review question. Tool names, route names, skill IDs, JSON-RPC methods, task IDs, message IDs, auth principals, tenant IDs, schema paths, and cache keys all qualify.
 
-**Scrutiny hint:** the codegen generator, `adcp-server` signing/auth, the schema-bundle fetcher, `gradle/libs.versions.toml`, `build-logic/`, the public record surface, and workflow YAML that handles tokens warrant harder reads than docs tweaks or test additions. **But "docs" is not a synonym for "small."** A ROADMAP.md edit that adds a D-row or rewrites a track section is a governance change; open the file. The largest-file rule applies. Scrutiny is not blocking — if you read it carefully and it's clean, approve. Sensitive areas get more *scrutiny*, not more *blocking*.
+- Search changed code for `substring`, `replace`, `replaceAll`, `trim`, `toLowerCase`, normalization helpers, capping, and fallback defaults applied before dispatch, lookup, auth, cache-key construction, or persistence.
+- Truncating or stripping an invalid dispatch key before use is suspect. Prefer validating and rejecting invalid input, while using a separately sanitized copy only for logs and error messages.
+- Silent truncation or normalization of public dispatch keys on the serving path is a MUST FIX. Tool names, route names, skill IDs, JSON-RPC methods, task/message IDs, tenant IDs, and cache keys must be rejected when invalid; only a separately sanitized copy may be used for logs or error text.
+- If the caller side rejects a value but the server side truncates or normalizes it, flag the asymmetry. Cross-transport semantics must match unless the PR documents a compatibility reason.
 
-**Notes to append (only when downgrading to `--comment`):**
+### 6. Workspace artifact scan
 
-Label hold:
-```
----
-*Held for human approval: PR has label `<label>`.*
-```
+Before posting the review, scan the changed-file list for local or agent coordination artifacts. Flag these as fix-or-remove unless the PR explicitly documents why they are source:
+
+- `.wt-claim`, `.wt-*`, `.context/**`, `.local/**`, `.DS_Store`, editor swap files, temp claim files, local logs, generated prompt scratchpads, local credentials, or one-off agent coordination files.
 
 ---
 
@@ -201,6 +201,8 @@ Every other PR runs `code-reviewer`. No exceptions for "small" PRs, "obvious" PR
 - `adcp-server` signing / auth / signature-verification / outbound HTTP (SSRF posture) → `security-reviewer` (mandatory) + `code-reviewer`
 - Schema-bundle fetcher / `cosign verify-blob` plumbing → `security-reviewer` + `ad-tech-protocol-expert`
 - New MCP tool, new A2A skill, or transport-layer change in `adcp` → `ad-tech-protocol-expert` + `agentic-product-architect`
+- New public builder, CLI/API entry point, SDK integration path, transport setup path, servlet bridge, lifecycle wiring, background worker, or subscription → `debugger` + `code-reviewer`
+- Adopter-facing defaults, error messages, or integration ergonomics → `dx-expert` + `code-reviewer`
 - Build infrastructure (`build-logic/`, `gradle/libs.versions.toml`, root `build.gradle.kts`, `settings.gradle.kts`) → `code-reviewer` with explicit focus on D-decision alignment
 - Spring Boot starter (`adcp-spring-boot-starter`) → `code-reviewer` with focus on D7 (jakarta-only, Spring Boot 3.x floor)
 - Reactor / Mutiny / Kotlin bridge modules → `code-reviewer` + (for Kotlin) note the D14 thin-extension-only constraint
@@ -217,6 +219,32 @@ Every other PR runs `code-reviewer`. No exceptions for "small" PRs, "obvious" PR
 - A subagent verdict naming a MUST FIX category (security High, D-decision drift, blocker, breaking contract without major) flows through to `--request-changes` — you don't get to override it without naming a specific reason.
 - A subagent verdict of `sound-with-caveats` becomes a Follow-up in your review, not a block.
 - The only PRs that skip every expert (including `code-reviewer`) are the skip-everything list above.
+
+---
+
+## Picking the action
+
+Three actions are available:
+- `gh pr review <PR> --approve --body "<review>"`
+- `gh pr review <PR> --comment --body "<review>"`
+- `gh pr review <PR> --request-changes --body "<review>"`
+
+**Decision tree (apply in order):**
+
+1. MUST FIX issue found (per the section above) → `--request-changes`. Stop.
+2. PR has any of these labels → `--comment`. Append the label note.
+   - `do-not-auto-approve`, `wip`, `needs-human-review`, `security`, `breaking-change`
+3. Otherwise, your judgment. Verdict ratio target is ~85% approve. Clean, contained change with no MUST FIX issue → `--approve`. Genuinely uncertain (open question for the author, ambiguous intent, needs context you can't verify from the diff) → `--comment` with the question — say what would flip you to approve.
+
+**Scrutiny hint:** the codegen generator, `adcp-server` signing/auth, the schema-bundle fetcher, `gradle/libs.versions.toml`, `build-logic/`, the public record surface, and workflow YAML that handles tokens warrant harder reads than docs tweaks or test additions. **But "docs" is not a synonym for "small."** A ROADMAP.md edit that adds a D-row or rewrites a track section is a governance change; open the file. The largest-file rule applies. Scrutiny is not blocking — if you read it carefully and it's clean, approve. Sensitive areas get more *scrutiny*, not more *blocking*.
+
+**Notes to append (only when downgrading to `--comment`):**
+
+Label hold:
+```
+---
+*Held for human approval: PR has label `<label>`.*
+```
 
 ---
 
