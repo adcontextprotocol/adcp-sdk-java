@@ -7,6 +7,7 @@ import org.adcontextprotocol.adcp.error.ConfigurationError;
 import org.adcontextprotocol.adcp.server.AdcpPlatform;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,6 +58,27 @@ class A2aServerBuilderTest {
                 .build();
 
         assertNotNull(handler);
+    }
+
+    @Test
+    void build_starts_event_bus_processor_thread() throws Exception {
+        DefaultRequestHandler handler = A2aServerBuilder.create(platform())
+                .agentName("test-agent")
+                .agentUrl("https://agent.example.com")
+                .agentVersion("1.0.0")
+                .build();
+
+        Field processorField = DefaultRequestHandler.class.getDeclaredField("mainEventBusProcessor");
+        processorField.setAccessible(true);
+        Object processor = processorField.get(handler);
+        assertNotNull(processor, "DefaultRequestHandler should have a MainEventBusProcessor");
+
+        Field threadField = processor.getClass().getDeclaredField("processorThread");
+        threadField.setAccessible(true);
+        Thread processorThread = (Thread) threadField.get(processor);
+        assertNotNull(processorThread, "MainEventBusProcessor should have a started processor thread");
+        assertTrue(processorThread.isAlive(),
+                "MainEventBusProcessor thread should be running after build()");
     }
 
     @Test

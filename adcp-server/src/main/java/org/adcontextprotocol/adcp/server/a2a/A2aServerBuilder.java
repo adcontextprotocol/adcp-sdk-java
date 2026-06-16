@@ -15,6 +15,7 @@ import org.adcontextprotocol.adcp.error.ConfigurationError;
 import org.adcontextprotocol.adcp.server.AdcpPlatform;
 import org.jspecify.annotations.Nullable;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -110,7 +111,7 @@ public final class A2aServerBuilder {
                 taskStore,
                 (event, snapshot) -> { },
                 queueManager);
-        mainEventBusProcessor.ensureStarted();
+        startEventBusProcessor(mainEventBusProcessor);
 
         // Use virtual-thread-per-task executors by default so agent execution and SSE event
         // consumption run off the caller thread. This prevents the streaming response from
@@ -171,6 +172,27 @@ public final class A2aServerBuilder {
             throw new IllegalStateException("Call build() before getAgentCard()");
         }
         return builtCard;
+    }
+
+    /**
+     * Starts the {@link MainEventBusProcessor} event distribution thread.
+     *
+     * <p>In the pinned A2A SDK (1.0.0.CR1), {@link MainEventBusProcessor#ensureStarted()}
+     * is a no-op and the real {@code start()} method is package-private. This method uses
+     * reflection to invoke {@code start()} so the processor thread actually distributes
+     * events. When the SDK exposes a public start API, this reflection shim should be
+     * replaced with a direct call.
+     */
+    private static void startEventBusProcessor(MainEventBusProcessor processor) {
+        try {
+            Method startMethod = MainEventBusProcessor.class.getDeclaredMethod("start");
+            startMethod.setAccessible(true);
+            startMethod.invoke(processor);
+        } catch (ReflectiveOperationException e) {
+            throw new ConfigurationError(
+                    "Failed to start MainEventBusProcessor via reflection: " + e.getMessage(),
+                    "mainEventBusProcessor");
+        }
     }
 
     private void require(@Nullable String value, String field) {

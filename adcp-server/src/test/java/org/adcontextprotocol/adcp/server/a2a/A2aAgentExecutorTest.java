@@ -136,6 +136,55 @@ class A2aAgentExecutorTest {
     }
 
     @Test
+    void execute_rejects_overlong_tool_name_in_metadata() throws Exception {
+        A2aAgentExecutor executor = new A2aAgentExecutor(new RecordingPlatform());
+        String longName = "a".repeat(257);
+        RequestContext context = requestContext(Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .metadata(java.util.Map.of("adcp_tool_name", longName))
+                .parts(new TextPart("echo"))
+                .build());
+        RecordingEmitter emitter = new RecordingEmitter(context);
+
+        InvalidRequestError error = assertThrows(InvalidRequestError.class,
+                () -> executor.execute(context, emitter));
+        assertTrue(error.getMessage().contains("maximum length"),
+                "Error message should reference maximum length: " + error.getMessage());
+    }
+
+    @Test
+    void execute_rejects_overlong_tool_name_in_text_part() throws Exception {
+        A2aAgentExecutor executor = new A2aAgentExecutor(new RecordingPlatform());
+        String longName = "b".repeat(257);
+        RequestContext context = requestContext(Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .parts(new TextPart(longName))
+                .build());
+        RecordingEmitter emitter = new RecordingEmitter(context);
+
+        InvalidRequestError error = assertThrows(InvalidRequestError.class,
+                () -> executor.execute(context, emitter));
+        assertTrue(error.getMessage().contains("maximum length"),
+                "Error message should reference maximum length: " + error.getMessage());
+    }
+
+    @Test
+    void execute_accepts_tool_name_at_max_length() throws Exception {
+        RecordingPlatform localPlatform = new RecordingPlatform();
+        A2aAgentExecutor executor = new A2aAgentExecutor(localPlatform);
+        String maxName = "c".repeat(256);
+        RequestContext context = requestContext(Message.builder()
+                .role(Message.Role.ROLE_USER)
+                .metadata(java.util.Map.of("adcp_tool_name", maxName))
+                .parts(new TextPart(maxName))
+                .build());
+        RecordingEmitter emitter = new RecordingEmitter(context);
+
+        executor.execute(context, emitter);
+        assertEquals(maxName, localPlatform.toolName);
+    }
+
+    @Test
     void execute_propagates_invalid_request_error_for_non_object_data_part() throws Exception {
         A2aAgentExecutor executor = new A2aAgentExecutor(new RecordingPlatform());
         // DataPart with a List instead of a Map — should be InvalidRequestError

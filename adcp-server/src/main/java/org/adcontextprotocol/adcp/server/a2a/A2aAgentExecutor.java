@@ -88,11 +88,13 @@ public final class A2aAgentExecutor implements AgentExecutor {
         }
         if (message.metadata() != null && message.metadata().get(TOOL_NAME_KEY) instanceof String toolName
                 && !toolName.isBlank()) {
-            String capped = toolName.length() > 256 ? toolName.substring(0, 256) : toolName;
-            if (capped.chars().anyMatch(Character::isISOControl)) {
+            if (toolName.length() > 256) {
+                throw new InvalidRequestError("A2A tool name exceeds maximum length (256 characters)");
+            }
+            if (toolName.chars().anyMatch(Character::isISOControl)) {
                 throw new InvalidRequestError("A2A tool name must not contain control characters");
             }
-            return capped;
+            return toolName;
         }
         if (message.parts() != null) {
             int limit = Math.min(message.parts().size(), MAX_PARTS_SCAN);
@@ -100,11 +102,13 @@ public final class A2aAgentExecutor implements AgentExecutor {
                 Part<?> part = message.parts().get(i);
                 if (part instanceof TextPart textPart && textPart.text() != null && !textPart.text().isBlank()) {
                     String name = textPart.text();
-                    String capped = name.length() > 256 ? name.substring(0, 256) : name;
-                    if (capped.chars().anyMatch(Character::isISOControl)) {
+                    if (name.length() > 256) {
+                        throw new InvalidRequestError("A2A tool name exceeds maximum length (256 characters)");
+                    }
+                    if (name.chars().anyMatch(Character::isISOControl)) {
                         throw new InvalidRequestError("A2A tool name must not contain control characters");
                     }
-                    return capped;
+                    return name;
                 }
             }
         }
