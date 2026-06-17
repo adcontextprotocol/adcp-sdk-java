@@ -28,6 +28,7 @@ javapoet = "0.7.0"
 
 # Test.
 junit = "5.11.4"
+mockito = "5.17.0"
 
 # Spring Boot (D7 — Spring Boot 3.x / jakarta only).
 spring-boot = "3.4.4"
@@ -65,6 +66,8 @@ junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.re
 junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+mockito-junit-jupiter = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
 
 # Spring Boot starter machinery (used only by adcp-spring-boot-starter)
 spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure", version.ref = "spring-boot" }
@@ -84,7 +87,7 @@ slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 javapoet = { module = "com.palantir.javapoet:javapoet", version.ref = "javapoet" }
 
 # AWS KMS (D9 signing track — lazy-init, not on boot critical path)
-# aws-kms = { module = "software.amazon.awssdk:kms", version = "2.31.3" }
+aws-kms = { module = "software.amazon.awssdk:kms", version = "2.46.12" }
 
 # GCP KMS (D9 signing track — lazy-init, not on boot critical path)
 # gcp-kms = { module = "com.google.cloud:google-cloud-kms", version = "2.57.0" }
