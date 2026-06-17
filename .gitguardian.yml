@@ -1,0 +1,13 @@
+# GitGuardian configuration for adcp-sdk-java
+#
+# Test key material in the compliance vectors is intentionally public.
+# The _private_d_for_test_only fields are for signer/verifier round-trip
+# conformance testing and MUST NOT be used in production. The keys.json
+# files carry explicit warnings in their _WARNING and $comment fields.
+#
+# See: adcp-server/src/test/resources/compliance/webhook-signing/README.md
+# See: adcp-server/src/test/resources/compliance/request-signing/README.md
+
+paths-ignore:
+  - "adcp-server/src/test/resources/compliance/**/keys.json"
+  - "adcp-server/src/test/resources/compliance/**/*hmac*"
