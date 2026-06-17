@@ -263,7 +263,7 @@ public final class Rfc9421Canonicalizer {
         // Try IDN ToASCII for international domain names
         String ascii;
         try {
-            ascii = IDN.toASCII(host, IDN.USE_STD3_ASCII_RULES);
+            ascii = IDN.toASCII(host, IDN.ALLOW_UNASSIGNED | IDN.USE_STD3_ASCII_RULES);
         } catch (IllegalArgumentException e) {
             // If IDN conversion fails, just lowercase
             ascii = host.toLowerCase(java.util.Locale.ROOT);
@@ -326,7 +326,7 @@ public final class Rfc9421Canonicalizer {
 
         String asciiHost;
         try {
-            asciiHost = IDN.toASCII(hostPart, IDN.USE_STD3_ASCII_RULES).toLowerCase(java.util.Locale.ROOT);
+            asciiHost = IDN.toASCII(hostPart, IDN.ALLOW_UNASSIGNED | IDN.USE_STD3_ASCII_RULES).toLowerCase(java.util.Locale.ROOT);
         } catch (IllegalArgumentException e) {
             throw new SigningException("Invalid host in URI: " + hostPart, e);
         }

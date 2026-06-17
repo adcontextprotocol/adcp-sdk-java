@@ -226,6 +226,60 @@ class Rfc9421CanonicalizerTest {
         assertEquals("[::1]:8443", result);
     }
 
+    @Test
+    void canonicalizeHost_unicodeHostname() {
+        String result = Rfc9421Canonicalizer.canonicalizeHost("münchen.example.com");
+        assertEquals("xn--mnchen-3ya.example.com", result);
+    }
+
+    @Test
+    void canonicalizeHost_ipv6Literal() {
+        String result = Rfc9421Canonicalizer.canonicalizeHost("[::1]");
+        assertEquals("[::1]", result);
+    }
+
+    @Test
+    void canonicalizeHost_ipv6Uppercase() {
+        String result = Rfc9421Canonicalizer.canonicalizeHost("[2001:DB8::1]");
+        assertEquals("[2001:db8::1]", result);
+    }
+
+    @Test
+    void canonicalizeHost_asciiHostname() {
+        String result = Rfc9421Canonicalizer.canonicalizeHost("Example.COM");
+        assertEquals("example.com", result);
+    }
+
+    @Test
+    void canonicalizeTargetUri_idnHostname() throws SigningException {
+        String result = Rfc9421Canonicalizer.canonicalizeTargetUri("https://münchen.example.com/path");
+        assertEquals("https://xn--mnchen-3ya.example.com/path", result);
+    }
+
+    @Test
+    void extractAuthority_idnHostname() throws SigningException {
+        String result = Rfc9421Canonicalizer.extractAuthority("https://münchen.example.com/path");
+        assertEquals("xn--mnchen-3ya.example.com", result);
+    }
+
+    @Test
+    void canonicalizeTargetUri_ipv6Literal() throws SigningException {
+        String result = Rfc9421Canonicalizer.canonicalizeTargetUri("https://[::1]/path");
+        assertEquals("https://[::1]/path", result);
+    }
+
+    @Test
+    void canonicalizeTargetUri_defaultPort443Stripped() throws SigningException {
+        String result = Rfc9421Canonicalizer.canonicalizeTargetUri("https://example.com:443/path");
+        assertEquals("https://example.com/path", result);
+    }
+
+    @Test
+    void canonicalizeTargetUri_defaultPort80Stripped() throws SigningException {
+        String result = Rfc9421Canonicalizer.canonicalizeTargetUri("http://example.com:80/path");
+        assertEquals("http://example.com/path", result);
+    }
+
     private JsonNode loadResource(String path) throws IOException {
         try (InputStream is = getClass().getResourceAsStream(path)) {
             if (is == null) {
