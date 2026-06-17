@@ -1,0 +1,7 @@
+{
+  "paths-ignore": [
+    "adcp-server/src/test/resources/compliance/**/keys.json",
+    "adcp-server/src/test/resources/compliance/**/*hmac*"
+  ],
+  "matches-ignore": []
+}
