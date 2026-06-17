@@ -23,5 +23,8 @@ include(
     "adcp-cli",
     "adcp-reactor",
     "adcp-mutiny",
-    "adcp-kotlin"
+    "adcp-kotlin",
+    "adcp-signing-aws-kms",
+    "adcp-signing-gcp-kms",
+    "adcp-signing-bouncycastle"
 )

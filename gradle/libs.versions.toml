@@ -83,6 +83,15 @@ slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 # Codegen (build-time only — never on the SDK's runtime classpath)
 javapoet = { module = "com.palantir.javapoet:javapoet", version.ref = "javapoet" }
 
+# AWS KMS (D9 signing track — lazy-init, not on boot critical path)
+# aws-kms = { module = "software.amazon.awssdk:kms", version = "2.31.3" }
+
+# GCP KMS (D9 signing track — lazy-init, not on boot critical path)
+# gcp-kms = { module = "com.google.cloud:google-cloud-kms", version = "2.57.0" }
+
+# Bouncy Castle FIPS (optional — FIPS environments only, not in core)
+# bouncycastle-fips = { module = "org.bouncycastle:bc-fips", version = "2.0.0" }
+
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 # Central Portal publishing (replaces legacy OSSRH s01 endpoint per bokelley review).
