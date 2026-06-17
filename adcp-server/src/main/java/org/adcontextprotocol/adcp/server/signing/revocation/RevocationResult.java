@@ -34,4 +34,15 @@ public sealed interface RevocationResult {
             if (staleSeconds < 0) throw new IllegalArgumentException("staleSeconds must be non-negative, got: " + staleSeconds);
         }
     }
+
+    /**
+     * The revocation list could not be fetched or verified.
+     *
+     * @param reason human-readable description of the fetch failure
+     */
+    record FetchFailed(String reason) implements RevocationResult {
+        public FetchFailed {
+            if (reason == null) throw new NullPointerException("reason");
+        }
+    }
 }
