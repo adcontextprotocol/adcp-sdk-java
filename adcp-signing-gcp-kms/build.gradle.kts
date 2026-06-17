@@ -6,7 +6,12 @@ description = "AdCP Java SDK — GCP KMS signing provider"
 
 dependencies {
     api(project(":adcp"))
-    // GCP KMS SDK — lazy-init, not on the boot critical path.
-    // Uncomment when implementing the provider:
-    // implementation(libs.gcp.kms)
+    implementation(project(":adcp-server"))
+    implementation(libs.gcp.kms)
+    implementation(libs.gcp.auth)
+    testImplementation(libs.junit.jupiter.api)
+    testImplementation(libs.junit.jupiter.params)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.junit.jupiter)
+    testRuntimeOnly(libs.junit.jupiter.engine)
 }
