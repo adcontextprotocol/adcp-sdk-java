@@ -55,6 +55,7 @@ Build infrastructure:
 - **`*Request` builds, `*Response` doesn't.** This naming invariant prevents IDE auto-complete from suggesting `.builder()` on response types.
 - **SLF4J for logging.** Not `java.util.logging`.
 - **Conventional Commits** for commit messages. Types: `feat fix docs style refactor perf test build ci chore revert`.
+- **Conventional PR titles** without agent/tool prefixes. Never start titles with `[codex]`, `[claude]`, `[cursor]`, or similar ownership tags.
 - **Changesets** for adopter-visible changes (`npx changeset`).
 
 ## Don't
