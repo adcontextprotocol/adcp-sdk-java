@@ -168,6 +168,69 @@ public final class AdcpHttpClient implements AutoCloseable {
     }
 
     /**
+     * Sends a GET request to fetch an agent card, forwarding all caller-supplied headers
+     * including {@code Authorization}.
+     *
+     * <p>Unlike {@link #get}, this method does not strip protected headers so that
+     * private agent-card endpoints can be reached with the same credentials used for
+     * the subsequent A2A RPC call. The safeguards that would normally make header
+     * forwarding risky (transparent redirect-follow, DNS rebinding) are neutralised
+     * by the client's {@code followRedirects(NEVER)} policy and SSRF validation.
+     *
+     * @param uri     target URI (SSRF-validated)
+     * @param headers headers to forward, including any auth material
+     * @return the response, body capped at {@link #maxResponseBytes()}
+     */
+    public AdcpHttpResponse getForAgentCard(URI uri, Map<String, String> headers)
+            throws IOException, InterruptedException {
+        Objects.requireNonNull(uri, "uri");
+
+        if (requireHttps && "http".equalsIgnoreCase(uri.getScheme())) {
+            String host = uri.getHost();
+            if (host != null && !isLoopback(host)) {
+                throw new IOException(
+                        "Plain HTTP is not allowed when requireHttps is enabled: " + uri
+                                + ". Use HTTPS or set requireHttps(false) for local development.");
+            }
+        }
+
+        URI validatedUri = validateUri(uri);
+
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                .uri(validatedUri)
+                .timeout(readTimeout)
+                .header("User-Agent", userAgent);
+
+        // Forward all headers including auth — redirects are already blocked (NEVER)
+        // and the target was SSRF-validated above, so header leakage via redirect
+        // or cross-origin requests is not possible.
+        if (headers != null) {
+            headers.forEach((name, value) -> {
+                if (name != null && value != null) {
+                    requestBuilder.header(name, value);
+                }
+            });
+        }
+
+        requestBuilder.method("GET", HttpRequest.BodyPublishers.noBody());
+
+        HttpResponse<InputStream> response = httpClient.send(
+                requestBuilder.build(),
+                HttpResponse.BodyHandlers.ofInputStream());
+
+        try {
+            return readBodyWithCap(response);
+        } catch (Throwable t) {
+            try {
+                response.body().close();
+            } catch (Exception suppressed) {
+                t.addSuppressed(suppressed);
+            }
+            throw t;
+        }
+    }
+
+    /**
      * Convenience: POST request with a body.
      */
     public AdcpHttpResponse post(URI uri, Map<String, String> headers, byte[] body)
@@ -190,6 +253,14 @@ public final class AdcpHttpClient implements AutoCloseable {
      * and redirect policy used by this client.
      */
     public HttpClient.Builder newMcpClientBuilder() {
+        return newHttpClientBuilder();
+    }
+
+    /**
+     * Creates an HTTP client builder with this client's connection-timeout and
+     * redirect policy ({@code NEVER}). Suitable for any transport (MCP, A2A, etc.).
+     */
+    public HttpClient.Builder newHttpClientBuilder() {
         return HttpClient.newBuilder()
                 .connectTimeout(connectTimeout)
                 .followRedirects(HttpClient.Redirect.NEVER);

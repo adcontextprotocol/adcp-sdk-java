@@ -130,4 +130,11 @@ class AdcpSchemaValidatorTest {
             }
         });
     }
+
+    @Test
+    void validate_path_traversal_throws() {
+        JsonNode instance = mapper.createObjectNode();
+        assertThrows(IllegalArgumentException.class,
+                () -> validator.validate("schemas/../etc/passwd", instance));
+    }
 }
