@@ -196,4 +196,27 @@ class A2aServerBuilderTest {
             }
         };
     }
+
+    @Test
+    void buildCardServlet_throws_if_build_not_called() {
+        A2aServerBuilder builder = A2aServerBuilder.create(platform())
+                .agentName("test-agent")
+                .agentUrl("https://agent.example.com")
+                .agentVersion("1.0.0");
+
+        assertThrows(IllegalStateException.class, builder::buildCardServlet);
+    }
+
+    @Test
+    void buildCardServlet_returns_servlet_with_agent_card() {
+        A2aServerBuilder builder = A2aServerBuilder.create(platform())
+                .agentName("test-agent")
+                .agentUrl("https://agent.example.com")
+                .agentVersion("1.0.0");
+        builder.build();
+
+        A2aCardServlet cardServlet = builder.buildCardServlet();
+        assertNotNull(cardServlet);
+        assertEquals("test-agent", cardServlet.agentCard().name());
+    }
 }

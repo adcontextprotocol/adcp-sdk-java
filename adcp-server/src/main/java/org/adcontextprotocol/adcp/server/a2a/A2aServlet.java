@@ -15,8 +15,18 @@ import org.a2aproject.sdk.jsonrpc.common.json.JsonUtil;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.A2AErrorResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskRequest;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.CancelTaskResponse;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.CreateTaskPushNotificationConfigRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.CreateTaskPushNotificationConfigResponse;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.DeleteTaskPushNotificationConfigRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.DeleteTaskPushNotificationConfigResponse;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskPushNotificationConfigRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskPushNotificationConfigResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskRequest;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.GetTaskResponse;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTaskPushNotificationConfigsRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTaskPushNotificationConfigsResponse;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendMessageRequest;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendMessageResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendStreamingMessageRequest;
@@ -153,6 +163,36 @@ public final class A2aServlet extends HttpServlet {
                     writeJson(response, HttpServletResponse.SC_OK,
                             new CancelTaskResponse(requestId,
                                     handler.onCancelTask(parsed.getParams(), callContext)));
+                }
+                case A2AMethods.LIST_TASK_METHOD -> {
+                    ListTasksRequest parsed = JsonUtil.fromJson(body, ListTasksRequest.class);
+                    writeJson(response, HttpServletResponse.SC_OK,
+                            new ListTasksResponse(requestId,
+                                    handler.onListTasks(parsed.getParams(), callContext)));
+                }
+                case A2AMethods.SET_TASK_PUSH_NOTIFICATION_CONFIG_METHOD -> {
+                    CreateTaskPushNotificationConfigRequest parsed = JsonUtil.fromJson(body, CreateTaskPushNotificationConfigRequest.class);
+                    writeJson(response, HttpServletResponse.SC_OK,
+                            new CreateTaskPushNotificationConfigResponse(requestId,
+                                    handler.onCreateTaskPushNotificationConfig(parsed.getParams(), callContext)));
+                }
+                case A2AMethods.GET_TASK_PUSH_NOTIFICATION_CONFIG_METHOD -> {
+                    GetTaskPushNotificationConfigRequest parsed = JsonUtil.fromJson(body, GetTaskPushNotificationConfigRequest.class);
+                    writeJson(response, HttpServletResponse.SC_OK,
+                            new GetTaskPushNotificationConfigResponse(requestId,
+                                    handler.onGetTaskPushNotificationConfig(parsed.getParams(), callContext)));
+                }
+                case A2AMethods.LIST_TASK_PUSH_NOTIFICATION_CONFIG_METHOD -> {
+                    ListTaskPushNotificationConfigsRequest parsed = JsonUtil.fromJson(body, ListTaskPushNotificationConfigsRequest.class);
+                    writeJson(response, HttpServletResponse.SC_OK,
+                            new ListTaskPushNotificationConfigsResponse(requestId,
+                                    handler.onListTaskPushNotificationConfigs(parsed.getParams(), callContext)));
+                }
+                case A2AMethods.DELETE_TASK_PUSH_NOTIFICATION_CONFIG_METHOD -> {
+                    DeleteTaskPushNotificationConfigRequest parsed = JsonUtil.fromJson(body, DeleteTaskPushNotificationConfigRequest.class);
+                    handler.onDeleteTaskPushNotificationConfig(parsed.getParams(), callContext);
+                    writeJson(response, HttpServletResponse.SC_OK,
+                            new DeleteTaskPushNotificationConfigResponse(requestId));
                 }
                 case A2AMethods.SUBSCRIBE_TO_TASK_METHOD -> {
                     SubscribeToTaskRequest parsed = JsonUtil.fromJson(body, SubscribeToTaskRequest.class);

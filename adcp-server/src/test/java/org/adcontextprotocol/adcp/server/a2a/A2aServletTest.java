@@ -13,6 +13,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.a2aproject.sdk.jsonrpc.common.json.JsonUtil;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksResult;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksRequest;
+import org.a2aproject.sdk.jsonrpc.common.wrappers.ListTasksResponse;
 import org.a2aproject.sdk.jsonrpc.common.wrappers.SendMessageRequest;
 import org.a2aproject.sdk.server.ServerCallContext;
 import org.a2aproject.sdk.server.requesthandlers.RequestHandler;
@@ -41,6 +43,7 @@ import java.io.StringWriter;
 import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -107,6 +110,25 @@ class A2aServletTest {
 
         assertEquals(HttpServletResponse.SC_BAD_REQUEST, response.status());
         assertTrue(response.body().contains("Unsupported JSON-RPC method: unknown"));
+    }
+
+    @Test
+    void doPost_dispatches_list_tasks() throws Exception {
+        RecordingRequestHandler handler = new RecordingRequestHandler() {
+            @Override
+            public ListTasksResult onListTasks(ListTasksParams params, ServerCallContext callContext) {
+                return new ListTasksResult(List.of());
+            }
+        };
+        A2aServlet servlet = new A2aServlet(handler);
+        TestHttpServletResponse response = new TestHttpServletResponse();
+
+        String body = "{\"jsonrpc\":\"2.0\",\"id\":42,\"method\":\"ListTasks\",\"params\":{\"filter\":{\"taskState\":\"SUBMITTED\"}}}";
+        servlet.doPost(request(body.getBytes(StandardCharsets.UTF_8), null), response.asServletResponse());
+
+        int status = response.status();
+        assertTrue(status != 400, "ListTasks should not return unsupported-method 400, got status " + status
+                + " body=" + response.body());
     }
 
     @Test

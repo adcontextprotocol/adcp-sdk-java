@@ -30,6 +30,12 @@ import java.util.concurrent.Executor;
  * not here. Use {@link A2aServlet#A2aServlet(RequestHandler, A2aAuthProvider)} to
  * wire a real {@link A2aAuthProvider} before deploying to production.
  *
+ * <p><b>Agent card discovery:</b> A2A callers discover agents by fetching
+ * {@code /.well-known/agent-card.json}. Use {@link #buildCardServlet()} after
+ * {@link #build()} to create an {@link A2aCardServlet} that serves the agent card
+ * at that path. Without it, callers fall back to a synthetic card and lose
+ * the server's advertised skills and interface URLs.
+ *
  * <p><b>In-memory stores:</b> {@link #build()} creates in-memory task and queue stores
  * that are <strong>unbounded and non-persistent</strong>. They are suitable for local
  * development and testing only. Production deployments should configure external,
@@ -172,6 +178,21 @@ public final class A2aServerBuilder {
             throw new IllegalStateException("Call build() before getAgentCard()");
         }
         return builtCard;
+    }
+
+    /**
+     * Creates an {@link A2aCardServlet} that serves the agent card at
+     * the standard well-known path {@code /.well-known/agent-card.json}.
+     *
+     * <p>Must be called after {@link #build()}, which creates the card.
+     * Deploy the returned servlet alongside the {@link A2aServlet} so that
+     * A2A callers can discover the agent's capabilities.
+     *
+     * @return a servlet that serves the agent card as JSON
+     * @throws IllegalStateException if {@link #build()} has not been called
+     */
+    public A2aCardServlet buildCardServlet() {
+        return new A2aCardServlet(getAgentCard());
     }
 
     /**
