@@ -62,9 +62,10 @@ public final class StandardWebhooksVerifier {
         String payload = secret.startsWith(SECRET_PREFIX)
                 ? secret.substring(SECRET_PREFIX.length())
                 : secret;
-        String padded = payload + "=" .repeat((-payload.length()) % 4);
+        int padLen = (4 - payload.length() % 4) % 4;
+        String padded = payload + "=".repeat(padLen);
         try {
-            return Base64.getDecoder().decode(padded);
+            return Base64.getMimeDecoder().decode(padded);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("secret is not valid base64", e);
         }

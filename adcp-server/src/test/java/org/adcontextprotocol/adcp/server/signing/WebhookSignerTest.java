@@ -98,6 +98,39 @@ class WebhookSignerTest {
     }
 
     @Test
+    void sign_emptyBody_includesContentDigest() {
+        PrivateKey privateKey = ed25519KeyPair.getPrivate();
+        InProcessSigningProvider signingProvider = new InProcessSigningProvider(
+                privateKey, "test-whk-key", AdcpSignatureProfile.ALG_ED25519, "Ed25519");
+        DefaultWebhookSigner signer = new DefaultWebhookSigner(signingProvider);
+
+        SigningContext context = SigningContext.builder(AdcpUse.WEBHOOK_SIGNING).build();
+        byte[] emptyBody = new byte[0];
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("content-type", "application/json");
+
+        WebhookSigningResult result = signer.sign(context, "POST", "https://buyer.example.com/webhook", emptyBody, headers);
+
+        assertNotNull(result.contentDigest(), "Empty body must produce a non-null Content-Digest");
+        assertEquals("sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:", result.contentDigest());
+    }
+
+    @Test
+    void sign_nullBody_doesNotIncludeContentDigest() {
+        PrivateKey privateKey = ed25519KeyPair.getPrivate();
+        InProcessSigningProvider signingProvider = new InProcessSigningProvider(
+                privateKey, "test-whk-key", AdcpSignatureProfile.ALG_ED25519, "Ed25519");
+        DefaultWebhookSigner signer = new DefaultWebhookSigner(signingProvider);
+
+        SigningContext context = SigningContext.builder(AdcpUse.WEBHOOK_SIGNING).build();
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("content-type", "application/json");
+
+        assertThrows(RuntimeException.class, () ->
+                signer.sign(context, "POST", "https://buyer.example.com/webhook", null, headers));
+    }
+
+    @Test
     void webhookSigner_roundTripVerification() throws SigningException {
         PrivateKey privateKey = ed25519KeyPair.getPrivate();
         PublicKey publicKey = ed25519KeyPair.getPublic();

@@ -81,7 +81,11 @@ public final class CachingRevocationChecker {
      * @return the revocation result
      */
     public RevocationResult check(String kid) {
-        ensureFresh();
+        try {
+            ensureFresh();
+        } catch (RevocationListStaleException e) {
+            return new RevocationResult.Stale(e.staleSeconds());
+        }
         CachedList current = cachedList;
         if (current == null) {
             return new RevocationResult.FetchFailed("revocation list not available after fetch attempt");

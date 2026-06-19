@@ -74,7 +74,11 @@ public final class InProcessSigningProvider implements SigningProvider {
                 .build();
 
         Map<String, String> signingHeaders = new LinkedHashMap<>(input.headers());
-        if (input.body() != null && input.body().length > 0) {
+        // Content-Digest is required for webhook signing even when the body is empty.
+        // For request signing, it can be omitted for bodyless requests.
+        boolean needsContentDigest = input.body() != null
+                && (input.body().length > 0 || context.use() == AdcpUse.WEBHOOK_SIGNING);
+        if (needsContentDigest) {
             String contentDigestValue = ContentDigest.sha256(input.body());
             signingHeaders.put("content-digest", contentDigestValue);
         }
@@ -117,7 +121,11 @@ public final class InProcessSigningProvider implements SigningProvider {
                 .build();
 
         Map<String, String> signingHeaders = new LinkedHashMap<>(input.headers());
-        if (input.body() != null && input.body().length > 0) {
+        // Content-Digest is required for webhook signing even when the body is empty.
+        // For request signing, it can be omitted for bodyless requests.
+        boolean needsContentDigest = input.body() != null
+                && (input.body().length > 0 || context.use() == AdcpUse.WEBHOOK_SIGNING);
+        if (needsContentDigest) {
             String contentDigestValue = ContentDigest.sha256(input.body());
             signingHeaders.put("content-digest", contentDigestValue);
         }

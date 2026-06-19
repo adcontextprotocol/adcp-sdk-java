@@ -97,8 +97,15 @@ public final class Rfc9421Verifier {
         }
 
         // Step 5: Check signature window
-        long created = Long.parseLong(parsed.params().getOrDefault("created", "0"));
-        long expires = Long.parseLong(parsed.params().getOrDefault("expires", "0"));
+        long created;
+        long expires;
+        try {
+            created = Long.parseLong(parsed.params().getOrDefault("created", "0"));
+            expires = Long.parseLong(parsed.params().getOrDefault("expires", "0"));
+        } catch (NumberFormatException e) {
+            return new VerificationResult.Invalid(prefix + "params_incomplete",
+                    "Invalid created/expires value: " + e.getMessage());
+        }
         if (expires <= created) {
             return new VerificationResult.Invalid(prefix + "window_invalid",
                     "expires <= created");
@@ -154,7 +161,11 @@ public final class Rfc9421Verifier {
         }
 
         // Extract the signature bytes from the Signature header
-        byte[] signatureBytes = extractSignatureBytes(sigHeader, parsed.label());
+        SignatureBytesResult sigBytesResult = extractSignatureBytes(sigHeader, parsed.label());
+        if (sigBytesResult.error() != null) {
+            return new VerificationResult.Invalid(prefix + "header_malformed", sigBytesResult.error());
+        }
+        byte[] signatureBytes = sigBytesResult.bytes();
         if (signatureBytes == null) {
             return new VerificationResult.Invalid(prefix + "header_malformed",
                     "Could not extract signature bytes");
@@ -352,17 +363,23 @@ public final class Rfc9421Verifier {
         }
     }
 
-    private static @Nullable byte[] extractSignatureBytes(String sigHeader, String label) {
+    private static SignatureBytesResult extractSignatureBytes(String sigHeader, String label) {
         // Format: sig1=:base64url-no-padding:
         String prefix = label + "=:";
         int start = sigHeader.indexOf(prefix);
-        if (start == -1) return null;
+        if (start == -1) return new SignatureBytesResult(null, null);
         start += prefix.length();
         int end = sigHeader.indexOf(':', start);
-        if (end == -1) return null;
+        if (end == -1) return new SignatureBytesResult(null, "Missing closing ':' in Signature header");
         String b64 = sigHeader.substring(start, end);
-        return Base64.getUrlDecoder().decode(b64);
+        try {
+            return new SignatureBytesResult(Base64.getUrlDecoder().decode(b64), null);
+        } catch (IllegalArgumentException e) {
+            return new SignatureBytesResult(null, "Invalid base64url in Signature header: " + e.getMessage());
+        }
     }
+
+    record SignatureBytesResult(byte[] bytes, @Nullable String error) {}
 
     /**
      * Parsed Signature-Input components.

@@ -211,11 +211,11 @@ public final class BrandJsonJwksResolver implements VerificationKeyResolver {
 
             // Terminal document — select agent and build inner resolver
             String jwksUri = selectAgent(root, url);
+            String previousJwksUri = selectedJwksUri;
             selectedJwksUri = jwksUri;
             brandJsonSnapshot = new BrandJsonSnapshot(url, System.nanoTime());
 
-            String currentJwksUri = selectedJwksUri;
-            if (innerResolver == null || !jwksUri.equals(currentJwksUri)) {
+            if (innerResolver == null || !jwksUri.equals(previousJwksUri)) {
                 innerResolver = new CachingJwksResolver(jwksUri, httpClient, cooldown);
             }
             return;

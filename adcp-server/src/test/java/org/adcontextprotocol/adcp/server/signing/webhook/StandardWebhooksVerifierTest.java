@@ -81,6 +81,38 @@ class StandardWebhooksVerifierTest {
     }
 
     @Test
+    void decodeSecret_nonMultipleOf4Lengths() {
+        byte[] secret2 = StandardWebhooksVerifier.decodeSecret("whsec_QQ");
+        assertEquals(1, secret2.length);
+        assertEquals(0x41, secret2[0] & 0xFF);
+
+        byte[] secret3 = StandardWebhooksVerifier.decodeSecret("whsec_QUI");
+        assertEquals(2, secret3.length);
+
+        byte[] secret7 = StandardWebhooksVerifier.decodeSecret("whsec_QUJDREV");
+        assertEquals(5, secret7.length);
+
+        byte[] secret6 = StandardWebhooksVerifier.decodeSecret("whsec_QUJDRA");
+        assertEquals(4, secret6.length);
+
+        byte[] secret13 = StandardWebhooksVerifier.decodeSecret("whsec_QUJDREVGR0hJSktMTQ");
+        assertEquals(13, secret13.length);
+    }
+
+    @Test
+    void decodeSecret_exactMultipleOf4Length() {
+        byte[] secret = StandardWebhooksVerifier.decodeSecret("whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo1laRYLJ2sFB5pO8Jyk=");
+        assertNotNull(secret);
+        assertTrue(secret.length > 0);
+
+        byte[] rawSecret = StandardWebhooksVerifier.decodeSecret("MfKQ9r8GKYqrTwjUPD8ILPZIo1laRYLJ2sFB5pO8Jyk=");
+        assertArrayEquals(SECRET, rawSecret);
+
+        byte[] exact4 = StandardWebhooksVerifier.decodeSecret("whsec_QUJD");
+        assertEquals(3, exact4.length);
+    }
+
+    @Test
     void verify_caseInsensitiveHeaders() {
         long timestamp = System.currentTimeMillis() / 1000;
         byte[] body = "{\"event\":\"case\"}".getBytes(StandardCharsets.UTF_8);

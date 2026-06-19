@@ -4,6 +4,7 @@ import org.adcontextprotocol.adcp.server.signing.InProcessKeyGenerator;
 import org.adcontextprotocol.adcp.signing.VerificationKey;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.Signature;
@@ -84,5 +85,48 @@ class CachingRevocationCheckerTest {
                 verKey, mockClient, 60);
 
         assertThrows(CachingRevocationChecker.RevocationFetchException.class, checker::prime);
+    }
+
+    @Test
+    void check_staleList_returnsStaleNotException() throws Exception {
+        KeyPair keyPair = InProcessKeyGenerator.generateEd25519();
+        VerificationKey verKey = new VerificationKey("test-kid", "Ed25519", keyPair.getPublic().getEncoded(), null);
+
+        java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder().build();
+        CachingRevocationChecker checker = new CachingRevocationChecker(
+                "https://example.com/.well-known/governance-revocations.json",
+                verKey, httpClient, 60);
+
+        Instant farPast = Instant.now().minusSeconds(3600);
+        Instant nextUpdate = Instant.now().minusSeconds(300);
+
+        Object cachedList = createCachedList("https://example.com", farPast, nextUpdate, Set.of("revoked-kid"), Set.of());
+
+        Field cachedListField = CachingRevocationChecker.class.getDeclaredField("cachedList");
+        cachedListField.setAccessible(true);
+        cachedListField.set(checker, cachedList);
+
+        Field lastRefreshField = CachingRevocationChecker.class.getDeclaredField("lastRefreshAttempt");
+        lastRefreshField.setAccessible(true);
+        lastRefreshField.set(checker, Instant.now());
+
+        RevocationResult result = checker.check("some-kid");
+        assertInstanceOf(RevocationResult.Stale.class, result,
+                "Expected Stale result, got: " + result);
+        RevocationResult.Stale stale = (RevocationResult.Stale) result;
+        assertTrue(stale.staleSeconds() > 0, "staleSeconds should be positive, got: " + stale.staleSeconds());
+    }
+
+    private static Object createCachedList(String issuer, Instant updated, Instant nextUpdate,
+            Set<String> revokedKids, Set<String> revokedJtis) {
+        try {
+            var constructor = Class.forName(
+                    "org.adcontextprotocol.adcp.server.signing.revocation.CachingRevocationChecker$CachedList")
+                    .getDeclaredConstructor(String.class, Instant.class, Instant.class, Set.class, Set.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(issuer, updated, nextUpdate, revokedKids, revokedJtis);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create CachedList via reflection", e);
+        }
     }
 }

@@ -41,7 +41,9 @@ public final class DefaultWebhookSigner implements WebhookSigner {
         }
 
         Map<String, String> headers = new LinkedHashMap<>(existingHeaders);
-        if (body != null && body.length > 0) {
+        // Content-Digest is required for webhook signing, even for empty bodies.
+        // The digest of an empty byte array is a valid Content-Digest value.
+        if (body != null) {
             headers.putIfAbsent("content-digest", ContentDigest.sha256(body));
         }
 
