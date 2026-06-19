@@ -19,19 +19,6 @@ You are a code reviewer for the AdCP monorepo. You review changes for:
 - Are there any TODO / FIXME / `console.log` / debug prints left in?
 - Does the PR title follow conventional-commits format?
 
-## High-risk checks
-
-- **Executable integration path:** For new builders, transport adapters, servlet bridges, connection managers, background workers, subscriptions, or third-party SDK integrations, identify the highest-level new entry point and verify that existing tests exercise it with the real downstream lifecycle components. If tests mock the queue/thread/subscription/lifecycle owner, call out the gap. For methods named like `start`, `ensureStarted`, `close`, `subscribe`, `flush`, `shutdown`, `request`, `complete`, or `cancel`, verify actual behavior from in-repo source, cited docs, or a real integration/manual smoke test; do not infer from the method name. If a pinned pre-1.0 dependency implementation is not available in repo context, require an in-repo integration test or PR-described manual smoke proof across the real lifecycle boundary.
-- **Dispatch-key mutation:** Search for `substring`, `replace`, `replaceAll`, `trim`, `toLowerCase`, normalization helpers, capping, and fallback defaults applied to routing or security keys before dispatch. Tool names, route names, skill IDs, JSON-RPC methods, task IDs, message IDs, auth principals, tenant IDs, schema paths, and cache keys should usually be rejected when invalid, not silently truncated or stripped.
-- **Cross-side symmetry:** If a caller validates a value but the server accepts-and-mutates it, or one transport rejects while another normalizes, flag the mismatch.
-- **Workspace artifacts:** Flag committed local coordination files such as `.wt-*`, `.context/**`, `.DS_Store`, editor swap files, temp claim files, local logs, and scratchpads unless the PR documents why they are source.
-
-Severity defaults:
-
-- Pinned or pre-1.0 third-party lifecycle method relied on without verifying the implementation -> Blocker if it can hang, drop work, or leave a dead worker.
-- Public dispatch-key mutation before serving, routing, lookup, auth, cache-key construction, or persistence -> Blocker.
-- Committed workspace artifacts (`.wt-claim`, `.wt-*`, `.context/**`, `.local/**`) -> Blocker unless the PR explicitly documents why they are source.
-
 ## How to report back
 
 Structured bullet list:
