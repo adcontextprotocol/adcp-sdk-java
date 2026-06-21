@@ -1,0 +1,33 @@
+# GitGuardian / ggshield configuration for adcp-sdk-java
+#
+# Test key material in the compliance vectors is intentionally public.
+# The _private_d_for_test_only fields in keys.json expose the full private
+# key on every entry so SDK signer/verifier round-trips can be exercised
+# against the same material. These keys are valid ONLY for grading against
+# the AdCP conformance vectors and MUST NOT be used in production. The
+# keys.json files carry explicit _WARNING and $comment banners.
+#
+# See:
+#   adcp-server/src/test/resources/compliance/webhook-signing/README.md
+#   adcp-server/src/test/resources/compliance/request-signing/README.md
+#
+# NOTE: This file configures the ggshield CLI (local scans, pre-commit,
+# future CI integration). It is NOT consumed by the "GitGuardian Security
+# Checks" GitHub App check-run, which is driven by the GitGuardian
+# dashboard. To suppress that check-run for these fixtures, a workspace
+# admin must add matching filepath exclusions under
+#   GitGuardian dashboard > Secrets Detection > Exclusion rules > Filepath
+# The exact paths below should be mirrored there. See:
+#   https://docs.gitguardian.com/secrets-detection/customize-detection/exclusion-rules#filepath-exclusions
+#
+# Config schema: ggshield v2 (https://docs.gitguardian.com/ggshield-docs/configuration)
+# Required: version: 2 — without it ggshield treats the file as v1.
+version: 2
+
+secret:
+  # Exclude only the exact public test-vector key files. Do not use a
+  # broad glob like **/*hmac* — no fixture is named *hmac* today, and a
+  # name-based bypass would silently exclude unrelated future files.
+  ignored_paths:
+    - 'adcp-server/src/test/resources/compliance/request-signing/keys.json'
+    - 'adcp-server/src/test/resources/compliance/webhook-signing/keys.json'
