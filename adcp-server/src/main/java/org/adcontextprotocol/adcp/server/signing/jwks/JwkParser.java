@@ -41,35 +41,59 @@ public final class JwkParser {
             throws VerificationException {
         Objects.requireNonNull(jwk, "jwk");
 
-        String kid = requireString(jwk, "kid");
-        String kty = requireString(jwk, "kty");
+        String kid = requireString(jwk, "kid", expectedUse);
+        String kty = requireString(jwk, "kty", expectedUse);
 
         validateAdcpUse(jwk, expectedUse);
-        validateKeyOps(jwk);
+        validateKeyOps(jwk, expectedUse);
+
+        // Validate the JWK's declared alg is consistent with kty/crv BEFORE
+        // attempting to parse the key material. RFC 8037 binds alg=EdDSA to OKP
+        // keys (Ed25519/Ed448); alg=ES256/ES384 to EC keys with P-256/P-384
+        // respectively. A JWK declaring an impossible alg/kty/crv combination
+        // is malformed and MUST be rejected at key-purpose validation (verifier
+        // checklist step 8), not at crypto verify (step 10). Validating before
+        // parsing ensures a malformed alg/kty/crv (e.g. alg=EdDSA with kty=EC
+        // crv=P-256) fails with key_purpose_invalid rather than a later crypto
+        // error from incompatible key material.
+        String crv = jwk.get("crv") instanceof String s ? s : null;
+        validateAlgConsistency(jwk, kty, crv, expectedUse);
 
         return switch (kty) {
-            case "OKP" -> parseOkp(jwk, kid);
-            case "EC" -> parseEc(jwk, kid);
-            case "RSA" -> parseRsa(jwk, kid);
+            case "OKP" -> parseOkp(jwk, kid, expectedUse);
+            case "EC" -> parseEc(jwk, kid, expectedUse);
+            case "RSA" -> parseRsa(jwk, kid, expectedUse);
             default -> throw new VerificationException(
-                    "webhook_signature_invalid",
+                    errorCode(expectedUse, "invalid"),
                     "Unsupported JWK kty: " + kty);
         };
     }
 
-    private static VerificationKey parseOkp(Map<String, Object> jwk, String kid)
+    /**
+     * Build the error code with the correct taxonomy prefix for the expected use.
+     * Webhook signing uses {@code webhook_signature_*}; request signing uses
+     * {@code request_signature_*}.
+     */
+    private static String errorCode(@Nullable AdcpUse expectedUse, String suffix) {
+        String prefix = (expectedUse == AdcpUse.REQUEST_SIGNING)
+                ? "request_signature_"
+                : "webhook_signature_";
+        return prefix + suffix;
+    }
+
+    private static VerificationKey parseOkp(Map<String, Object> jwk, String kid, @Nullable AdcpUse expectedUse)
             throws VerificationException {
-        String crv = requireString(jwk, "crv");
+        String crv = requireString(jwk, "crv", expectedUse);
         if (!"Ed25519".equals(crv)) {
             throw new VerificationException(
-                    "webhook_signature_invalid",
+                    errorCode(expectedUse, "invalid"),
                     "Unsupported OKP curve: " + crv);
         }
-        String xB64 = requireString(jwk, "x");
-        byte[] x = base64urlDecode(xB64);
+        String xB64 = requireString(jwk, "x", expectedUse);
+        byte[] x = base64urlDecode(xB64, expectedUse);
         if (x.length != 32) {
             throw new VerificationException(
-                    "webhook_signature_invalid",
+                    errorCode(expectedUse, "invalid"),
                     "Ed25519 public key must be 32 bytes, got " + x.length);
         }
 
@@ -77,11 +101,11 @@ public final class JwkParser {
         return new VerificationKey(kid, "Ed25519", der, "Ed25519");
     }
 
-    private static VerificationKey parseEc(Map<String, Object> jwk, String kid)
+    private static VerificationKey parseEc(Map<String, Object> jwk, String kid, @Nullable AdcpUse expectedUse)
             throws VerificationException {
-        String crv = requireString(jwk, "crv");
-        String xB64 = requireString(jwk, "x");
-        String yB64 = requireString(jwk, "y");
+        String crv = requireString(jwk, "crv", expectedUse);
+        String xB64 = requireString(jwk, "x", expectedUse);
+        String yB64 = requireString(jwk, "y", expectedUse);
 
         String algorithm;
         int fieldSizeBits;
@@ -96,31 +120,68 @@ public final class JwkParser {
                 fieldSizeBits = 384;
             }
             default -> throw new VerificationException(
-                    "webhook_signature_invalid",
+                    errorCode(expectedUse, "invalid"),
                     "Unsupported EC curve: " + crv);
         }
 
-        byte[] xBytes = base64urlDecode(xB64);
-        byte[] yBytes = base64urlDecode(yB64);
+        byte[] xBytes = base64urlDecode(xB64, expectedUse);
+        byte[] yBytes = base64urlDecode(yB64, expectedUse);
 
         int expectedOctets = fieldSizeBits / 8;
         xBytes = padToLength(xBytes, expectedOctets);
         yBytes = padToLength(yBytes, expectedOctets);
 
-        byte[] der = encodeEcDer(crv, xBytes, yBytes);
+        byte[] der = encodeEcDer(crv, xBytes, yBytes, expectedUse);
         return new VerificationKey(kid, algorithm, der, crv);
     }
 
-    private static VerificationKey parseRsa(Map<String, Object> jwk, String kid)
+    private static VerificationKey parseRsa(Map<String, Object> jwk, String kid, @Nullable AdcpUse expectedUse)
             throws VerificationException {
-        String nB64 = requireString(jwk, "n");
-        String eB64 = requireString(jwk, "e");
+        String nB64 = requireString(jwk, "n", expectedUse);
+        String eB64 = requireString(jwk, "e", expectedUse);
 
-        byte[] n = base64urlDecode(nB64);
-        byte[] e = base64urlDecode(eB64);
+        byte[] n = base64urlDecode(nB64, expectedUse);
+        byte[] e = base64urlDecode(eB64, expectedUse);
 
         byte[] der = encodeRsaDer(n, e);
         return new VerificationKey(kid, "RSA", der, null);
+    }
+
+    /**
+     * Validate that the JWK's declared {@code alg} (if present) is consistent
+     * with its {@code kty} and {@code crv}. RFC 8037 binds alg values to specific
+     * key types and curves; an impossible combination (e.g. alg=EdDSA with
+     * kty=EC crv=P-256) means the key is malformed and MUST be rejected at
+     * key-purpose validation, not at crypto verify.
+     */
+    private static void validateAlgConsistency(
+            Map<String, Object> jwk, String kty, @Nullable String crv, @Nullable AdcpUse expectedUse)
+            throws VerificationException {
+        Object algObj = jwk.get("alg");
+        if (algObj == null) {
+            return;
+        }
+        String alg = algObj.toString();
+
+        boolean consistent = switch (kty) {
+            case "OKP" -> "EdDSA".equals(alg);
+            case "EC" -> switch (crv) {
+                case "P-256" -> "ES256".equals(alg);
+                case "P-384" -> "ES384".equals(alg);
+                // Unknown/null crv: cannot confirm consistency, so reject.
+                default -> false;
+            };
+            case "RSA" -> alg.startsWith("RS") || alg.startsWith("PS");
+            default -> true;
+        };
+
+        if (!consistent) {
+            throw new VerificationException(
+                    errorCode(expectedUse, "key_purpose_invalid"),
+                    "JWK alg=" + alg + " is inconsistent with kty=" + kty
+                            + (crv != null ? " crv=" + crv : "")
+                            + " per RFC 8037/JWK alg bindings");
+        }
     }
 
     private static void validateAdcpUse(Map<String, Object> jwk, @Nullable AdcpUse expectedUse)
@@ -131,7 +192,7 @@ public final class JwkParser {
         Object adcpUseObj = jwk.get("adcp_use");
         if (adcpUseObj == null) {
             throw new VerificationException(
-                    "webhook_signature_key_purpose_invalid",
+                    errorCode(expectedUse, "key_purpose_invalid"),
                     "JWK missing required 'adcp_use' parameter");
         }
         String adcpUseStr = adcpUseObj.toString();
@@ -140,26 +201,27 @@ public final class JwkParser {
             jwkUse = AdcpUse.fromWireName(adcpUseStr);
         } catch (IllegalArgumentException e) {
             throw new VerificationException(
-                    "webhook_signature_key_purpose_invalid",
+                    errorCode(expectedUse, "key_purpose_invalid"),
                     "Unknown adcp_use value: " + adcpUseStr);
         }
         if (jwkUse != expectedUse) {
             throw new VerificationException(
-                    "webhook_signature_key_purpose_invalid",
+                    errorCode(expectedUse, "key_purpose_invalid"),
                     "JWK adcp_use=" + adcpUseStr + " does not match expected "
                             + expectedUse.wireName());
         }
     }
 
     @SuppressWarnings("unchecked")
-    private static void validateKeyOps(Map<String, Object> jwk) throws VerificationException {
+    private static void validateKeyOps(Map<String, Object> jwk, @Nullable AdcpUse expectedUse)
+            throws VerificationException {
         Object keyOpsObj = jwk.get("key_ops");
         if (keyOpsObj == null) {
             return;
         }
         if (!(keyOpsObj instanceof List<?> ops)) {
             throw new VerificationException(
-                    "webhook_signature_invalid",
+                    errorCode(expectedUse, "invalid"),
                     "JWK key_ops must be an array");
         }
         boolean hasVerify = false;
@@ -171,14 +233,14 @@ public final class JwkParser {
         }
         if (!hasVerify) {
             throw new VerificationException(
-                    "webhook_signature_key_purpose_invalid",
+                    errorCode(expectedUse, "key_purpose_invalid"),
                     "JWK key_ops does not include 'verify'");
         }
     }
 
     // -- Base64url decoding --
 
-    private static byte[] base64urlDecode(String b64) throws VerificationException {
+    private static byte[] base64urlDecode(String b64, @Nullable AdcpUse expectedUse) throws VerificationException {
         try {
             String padded = b64;
             int padNeeded = (4 - padded.length() % 4) % 4;
@@ -186,7 +248,7 @@ public final class JwkParser {
             return Base64.getUrlDecoder().decode(padded);
         } catch (IllegalArgumentException e) {
             throw new VerificationException(
-                    "webhook_signature_invalid",
+                    errorCode(expectedUse, "invalid"),
                     "Invalid base64url encoding", e);
         }
     }
@@ -199,7 +261,8 @@ public final class JwkParser {
         return concat(algorithmIdentifier, bitString);
     }
 
-    private static byte[] encodeEcDer(String crv, byte[] x, byte[] y) throws VerificationException {
+    private static byte[] encodeEcDer(String crv, byte[] x, byte[] y, @Nullable AdcpUse expectedUse)
+            throws VerificationException {
         String oid;
         if ("P-256".equals(crv)) {
             oid = "06082A8648CE3D030107";
@@ -207,7 +270,7 @@ public final class JwkParser {
             oid = "06052B81040022";
         } else {
             throw new VerificationException(
-                    "webhook_signature_invalid",
+                    errorCode(expectedUse, "invalid"),
                     "Unsupported EC curve for DER encoding: " + crv);
         }
 
@@ -288,17 +351,17 @@ public final class JwkParser {
         return result;
     }
 
-    private static String requireString(Map<String, Object> jwk, String field)
+    private static String requireString(Map<String, Object> jwk, String field, @Nullable AdcpUse expectedUse)
             throws VerificationException {
         Object value = jwk.get(field);
         if (value == null) {
             throw new VerificationException(
-                    "webhook_signature_invalid",
+                    errorCode(expectedUse, "invalid"),
                     "JWK missing required field: " + field);
         }
         if (!(value instanceof String str)) {
             throw new VerificationException(
-                    "webhook_signature_invalid",
+                    errorCode(expectedUse, "invalid"),
                     "JWK field '" + field + "' must be a string");
         }
         return str;

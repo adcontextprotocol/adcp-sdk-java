@@ -22,10 +22,14 @@ public enum AdcpUse {
     }
 
     /**
-     * Resolve an {@code AdcpUse} from its wire name.
+     * Resolve an {@link AdcpUse} from its wire name.
+     *
+     * <p>Accepts both the short AdCP wire names ({@code adcp_req}, {@code adcp_whk})
+     * and the long-form names used in published conformance vectors
+     * ({@code request-signing}, {@code webhook-signing}).
      *
      * @param wireName the {@code adcp_use} JWK value
-     * @return the matching {@code AdcpUse}
+     * @return the matching {@link AdcpUse}
      * @throws IllegalArgumentException if the wire name is unrecognized
      */
     public static AdcpUse fromWireName(String wireName) {
@@ -37,6 +41,11 @@ public enum AdcpUse {
                 return use;
             }
         }
-        throw new IllegalArgumentException("Unknown adcp_use: " + wireName);
+        // Accept long-form names from published conformance vectors.
+        return switch (wireName) {
+            case "request-signing" -> REQUEST_SIGNING;
+            case "webhook-signing" -> WEBHOOK_SIGNING;
+            default -> throw new IllegalArgumentException("Unknown adcp_use: " + wireName);
+        };
     }
 }

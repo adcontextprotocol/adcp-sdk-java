@@ -19,8 +19,10 @@ public final class AdcpSignatureProfile {
 
     public static final String ALG_ED25519 = "ed25519";
     public static final String ALG_ECDSA_P256_SHA256 = "ecdsa-p256-sha256";
+    public static final String ALG_ECDSA_P384_SHA384 = "ecdsa-p384-sha384";
 
-    public static final Set<String> ALLOWED_ALGORITHMS = Set.of(ALG_ED25519, ALG_ECDSA_P256_SHA256);
+    public static final Set<String> ALLOWED_ALGORITHMS = Set.of(
+            ALG_ED25519, ALG_ECDSA_P256_SHA256, ALG_ECDSA_P384_SHA384);
 
     public static final long REPLAY_WINDOW_SECONDS = 300;
 

@@ -1,5 +1,7 @@
 package org.adcontextprotocol.adcp.signing.gcp;
 
+import com.google.cloud.kms.v1.AsymmetricSignRequest;
+import com.google.cloud.kms.v1.AsymmetricSignResponse;
 import com.google.cloud.kms.v1.CryptoKeyVersion.CryptoKeyVersionAlgorithm;
 import com.google.cloud.kms.v1.KeyManagementServiceClient;
 import com.google.cloud.kms.v1.PublicKey;
@@ -9,6 +11,7 @@ import org.adcontextprotocol.adcp.signing.SigningException;
 import org.adcontextprotocol.adcp.signing.SigningInput;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -21,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -272,6 +276,96 @@ class GcpKmsSigningProviderTest {
                 () -> provider.sign(webhookContext, input));
         assertTrue(ex.getMessage().contains("No key version path configured"),
                 "Expected 'No key version path configured' message, got: " + ex.getMessage());
+    }
+
+    @Test
+    void sign_ed25519_sendsRawData_notDigest() throws Exception {
+        AsymmetricSignRequest captured = signAndCaptureRequest(CryptoKeyVersionAlgorithm.EC_SIGN_ED25519);
+
+        // Ed25519: KMS expects the raw message via setData, not a digest.
+        assertFalse(captured.getData().isEmpty(),
+                "Ed25519 sign must use setData (raw message), not setDigest");
+        assertFalse(captured.hasDigest(),
+                "Ed25519 sign must NOT set a digest");
+    }
+
+    @Test
+    void sign_ecdsaP256_sendsDigest_notRawData() throws Exception {
+        AsymmetricSignRequest captured = signAndCaptureRequest(CryptoKeyVersionAlgorithm.EC_SIGN_P256_SHA256);
+
+        // ECDSA P-256: KMS expects a pre-computed SHA-256 digest via setDigest.
+        assertTrue(captured.hasDigest(),
+                "ECDSA P-256 sign must use setDigest (SHA-256), not setData");
+        assertTrue(captured.getData().isEmpty(),
+                "ECDSA P-256 sign must NOT send raw data");
+        assertTrue(captured.getDigest().hasSha256(),
+                "ECDSA P-256 digest must be SHA-256");
+    }
+
+    @Test
+    void sign_ecdsaP384_sendsSha384Digest() throws Exception {
+        AsymmetricSignRequest captured = signAndCaptureRequest(CryptoKeyVersionAlgorithm.EC_SIGN_P384_SHA384);
+
+        assertTrue(captured.hasDigest(),
+                "ECDSA P-384 sign must use setDigest (SHA-384), not setData");
+        assertTrue(captured.getData().isEmpty(),
+                "ECDSA P-384 sign must NOT send raw data");
+        assertTrue(captured.getDigest().hasSha384(),
+                "ECDSA P-384 digest must be SHA-384");
+    }
+
+    private AsymmetricSignRequest signAndCaptureRequest(CryptoKeyVersionAlgorithm alg) throws Exception {
+        String pem = generateEd25519Pem();
+        PublicKey mockPublicKey = PublicKey.newBuilder()
+                .setAlgorithm(alg)
+                .setPem(pem)
+                .build();
+        when(kmsClient.getPublicKey(eq(REQUEST_KEY_VERSION_PATH))).thenReturn(mockPublicKey);
+
+        // Produce a valid DER-encoded ECDSA signature for ECDSA algorithms
+        // so ecdsaDerToRaw does not reject the response. Ed25519 returns raw.
+        byte[] fakeSig;
+        if (alg == CryptoKeyVersionAlgorithm.EC_SIGN_ED25519) {
+            fakeSig = new byte[64];
+            new java.security.SecureRandom().nextBytes(fakeSig);
+        } else {
+            int fieldSize = (alg == CryptoKeyVersionAlgorithm.EC_SIGN_P384_SHA384) ? 384 : 256;
+            fakeSig = generateDerEcdsaSignature(fieldSize);
+        }
+        when(kmsClient.asymmetricSign(any())).thenReturn(
+                AsymmetricSignResponse.newBuilder()
+                        .setSignature(com.google.protobuf.ByteString.copyFrom(fakeSig))
+                        .build());
+
+        GcpKmsSigningProvider provider = GcpKmsSigningProvider.builder()
+                .keyVersionPath(AdcpUse.REQUEST_SIGNING, REQUEST_KEY_VERSION_PATH)
+                .kmsClient(kmsClient)
+                .build();
+        provider.initialize();
+
+        SigningContext context = SigningContext.builder(AdcpUse.REQUEST_SIGNING).build();
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("content-type", "application/json");
+        SigningInput input = new TestSigningInput("POST", "https://example.com/path",
+                "{\"x\":1}".getBytes(StandardCharsets.UTF_8), headers);
+
+        provider.sign(context, input);
+
+        ArgumentCaptor<AsymmetricSignRequest> captor =
+                ArgumentCaptor.forClass(AsymmetricSignRequest.class);
+        org.mockito.Mockito.verify(kmsClient).asymmetricSign(captor.capture());
+        return captor.getValue();
+    }
+
+    private static byte[] generateDerEcdsaSignature(int fieldSizeBits) throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
+        kpg.initialize(fieldSizeBits);
+        KeyPair keyPair = kpg.generateKeyPair();
+        Signature ecdsa = Signature.getInstance(
+                fieldSizeBits == 384 ? "SHA384withECDSA" : "SHA256withECDSA");
+        ecdsa.initSign(keyPair.getPrivate());
+        ecdsa.update("test".getBytes(StandardCharsets.UTF_8));
+        return ecdsa.sign();
     }
 
     private static String generateEd25519Pem() throws Exception {

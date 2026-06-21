@@ -97,7 +97,11 @@ public final class GcpKmsSigningProvider implements SigningProvider {
                 .build();
 
         Map<String, String> signingHeaders = new LinkedHashMap<>(input.headers());
-        if (input.body() != null && input.body().length > 0) {
+        // Content-Digest is required for webhook signing even when the body is empty.
+        // For request signing, it can be omitted for bodyless requests.
+        boolean needsContentDigest = input.body() != null
+                && (input.body().length > 0 || use == AdcpUse.WEBHOOK_SIGNING);
+        if (needsContentDigest) {
             String contentDigestValue = ContentDigest.sha256(input.body());
             signingHeaders.put("content-digest", contentDigestValue);
         }
@@ -111,7 +115,7 @@ public final class GcpKmsSigningProvider implements SigningProvider {
 
         byte[] messageBytes = signatureBase.getBytes(StandardCharsets.UTF_8);
 
-        byte[] kmsSignature = callKmsSign(keyVersionPath, messageBytes);
+        byte[] kmsSignature = callKmsSign(keyVersionPath, kmsAlgEnum, messageBytes);
 
         byte[] signatureBytes;
         if (isEd25519(kmsAlgEnum)) {
@@ -227,14 +231,39 @@ public final class GcpKmsSigningProvider implements SigningProvider {
         return metadata != null ? metadata.algorithms : Map.of();
     }
 
-    private byte[] callKmsSign(String keyVersionPath, byte[] message) throws SigningException {
+    /**
+     * Call GCP KMS asymmetricSign.
+     *
+     * <p>Google Cloud KMS documents Ed25519 signing as raw-data input (the full
+     * message is passed via {@code setData}), while P-256/P-384 ECDSA signing
+     * algorithms are digest-based — the caller computes the SHA-256/384 digest
+     * and passes it via {@code setDigest}. See the GCP KMS Java samples.
+     */
+    private byte[] callKmsSign(String keyVersionPath, CryptoKeyVersionAlgorithm alg, byte[] message)
+            throws SigningException {
         try {
-            AsymmetricSignRequest request = AsymmetricSignRequest.newBuilder()
-                    .setName(keyVersionPath)
-                    .setData(ByteString.copyFrom(message))
-                    .build();
+            AsymmetricSignRequest.Builder requestBuilder = AsymmetricSignRequest.newBuilder()
+                    .setName(keyVersionPath);
 
-            AsymmetricSignResponse response = getClient().asymmetricSign(request);
+            if (isEd25519(alg)) {
+                // Ed25519: KMS expects the raw message, not a digest.
+                requestBuilder.setData(ByteString.copyFrom(message));
+            } else {
+                // ECDSA (P-256/P-384): KMS expects a pre-computed digest.
+                // P-256 uses SHA-256; P-384 uses SHA-384.
+                String digestAlg = isP384(alg) ? "SHA-384" : "SHA-256";
+                byte[] digest = java.security.MessageDigest.getInstance(digestAlg).digest(message);
+                com.google.cloud.kms.v1.Digest.Builder digestBuilder =
+                        com.google.cloud.kms.v1.Digest.newBuilder();
+                if (isP384(alg)) {
+                    digestBuilder.setSha384(ByteString.copyFrom(digest));
+                } else {
+                    digestBuilder.setSha256(ByteString.copyFrom(digest));
+                }
+                requestBuilder.setDigest(digestBuilder.build());
+            }
+
+            AsymmetricSignResponse response = getClient().asymmetricSign(requestBuilder.build());
 
             if (response.getSignature().isEmpty()) {
                 throw new SigningException("GCP KMS asymmetricSign returned no signature for " + redactKeyVersionPath(keyVersionPath));
@@ -251,7 +280,7 @@ public final class GcpKmsSigningProvider implements SigningProvider {
         return switch (gcpAlg) {
             case EC_SIGN_ED25519 -> AdcpSignatureProfile.ALG_ED25519;
             case EC_SIGN_P256_SHA256 -> AdcpSignatureProfile.ALG_ECDSA_P256_SHA256;
-            case EC_SIGN_P384_SHA384 -> "ecdsa-p384-sha384";
+            case EC_SIGN_P384_SHA384 -> AdcpSignatureProfile.ALG_ECDSA_P384_SHA384;
             default -> throw new SigningException("Unsupported GCP KMS signing algorithm: " + gcpAlg);
         };
     }

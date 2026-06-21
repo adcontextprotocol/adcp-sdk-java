@@ -97,7 +97,11 @@ public final class AwsKmsSigningProvider implements SigningProvider {
                 .build();
 
         Map<String, String> signingHeaders = new LinkedHashMap<>(input.headers());
-        if (input.body() != null && input.body().length > 0) {
+        // Content-Digest is required for webhook signing even when the body is empty.
+        // For request signing, it can be omitted for bodyless requests.
+        boolean needsContentDigest = input.body() != null
+                && (input.body().length > 0 || use == AdcpUse.WEBHOOK_SIGNING);
+        if (needsContentDigest) {
             String contentDigestValue = ContentDigest.sha256(input.body());
             signingHeaders.put("content-digest", contentDigestValue);
         }
@@ -238,7 +242,7 @@ public final class AwsKmsSigningProvider implements SigningProvider {
         return switch (kmsAlg) {
             case ED25519_SHA_512 -> AdcpSignatureProfile.ALG_ED25519;
             case ECDSA_SHA_256 -> AdcpSignatureProfile.ALG_ECDSA_P256_SHA256;
-            case ECDSA_SHA_384 -> "ecdsa-p384-sha384";
+            case ECDSA_SHA_384 -> AdcpSignatureProfile.ALG_ECDSA_P384_SHA384;
             default -> throw new SigningException("Unsupported KMS signing algorithm: " + kmsAlg);
         };
     }

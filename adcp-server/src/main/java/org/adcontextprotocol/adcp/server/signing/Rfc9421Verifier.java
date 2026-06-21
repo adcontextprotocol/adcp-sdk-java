@@ -140,8 +140,11 @@ public final class Rfc9421Verifier {
             Map<String, String> headers = input.headers();
 
             // Content-Digest verification (step 11)
+            // Validate the digest against the body whenever content-digest is
+            // present, including empty-body webhooks where the digest of byte[0]
+            // is a valid required Content-Digest value.
             String contentDigestHeader = firstHeader(headers, "Content-Digest");
-            if (contentDigestHeader != null && input.rawBody() != null && input.rawBody().length > 0) {
+            if (contentDigestHeader != null && input.rawBody() != null) {
                 String expectedDigest = ContentDigest.sha256(input.rawBody());
                 if (!contentDigestHeader.equals(expectedDigest)) {
                     return new VerificationResult.Invalid(prefix + "digest_mismatch",
@@ -179,6 +182,8 @@ public final class Rfc9421Verifier {
                 jcaAlg = "Ed25519";
             } else if (AdcpSignatureProfile.ALG_ECDSA_P256_SHA256.equals(alg)) {
                 jcaAlg = "SHA256withECDSAinP1363Format";
+            } else if (AdcpSignatureProfile.ALG_ECDSA_P384_SHA384.equals(alg)) {
+                jcaAlg = "SHA384withECDSAinP1363Format";
             } else {
                 return new VerificationResult.Invalid(prefix + "alg_not_allowed",
                         "Unsupported algorithm: " + alg);
@@ -236,6 +241,15 @@ public final class Rfc9421Verifier {
      * <p>Example: {@code sig1=("@method" "@target-uri" "@authority" "content-type" "content-digest");created=1776520800;expires=1776521100;nonce="KXYnfEfJ0PBRZXQyVXfVQA";keyid="test-ed25519-webhook-2026";alg="ed25519";tag="adcp/webhook-signing/v1"}
      */
     static ParsedSignatureInput parseSignatureInput(String header) {
+        // Downgrade protection: reject duplicate labels in the Signature-Input dictionary.
+        // RFC 8941 §3.2 requires that duplicate keys be rejected (or last-value retained);
+        // the AdCP profile mandates rejection so a proxy cannot smuggle a weaker
+        // component list past a verifier that read the first occurrence.
+        int sig1Occurrences = countLabelOccurrences(header, "sig1");
+        if (sig1Occurrences > 1) {
+            throw new IllegalArgumentException("Duplicate 'sig1' label in Signature-Input");
+        }
+
         // Find the sig1 label specifically (AdCP convention)
         // In case of multiple labels: "sig1=(...);..., relay=(...);..."
         // We need to extract just the sig1 portion.
@@ -326,6 +340,45 @@ public final class Rfc9421Verifier {
         return header.substring(start);
     }
 
+    /**
+     * Count how many times a label appears as a dictionary key in the
+     * Signature-Input header. A label occurrence is the label name immediately
+     * followed by {@code =} at a dictionary entry boundary (start of string or
+     * after a comma that separates entries).
+     */
+    static int countLabelOccurrences(String header, String targetLabel) {
+        int count = 0;
+        int pos = 0;
+        String prefix = targetLabel + "=";
+        while (true) {
+            int idx = header.indexOf(prefix, pos);
+            if (idx == -1) break;
+            // Must be at a dictionary entry boundary: either the start of the
+            // string, or preceded by a comma (optionally with spaces/tabs only).
+            // Newlines/CR are NOT valid separators — they would indicate header
+            // injection or obs-fold, which RFC 8941 dictionaries do not allow.
+            boolean atBoundary = (idx == 0);
+            if (!atBoundary) {
+                for (int j = idx - 1; j >= 0; j--) {
+                    char c = header.charAt(j);
+                    if (c == ',') {
+                        atBoundary = true;
+                        break;
+                    }
+                    if (c == ' ' || c == '\t') {
+                        continue;
+                    }
+                    break;
+                }
+            }
+            if (atBoundary) {
+                count++;
+            }
+            pos = idx + prefix.length();
+        }
+        return count;
+    }
+
     private static void parseParams(String paramsStr, Map<String, String> params) {
         int i = 0;
         while (i < paramsStr.length()) {
@@ -353,7 +406,16 @@ public final class Rfc9421Verifier {
                     params.put(name, value);
                     i++; // skip closing quote
                 } else {
-                    // Unquoted value (bare integer)
+                    // RFC 8941 §3.3: string-typed sig-params (keyid, nonce, tag)
+                    // MUST be double-quoted. A bare token is not a valid string.
+                    // keyid, nonce, and tag are defined as strings in RFC 9421 §2.3.
+                    // Reject unquoted values for these params to prevent parser
+                    // differential attacks.
+                    if (isStringSigParam(name)) {
+                        throw new IllegalArgumentException(
+                                "Parameter '" + name + "' must be a quoted string per RFC 8941 §3.3");
+                    }
+                    // Unquoted value (bare integer, e.g. created/expires)
                     int valueStart = i;
                     while (i < paramsStr.length() && paramsStr.charAt(i) != ';') i++;
                     String value = paramsStr.substring(valueStart, i).trim();
@@ -361,6 +423,14 @@ public final class Rfc9421Verifier {
                 }
             }
         }
+    }
+
+    /**
+     * RFC 9421 §2.3 defines these sig-params as string-typed, so their values
+     * MUST be wrapped in double quotes per RFC 8941 §3.3.
+     */
+    private static boolean isStringSigParam(String name) {
+        return "keyid".equals(name) || "nonce".equals(name) || "tag".equals(name) || "alg".equals(name);
     }
 
     private static SignatureBytesResult extractSignatureBytes(String sigHeader, String label) {
