@@ -78,6 +78,9 @@ public final class AdcpSchemaValidator {
         // Normalize: strip leading slash to form classpath resource path.
         // Input: "/schemas/3.0.11/core/brand-ref.json" → "schemas/3.0.11/core/brand-ref.json"
         String resourcePath = uri.startsWith("/") ? uri.substring(1) : uri;
+        if (resourcePath.contains("..")) {
+            throw new IllegalArgumentException("Invalid schema URI (path traversal): " + uri);
+        }
 
         InputStream stream = getClass().getClassLoader().getResourceAsStream(resourcePath);
         if (stream == null) {

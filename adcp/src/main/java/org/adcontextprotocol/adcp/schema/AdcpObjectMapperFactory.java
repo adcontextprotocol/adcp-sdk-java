@@ -49,6 +49,9 @@ public final class AdcpObjectMapperFactory {
                 // Intentionally NOT enabling FAIL_ON_UNKNOWN_PROPERTIES —
                 // SDK must tolerate fields added in newer protocol versions.
                 .build();
+        // Defense-in-depth: disable default typing to prevent deserialization gadget attacks.
+        // Jackson's default is off, but this makes it explicit and resilient to future config changes.
+        mapper.deactivateDefaultTyping();
 
         // Widen stream constraints for AdCP creative payloads and deep catalogs
         mapper.getFactory().setStreamReadConstraints(

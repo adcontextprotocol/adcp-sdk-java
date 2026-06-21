@@ -21,6 +21,10 @@ dependencies {
     implementation(libs.mcp.json.jackson2) {
         exclude(group = "com.networknt", module = "json-schema-validator")
     }
+    api(libs.a2a.sdk.client)
+    // Explicit deps for A2A classes used directly — not transitive reliance on a2a-sdk-client
+    implementation(libs.a2a.sdk.client.transport.jsonrpc) // JSONRPCTransport, JSONRPCTransportConfigBuilder
+    implementation(libs.a2a.sdk.http.client)              // JdkA2AHttpClient
 }
 
 // -- Build-time SDK version constant ----------------------------------------

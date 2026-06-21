@@ -9,15 +9,19 @@ java = "21"
 kotlin = "2.1.10"
 
 # Core runtime.
-jackson = "2.18.2"
-slf4j = "2.0.16"
+jackson = "2.20.1"
+slf4j = "2.0.17"
 jspecify = "1.0.0"
+gson = "2.14.0"
 
 # Schema validation (RFC §Schema validation).
 json-schema-validator = "1.5.6"
 
 # MCP SDK (D9 — pinned 1.1.2; plan a deliberate 2.x migration PR ~6 months out).
 mcp-sdk = "1.1.2"
+
+# A2A SDK (D10 — pinned 1.0.0.CR1; upgrade to 1.0.0 final is a straight version bump)
+a2a-sdk = "1.0.0.CR1"
 
 # Jakarta Servlet API — pulled in by mcp-core's HTTP server transport (D9 R1
 # prototype question: can it run without Jetty/Tomcat?).
@@ -45,6 +49,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 
 # Validation
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
@@ -59,6 +64,17 @@ mcp-json-jackson2 = { module = "io.modelcontextprotocol.sdk:mcp-json-jackson2", 
 
 # Servlet (for mcp-core HTTP transport)
 jakarta-servlet-api = { module = "jakarta.servlet:jakarta.servlet-api", version.ref = "jakarta-servlet" }
+
+# A2A — client-side: connects to A2A agents. Uses JDK HttpClient internally.
+a2a-sdk-client = { module = "org.a2aproject.sdk:a2a-java-sdk-client", version.ref = "a2a-sdk" }
+# A2A — JSON-RPC transport impl: JSONRPCTransport, JSONRPCTransportConfigBuilder
+a2a-sdk-client-transport-jsonrpc = { module = "org.a2aproject.sdk:a2a-java-sdk-client-transport-jsonrpc", version.ref = "a2a-sdk" }
+# A2A — JDK HTTP client impl: JdkA2AHttpClient
+a2a-sdk-http-client = { module = "org.a2aproject.sdk:a2a-java-sdk-http-client", version.ref = "a2a-sdk" }
+# A2A — server-side: AgentExecutor SPI, DefaultRequestHandler, SseFormatter, TaskStore
+a2a-sdk-server-common = { module = "org.a2aproject.sdk:a2a-java-sdk-server-common", version.ref = "a2a-sdk" }
+# A2A — JSON-RPC framing: JsonUtil, A2ARequest/Response wrappers
+a2a-sdk-jsonrpc-common = { module = "org.a2aproject.sdk:a2a-java-sdk-jsonrpc-common", version.ref = "a2a-sdk" }
 
 # Test
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
