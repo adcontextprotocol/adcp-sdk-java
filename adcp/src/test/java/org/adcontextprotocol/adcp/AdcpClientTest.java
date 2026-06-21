@@ -72,41 +72,34 @@ class AdcpClientTest {
     }
 
     @Test
-    void a2a_protocol_rejected_at_call_time() {
+    void builder_accepts_a2a_protocol() {
         AgentConfig a2aAgent = AgentConfig.builder()
                 .id("a2a")
                 .agentUri(AGENT_URI)
                 .protocol(Protocol.A2A)
                 .build();
-        // A2A rejection happens at callTool dispatch (ProtocolClient)
+
         try (AdcpClient client = AdcpClient.builder()
                 .agent(a2aAgent)
                 .ssrfPolicy(SsrfPolicy.permissive())
                 .build()) {
-            var ex = assertThrows(org.adcontextprotocol.adcp.error.FeatureUnsupportedError.class,
-                    () -> client.callTool("get_products",
-                            java.util.Map.of(), java.util.Map.class));
-            assertTrue(ex.getMessage().contains("A2A"));
+            assertEquals(Protocol.A2A, client.agent().protocol());
         }
     }
 
     @Test
-    void callTool_accepts_null_args_without_npe() {
-        // Null args should be treated as empty map, not throw NPE.
-        // The call will fail at transport (no server), but the null-guard
-        // in callTool must normalise to Map.of() before that point.
+    void a2a_callTool_accepts_null_args_without_npe() {
         AgentConfig a2aAgent = AgentConfig.builder()
                 .id("a2a")
-                .agentUri(AGENT_URI)
+                .agentUri(URI.create("mailto:test@example.com"))
                 .protocol(Protocol.A2A)
                 .build();
+
         try (AdcpClient client = AdcpClient.builder()
                 .agent(a2aAgent)
                 .ssrfPolicy(SsrfPolicy.permissive())
                 .build()) {
-            // A2A rejection fires before any null-arg handling, proving
-            // the call doesn't NPE on null args.
-            assertThrows(org.adcontextprotocol.adcp.error.FeatureUnsupportedError.class,
+            assertThrows(org.adcontextprotocol.adcp.error.ProtocolError.class,
                     () -> client.callTool("get_products", null, java.util.Map.class));
         }
     }

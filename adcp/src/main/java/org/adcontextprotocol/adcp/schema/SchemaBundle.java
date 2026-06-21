@@ -16,7 +16,11 @@ import java.io.UncheckedIOException;
 public final class SchemaBundle {
 
     // Thread-safe: no reconfiguration after init. Do not add mapper.configure() calls in methods.
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER;
+    static {
+        MAPPER = new ObjectMapper();
+        MAPPER.deactivateDefaultTyping(); // defense-in-depth; consistent with AdcpObjectMapperFactory
+    }
     private static final String SCHEMA_PREFIX = "schemas/";
 
     private SchemaBundle() {}
@@ -29,6 +33,9 @@ public final class SchemaBundle {
      * @throws IllegalArgumentException if the schema is not found on the classpath
      */
     public static JsonNode load(String path) {
+        if (path == null || path.contains("..") || path.startsWith("/")) {
+            throw new IllegalArgumentException("Invalid schema path: " + path);
+        }
         String resourcePath = SCHEMA_PREFIX + path;
         try (InputStream stream = SchemaBundle.class.getClassLoader().getResourceAsStream(resourcePath)) {
             if (stream == null) {
@@ -57,6 +64,9 @@ public final class SchemaBundle {
      * @return {@code true} if the schema resource exists
      */
     public static boolean exists(String path) {
+        if (path == null || path.contains("..") || path.startsWith("/")) {
+            return false;
+        }
         String resourcePath = SCHEMA_PREFIX + path;
         return SchemaBundle.class.getClassLoader().getResource(resourcePath) != null;
     }

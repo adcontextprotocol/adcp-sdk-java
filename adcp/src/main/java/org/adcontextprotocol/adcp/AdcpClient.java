@@ -7,6 +7,7 @@ import org.adcontextprotocol.adcp.http.SsrfPolicy;
 import org.adcontextprotocol.adcp.schema.AdcpObjectMapperFactory;
 import org.adcontextprotocol.adcp.transport.CallToolOptions;
 import org.adcontextprotocol.adcp.transport.ProtocolClient;
+import org.adcontextprotocol.adcp.transport.a2a.A2aConnectionManager;
 import org.adcontextprotocol.adcp.transport.mcp.McpConnectionManager;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -61,10 +62,13 @@ public final class AdcpClient implements AutoCloseable {
         this.adcpHttpClient = AdcpHttpClient.builder()
                 .ssrfPolicy(ssrfPolicy)
                 .build();
-        McpConnectionManager connectionManager = new McpConnectionManager(
+        McpConnectionManager mcpConnectionManager = new McpConnectionManager(
                 Duration.ofSeconds(10), builder.requestTimeout, adcpHttpClient);
+        A2aConnectionManager a2aConnectionManager = new A2aConnectionManager(
+                adcpHttpClient, this.objectMapper);
         this.protocolClient = new ProtocolClient(
-                this.objectMapper, ssrfPolicy, adcpVersion, connectionManager);
+                this.objectMapper, ssrfPolicy, adcpVersion,
+                mcpConnectionManager, a2aConnectionManager);
     }
 
     /** Creates a new builder. */
