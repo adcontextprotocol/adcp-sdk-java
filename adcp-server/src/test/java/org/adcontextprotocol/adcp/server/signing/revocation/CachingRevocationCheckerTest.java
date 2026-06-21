@@ -117,6 +117,27 @@ class CachingRevocationCheckerTest {
         assertTrue(stale.staleSeconds() > 0, "staleSeconds should be positive, got: " + stale.staleSeconds());
     }
 
+    @Test
+    void check_fetchFailure_returnsFetchFailedNotException() throws Exception {
+        KeyPair keyPair = InProcessKeyGenerator.generateEd25519();
+        VerificationKey verKey = new VerificationKey("test-kid", "Ed25519", keyPair.getPublic().getEncoded(), null);
+
+        // Use a malformed URI that triggers a fetch failure on cold cache.
+        // The check() method must catch RevocationFetchException and return
+        // RevocationResult.FetchFailed, not throw through the sealed API.
+        java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder().build();
+        CachingRevocationChecker checker = new CachingRevocationChecker(
+                "http://127.0.0.1:1/unreachable-revocation-list.jws",
+                verKey, httpClient, 60);
+
+        RevocationResult result = checker.check("some-kid");
+        assertInstanceOf(RevocationResult.FetchFailed.class, result,
+                "Expected FetchFailed result, got: " + result);
+        RevocationResult.FetchFailed failed = (RevocationResult.FetchFailed) result;
+        assertNotNull(failed.reason(), "FetchFailed reason should not be null");
+        assertFalse(failed.reason().isBlank(), "FetchFailed reason should not be blank");
+    }
+
     private static Object createCachedList(String issuer, Instant updated, Instant nextUpdate,
             Set<String> revokedKids, Set<String> revokedJtis) {
         try {

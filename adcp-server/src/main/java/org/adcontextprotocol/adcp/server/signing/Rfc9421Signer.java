@@ -68,10 +68,15 @@ public final class Rfc9421Signer {
                 .tag(tag)
                 .build();
 
-        // Compute Content-Digest if body is present
+        // Compute Content-Digest if body is present.
+        // For webhook signing, content-digest is a required covered component,
+        // so emit it even for empty bodies (digest of byte[0]). For request
+        // signing, it can be omitted for bodyless requests.
         String contentDigestValue = null;
         Map<String, String> signingHeaders = new LinkedHashMap<>(input.headers());
-        if (input.body() != null && input.body().length > 0) {
+        boolean needsContentDigest = input.body() != null
+                && (input.body().length > 0 || use == AdcpUse.WEBHOOK_SIGNING);
+        if (needsContentDigest) {
             contentDigestValue = ContentDigest.sha256(input.body());
             signingHeaders.put("content-digest", contentDigestValue);
         }
@@ -104,12 +109,15 @@ public final class Rfc9421Signer {
             jcaAlgorithm = "Ed25519";
         } else if (AdcpSignatureProfile.ALG_ECDSA_P256_SHA256.equals(alg)) {
             jcaAlgorithm = "SHA256withECDSAinP1363Format";
+        } else if (AdcpSignatureProfile.ALG_ECDSA_P384_SHA384.equals(alg)) {
+            jcaAlgorithm = "SHA384withECDSAinP1363Format";
         } else {
             throw new SigningException("Unsupported signing algorithm: " + alg);
         }
 
         try {
-            java.security.KeyFactory kf = java.security.KeyFactory.getInstance(jcaAlgorithm.equals("Ed25519") ? "Ed25519" : "EC");
+            java.security.KeyFactory kf = java.security.KeyFactory.getInstance(
+                    jcaAlgorithm.equals("Ed25519") ? "Ed25519" : "EC");
             PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(privateKeyBytes));
             java.security.Signature signer = java.security.Signature.getInstance(jcaAlgorithm);
             signer.initSign(privateKey);

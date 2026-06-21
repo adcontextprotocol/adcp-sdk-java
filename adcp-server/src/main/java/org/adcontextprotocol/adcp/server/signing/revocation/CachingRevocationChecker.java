@@ -85,6 +85,8 @@ public final class CachingRevocationChecker {
             ensureFresh();
         } catch (RevocationListStaleException e) {
             return new RevocationResult.Stale(e.staleSeconds());
+        } catch (RevocationFetchException e) {
+            return new RevocationResult.FetchFailed(e.getMessage());
         }
         CachedList current = cachedList;
         if (current == null) {

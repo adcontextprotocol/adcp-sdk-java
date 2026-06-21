@@ -208,15 +208,15 @@ public final class AwsKmsSigningProvider implements SigningProvider {
         return kmsClient;
     }
 
-    void initialize() throws SigningException {
+    public void initialize() throws SigningException {
         ensureInitialized();
     }
 
-    boolean isInitialized() {
+    public boolean isInitialized() {
         return keyMetadata.get() != null;
     }
 
-    Map<AdcpUse, SigningAlgorithmSpec> getAlgorithms() {
+    public Map<AdcpUse, SigningAlgorithmSpec> getAlgorithms() {
         KeyMetadata metadata = keyMetadata.get();
         return metadata != null ? metadata.algorithms : Map.of();
     }

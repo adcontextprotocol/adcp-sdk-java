@@ -218,15 +218,15 @@ public final class GcpKmsSigningProvider implements SigningProvider {
         return kmsClient;
     }
 
-    void initialize() throws SigningException {
+    public void initialize() throws SigningException {
         ensureInitialized();
     }
 
-    boolean isInitialized() {
+    public boolean isInitialized() {
         return keyMetadata.get() != null;
     }
 
-    Map<AdcpUse, CryptoKeyVersionAlgorithm> getAlgorithms() {
+    public Map<AdcpUse, CryptoKeyVersionAlgorithm> getAlgorithms() {
         KeyMetadata metadata = keyMetadata.get();
         return metadata != null ? metadata.algorithms : Map.of();
     }
