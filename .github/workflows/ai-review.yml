@@ -3,16 +3,17 @@ name: AI PR Review (Argus)
 # Argus is an LLM PR reviewer that posts an `--approve`, `--comment`, or
 # `--request-changes` review on every non-dependabot PR. It reads the diff,
 # delegates to subagents when relevant (ad-tech-protocol-expert,
-# security-reviewer, code-reviewer, etc.), and writes the review in
-# bokelley's voice.
+# security-reviewer, code-reviewer, etc.). Argus is the AAO Secretariat's
+# review desk: it applies the WG constitution (fetched from
+# adcontextprotocol/adcp@main at review time and appended to the prompt).
 #
-# Reviews are posted with the IPR GitHub App installation token so fork PRs can
-# be reviewed and the resulting bot review is attributable to the same App that
-# owns this repo's IPR workflow.
+# Reviews are posted with the AAO Secretariat GitHub App installation token so
+# fork PRs can be reviewed and the review is attributable to the Secretariat
+# (`aao-secretariat[bot]`).
 #
 # Required secrets:
-#   IPR_APP_ID           — already configured for the IPR workflow
-#   IPR_APP_PRIVATE_KEY  — already configured for the IPR workflow
+#   SECRETARIAT_APP_ID           — org-level, AAO Secretariat GitHub App
+#   SECRETARIAT_APP_PRIVATE_KEY  — org-level, AAO Secretariat GitHub App
 #   ANTHROPIC_API_KEY  — Anthropic API key for claude-code-action
 #
 # Adapted from adcontextprotocol/adcp's Argus workflow.
@@ -79,8 +80,8 @@ jobs:
         id: notice-token
         uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
         with:
-          app-id: ${{ secrets.IPR_APP_ID }}
-          private-key: ${{ secrets.IPR_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.SECRETARIAT_APP_ID }}
+          private-key: ${{ secrets.SECRETARIAT_APP_PRIVATE_KEY }}
           permission-contents: read
           permission-issues: write
 
@@ -145,10 +146,20 @@ jobs:
           PROMPT_BODY="$(git show "${BASE_SHA}:.github/ai-review/expert-adcp-reviewer.md" \
             | sed '/^This is a real review on a real PR\./,/^$/d' \
             | awk '/^## Picking the action$/ { exit } { print }')"
+          # The WG constitution is governance owned by the spec repo. Fetch it
+          # from adcontextprotocol/adcp@main at review time — never from this
+          # repo or the PR — so Argus always applies the current constitution.
+          CONSTITUTION="$(curl -sf https://raw.githubusercontent.com/adcontextprotocol/adcp/main/.agents/wg/constitution.md || true)"
           SENTINEL="ARGUS_$(openssl rand -hex 8)_EOF"
           {
             echo "ARGUS_PROMPT<<${SENTINEL}"
             echo "$PROMPT_BODY"
+            if [ -n "$CONSTITUTION" ]; then
+              echo ''
+              echo '## WG constitution (from adcontextprotocol/adcp@main)'
+              echo ''
+              echo "$CONSTITUTION"
+            fi
             echo ''
             echo '---'
             echo ''
@@ -220,8 +231,8 @@ jobs:
         if: always() && steps.self-mod.outputs.touches != 'true'
         uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
         with:
-          app-id: ${{ secrets.IPR_APP_ID }}
-          private-key: ${{ secrets.IPR_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.SECRETARIAT_APP_ID }}
+          private-key: ${{ secrets.SECRETARIAT_APP_PRIVATE_KEY }}
           permission-contents: read
           permission-pull-requests: write
           permission-issues: write
