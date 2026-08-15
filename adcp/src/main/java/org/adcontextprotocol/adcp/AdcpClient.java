@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.adcontextprotocol.adcp.error.ConfigurationError;
 import org.adcontextprotocol.adcp.http.AdcpHttpClient;
 import org.adcontextprotocol.adcp.http.SsrfPolicy;
+import org.adcontextprotocol.adcp.negotiation.RefineProposalsRequest;
+import org.adcontextprotocol.adcp.negotiation.RefineProposalsResponse;
 import org.adcontextprotocol.adcp.schema.AdcpObjectMapperFactory;
 import org.adcontextprotocol.adcp.transport.CallToolOptions;
 import org.adcontextprotocol.adcp.transport.ProtocolClient;
@@ -127,6 +129,20 @@ public final class AdcpClient implements AutoCloseable {
     public <T> T callNamedTool(String toolName, Object request,
                                Class<T> responseType) {
         return callTool(toolName, toArgs(request), responseType);
+    }
+
+    // -- Proposal negotiation (3.2) --
+
+    /**
+     * Refines one or more proposals: creates draft revisions or finalizes
+     * drafts into held committed snapshots.
+     *
+     * @param request the refinement request
+     * @return the refinement response (synchronous or async)
+     */
+    public RefineProposalsResponse refineProposals(RefineProposalsRequest request) {
+        return callNamedTool("refine_proposals", request,
+                RefineProposalsResponse.class);
     }
 
     // -- Lifecycle --
