@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -60,7 +59,6 @@ public record RefineProposalsRequest(
         private @Nullable String contextId;
         private @Nullable JsonNode context;
         private @Nullable String governanceContext;
-        private @Nullable Set<String> supportedDimensions;
         private int maxBatchSize = 25;
 
         private Builder() {}
@@ -93,16 +91,6 @@ public record RefineProposalsRequest(
 
         public Builder governanceContext(String governanceContext) {
             this.governanceContext = governanceContext;
-            return this;
-        }
-
-        /**
-         * Sets the supported refinement dimensions declared by the seller.
-         * When set, the builder validates that refinement criteria only
-         * reference supported dimensions.
-         */
-        public Builder supportedDimensions(Set<String> dimensions) {
-            this.supportedDimensions = Set.copyOf(dimensions);
             return this;
         }
 

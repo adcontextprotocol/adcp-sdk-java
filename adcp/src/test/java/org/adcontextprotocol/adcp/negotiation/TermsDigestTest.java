@@ -142,6 +142,21 @@ class TermsDigestTest {
     }
 
     @Test
+    void jcs_number_string_strips_dot_zero_in_exponent() {
+        // Java Double.toString(1e-7) → "1.0E-7"; JCS requires "1e-7"
+        assertEquals("1e-7", TermsDigest.jcsNumberString(1e-7));
+        assertEquals("1e-20", TermsDigest.jcsNumberString(1e-20));
+    }
+
+    @Test
+    void jcs_number_string_keeps_fractional_exponent() {
+        // 1.5e10 = 15000000000 → integer path
+        assertEquals("15000000000", TermsDigest.jcsNumberString(1.5e10));
+        // 1.5e21 stays exponential since > 1e21
+        assertEquals("1.5e21", TermsDigest.jcsNumberString(1.5e21));
+    }
+
+    @Test
     void jcs_handles_string_escaping() {
         ObjectNode node = mapper.createObjectNode();
         node.put("msg", "hello\nworld\t\"quoted\"");

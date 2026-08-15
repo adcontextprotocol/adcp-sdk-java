@@ -1,24 +1,19 @@
 package org.adcontextprotocol.adcp.negotiation;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.jspecify.annotations.Nullable;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Computes and verifies {@code terms_digest} values per the AdCP 3.2
@@ -34,8 +29,6 @@ import java.util.Map;
 public final class TermsDigest {
 
     private static final String PREFIX = "sha256:";
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-            .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     private TermsDigest() {}
 
@@ -57,7 +50,7 @@ public final class TermsDigest {
      *
      * @return true if the digest is valid
      */
-    public static boolean verify(String digest, JsonNode commercialTerms) {
+    public static boolean verify(@Nullable String digest, JsonNode commercialTerms) {
         if (digest == null || !digest.startsWith(PREFIX)) {
             return false;
         }
@@ -176,10 +169,7 @@ public final class TermsDigest {
                         out.write(String.format("\\u%04x", (int) c)
                                 .getBytes(StandardCharsets.UTF_8));
                     } else {
-                        // UTF-8 encode directly
-                        OutputStreamWriter w = new OutputStreamWriter(out, StandardCharsets.UTF_8);
-                        w.write(c);
-                        w.flush();
+                        out.write(String.valueOf(c).getBytes(StandardCharsets.UTF_8));
                     }
                 }
             }
@@ -189,19 +179,26 @@ public final class TermsDigest {
 
     /**
      * ES2015-compliant number-to-string conversion for JCS.
-     * Uses Double.toString and strips unnecessary trailing zeros.
+     * Produces the shortest decimal representation that round-trips
+     * through parseDouble, per RFC 8785 section 3.2.2.3.
      */
     static String jcsNumberString(double d) {
         if (d == 0.0) return "0";
         if (d == (long) d && Math.abs(d) < 1e21) {
             return Long.toString((long) d);
         }
-        // The ES2015 spec requires the shortest representation that
-        // round-trips. Java's Double.toString gives this for most values.
         String s = Double.toString(d);
-        // Strip trailing zeros in the decimal part, but keep the exponent
         if (s.contains("E") || s.contains("e")) {
-            return s.toLowerCase().replace("+", "");
+            // ES2015: lowercase 'e', no '+' sign, strip ".0" before 'e'
+            // e.g. Java "1.0E-7" → JCS "1e-7"
+            s = s.toLowerCase().replace("+", "");
+            int eIdx = s.indexOf('e');
+            String mantissa = s.substring(0, eIdx);
+            String exponent = s.substring(eIdx);
+            if (mantissa.endsWith(".0")) {
+                mantissa = mantissa.substring(0, mantissa.length() - 2);
+            }
+            return mantissa + exponent;
         }
         return s;
     }

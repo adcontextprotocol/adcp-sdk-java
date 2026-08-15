@@ -103,6 +103,23 @@ class RefinementResultTest {
     }
 
     @Test
+    void serialize_then_deserialize_round_trip() throws Exception {
+        ObjectNode proposal = mapper.createObjectNode();
+        proposal.put("proposal_id", "p-rt");
+        proposal.put("proposal_status", "draft");
+
+        RefinementResult original = new RefinementResult.Revised("src-1", proposal, null);
+
+        String json = mapper.writeValueAsString(original);
+        assertTrue(json.contains("\"outcome\":\"revised\""));
+        assertTrue(json.contains("\"source_proposal_id\":\"src-1\""));
+
+        RefinementResult deserialized = mapper.readValue(json, RefinementResult.class);
+        assertInstanceOf(RefinementResult.Revised.class, deserialized);
+        assertEquals("src-1", deserialized.sourceProposalId());
+    }
+
+    @Test
     void pattern_matching_exhaustiveness() throws Exception {
         String json = """
                 {

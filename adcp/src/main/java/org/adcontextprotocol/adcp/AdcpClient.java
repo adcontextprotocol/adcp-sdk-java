@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.adcontextprotocol.adcp.error.ConfigurationError;
 import org.adcontextprotocol.adcp.http.AdcpHttpClient;
 import org.adcontextprotocol.adcp.http.SsrfPolicy;
+import org.adcontextprotocol.adcp.negotiation.RefineProposalsRequest;
+import org.adcontextprotocol.adcp.negotiation.RefineProposalsResponse;
 import org.adcontextprotocol.adcp.schema.AdcpObjectMapperFactory;
 import org.adcontextprotocol.adcp.transport.CallToolOptions;
 import org.adcontextprotocol.adcp.transport.ProtocolClient;
@@ -12,9 +14,6 @@ import org.adcontextprotocol.adcp.transport.mcp.McpConnectionManager;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.adcontextprotocol.adcp.negotiation.RefineProposalsRequest;
-import org.adcontextprotocol.adcp.negotiation.RefineProposalsResponse;
 
 import java.time.Duration;
 import java.util.Map;
