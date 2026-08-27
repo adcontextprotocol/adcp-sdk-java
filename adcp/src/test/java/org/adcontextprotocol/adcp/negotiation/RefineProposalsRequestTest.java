@@ -1,7 +1,10 @@
 package org.adcontextprotocol.adcp.negotiation;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -119,5 +122,114 @@ class RefineProposalsRequestTest {
         var refinement = request.refinements().get(0);
         assertEquals(RefinementAction.REVISE, refinement.action());
         assertEquals(ChangeKind.CANCELLATION, refinement.changeKind());
+    }
+
+    @Test
+    void rejects_alternatives_count_exceeding_protocol_max() {
+        var mapper = new ObjectMapper();
+        ObjectNode alt = mapper.createObjectNode().put("count", 11);
+
+        assertThrows(IllegalArgumentException.class, () ->
+                ProposalRefinement.builder("p-1")
+                        .action(RefinementAction.REVISE)
+                        .ask("give me options")
+                        .alternatives(alt)
+                        .build());
+    }
+
+    @Test
+    void rejects_alternatives_count_below_minimum() {
+        var mapper = new ObjectMapper();
+        ObjectNode alt = mapper.createObjectNode().put("count", 1);
+
+        assertThrows(IllegalArgumentException.class, () ->
+                ProposalRefinement.builder("p-1")
+                        .action(RefinementAction.REVISE)
+                        .alternatives(alt)
+                        .build());
+    }
+
+    @Test
+    void accepts_valid_alternatives_count() {
+        var mapper = new ObjectMapper();
+        ObjectNode alt = mapper.createObjectNode().put("count", 5);
+
+        var refinement = ProposalRefinement.builder("p-1")
+                .action(RefinementAction.REVISE)
+                .ask("five options")
+                .alternatives(alt)
+                .build();
+
+        assertEquals(5, refinement.alternatives().get("count").asInt());
+    }
+
+    @Test
+    void rejects_alternatives_exceeding_seller_ceiling() {
+        var mapper = new ObjectMapper();
+        ObjectNode alt = mapper.createObjectNode().put("count", 5);
+
+        assertThrows(IllegalArgumentException.class, () ->
+                RefineProposalsRequest.builder()
+                        .idempotencyKey(validKey())
+                        .maxAlternatives(3)
+                        .addRefinement(ProposalRefinement.builder("p-1")
+                                .action(RefinementAction.REVISE)
+                                .ask("options")
+                                .alternatives(alt)
+                                .build())
+                        .build());
+    }
+
+    @Test
+    void revise_with_constraints() {
+        var constraints = new RefinementConstraints(
+                new TotalBudgetConstraint(new BigDecimal("5000"), new BigDecimal("10000"), "USD"),
+                null, null, null);
+
+        var refinement = ProposalRefinement.reviseWithConstraints("p-1", constraints);
+        assertNotNull(refinement.constraints());
+        assertEquals("USD", refinement.constraints().totalBudget().currency());
+    }
+
+    @Test
+    void builder_creates_multi_field_refinement() {
+        var mapper = new ObjectMapper();
+        var constraints = new RefinementConstraints(
+                new TotalBudgetConstraint(null, new BigDecimal("50000"), "EUR"),
+                new CpmConstraint(new BigDecimal("12.50"), "EUR"),
+                null, null);
+        ObjectNode alt = mapper.createObjectNode().put("count", 3);
+
+        var refinement = ProposalRefinement.builder("p-1")
+                .action(RefinementAction.REVISE)
+                .ask("lower CPM with alternatives")
+                .constraints(constraints)
+                .alternatives(alt)
+                .build();
+
+        assertEquals("p-1", refinement.proposalId());
+        assertNotNull(refinement.constraints());
+        assertNotNull(refinement.alternatives());
+        assertEquals("lower CPM with alternatives", refinement.ask());
+    }
+
+    @Test
+    void idempotency_replay_response() throws Exception {
+        var mapper = new ObjectMapper();
+        String json = """
+                {
+                    "status": "completed",
+                    "replayed": true,
+                    "results": [{
+                        "source_proposal_id": "src-1",
+                        "outcome": "revised",
+                        "proposal": {"proposal_id": "p-new", "parent_proposal_id": "src-1", "proposal_status": "draft"}
+                    }]
+                }
+                """;
+
+        var response = mapper.readValue(json, RefineProposalsResponse.class);
+        assertTrue(response.isCompleted());
+        assertEquals(Boolean.TRUE, response.replayed());
     }
 }

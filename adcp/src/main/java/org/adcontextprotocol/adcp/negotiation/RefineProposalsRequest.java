@@ -60,6 +60,7 @@ public record RefineProposalsRequest(
         private @Nullable JsonNode context;
         private @Nullable String governanceContext;
         private int maxBatchSize = 25;
+        private int maxAlternatives = ProposalRefinement.MAX_ALTERNATIVES;
 
         private Builder() {}
 
@@ -106,6 +107,17 @@ public record RefineProposalsRequest(
             return this;
         }
 
+        /**
+         * Sets the seller's alternatives ceiling (default 10 per protocol spec).
+         */
+        public Builder maxAlternatives(int maxAlternatives) {
+            if (maxAlternatives < 2) {
+                throw new IllegalArgumentException("maxAlternatives must be >= 2");
+            }
+            this.maxAlternatives = maxAlternatives;
+            return this;
+        }
+
         public RefineProposalsRequest build() {
             validateBatch();
             return new RefineProposalsRequest(
@@ -137,6 +149,18 @@ public record RefineProposalsRequest(
             if (hasFinalize && hasRevise) {
                 throw new IllegalArgumentException(
                         "a batch containing finalize must contain only finalize entries");
+            }
+
+            // Validate alternatives count against seller ceiling
+            for (ProposalRefinement r : refinements) {
+                if (r.alternatives() != null) {
+                    JsonNode count = r.alternatives().get("count");
+                    if (count != null && count.asInt() > maxAlternatives) {
+                        throw new IllegalArgumentException(
+                                "alternatives.count " + count.asInt()
+                                        + " exceeds seller maximum " + maxAlternatives);
+                    }
+                }
             }
         }
     }

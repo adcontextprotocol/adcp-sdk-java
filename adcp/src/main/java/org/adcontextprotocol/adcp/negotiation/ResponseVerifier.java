@@ -2,6 +2,7 @@ package org.adcontextprotocol.adcp.negotiation;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -42,6 +43,7 @@ public final class ResponseVerifier {
         verifyUniqueProposalIds(response, violations);
         verifyPartialInvariant(response, violations);
         verifyOutcomeConstraints(response, violations);
+        verifyConstraintSatisfaction(request, response, violations);
 
         return violations;
     }
@@ -251,6 +253,98 @@ public final class ResponseVerifier {
         }
 
         return violations;
+    }
+
+    /**
+     * Verifies that revised results satisfy the request's typed constraints.
+     * Only checks revised outcomes (partial/unable carry their own diagnostics).
+     * Verifies budget bounds and CPM ceiling against commercial_terms.
+     */
+    public static void verifyConstraintSatisfaction(
+            RefineProposalsRequest request,
+            RefineProposalsResponse response,
+            List<String> violations) {
+        List<RefinementResult> results = response.results();
+        List<ProposalRefinement> refinements = request.refinements();
+        if (results == null) return;
+
+        for (int i = 0; i < Math.min(results.size(), refinements.size()); i++) {
+            if (!(results.get(i) instanceof RefinementResult.Revised revised)) continue;
+
+            RefinementConstraints constraints = refinements.get(i).constraints();
+            if (constraints == null) continue;
+
+            JsonNode proposal = revised.proposal();
+            if (proposal == null || proposal.isNull()) continue;
+
+            JsonNode terms = proposal.get("commercial_terms");
+            if (terms == null || terms.isNull()) continue;
+
+            if (constraints.totalBudget() != null) {
+                verifyBudgetBounds(terms, constraints.totalBudget(), i, violations);
+            }
+            if (constraints.cpm() != null) {
+                verifyCpmCeiling(terms, constraints.cpm(), i, violations);
+            }
+        }
+    }
+
+    private static void verifyBudgetBounds(JsonNode terms, TotalBudgetConstraint budget,
+                                           int index, List<String> violations) {
+        JsonNode totalBudget = terms.get("total_budget");
+        if (totalBudget == null || totalBudget.isNull()) {
+            violations.add("result[" + index
+                    + "] revised but commercial_terms.total_budget is missing"
+                    + " (budget constraint present)");
+            return;
+        }
+        JsonNode amountNode = totalBudget.get("amount");
+        JsonNode currencyNode = totalBudget.get("currency");
+        if (amountNode == null || currencyNode == null) return;
+
+        String currency = currencyNode.asText();
+        if (!budget.currency().equals(currency)) {
+            violations.add("result[" + index
+                    + "] budget currency mismatch: constraint=" + budget.currency()
+                    + " proposal=" + currency);
+            return;
+        }
+
+        BigDecimal amount = amountNode.decimalValue();
+        if (budget.min() != null && amount.compareTo(budget.min()) < 0) {
+            violations.add("result[" + index
+                    + "] budget " + amount + " below constraint min " + budget.min());
+        }
+        if (budget.max() != null && amount.compareTo(budget.max()) > 0) {
+            violations.add("result[" + index
+                    + "] budget " + amount + " above constraint max " + budget.max());
+        }
+    }
+
+    private static void verifyCpmCeiling(JsonNode terms, CpmConstraint cpm,
+                                         int index, List<String> violations) {
+        JsonNode purchases = terms.get("purchases");
+        if (purchases == null || !purchases.isArray()) return;
+
+        for (int p = 0; p < purchases.size(); p++) {
+            JsonNode pricing = purchases.get(p).get("pricing");
+            if (pricing == null) continue;
+
+            JsonNode model = pricing.get("pricing_model");
+            if (model == null) continue;
+            String modelStr = model.asText();
+            if (!"cpm".equals(modelStr) && !"vcpm".equals(modelStr)) continue;
+
+            JsonNode currencyNode = pricing.get("currency");
+            if (currencyNode != null && !cpm.currency().equals(currencyNode.asText())) continue;
+
+            JsonNode fixedPrice = pricing.get("fixed_price");
+            if (fixedPrice != null && fixedPrice.decimalValue().compareTo(cpm.max()) > 0) {
+                violations.add("result[" + index + "] purchase[" + p
+                        + "] CPM " + fixedPrice.decimalValue()
+                        + " exceeds constraint max " + cpm.max());
+            }
+        }
     }
 
     private static void checkProposalStatus(JsonNode proposal, String expected,

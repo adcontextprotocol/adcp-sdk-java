@@ -240,6 +240,121 @@ class ResponseVerifierTest {
         assertTrue(violations.get(0).contains("terms_digest"));
     }
 
+    @Test
+    void detects_budget_constraint_violation() throws Exception {
+        var budgetConstraint = new TotalBudgetConstraint(
+                new java.math.BigDecimal("5000"), new java.math.BigDecimal("10000"), "USD");
+        var constraints = new RefinementConstraints(budgetConstraint, null, null, null);
+
+        var request = RefineProposalsRequest.builder()
+                .idempotencyKey(key())
+                .addRefinement(ProposalRefinement.reviseWithConstraints("src-1", constraints))
+                .build();
+
+        ObjectNode proposal = draftProposal("new-1", "src-1");
+        ObjectNode totalBudget = mapper.createObjectNode();
+        totalBudget.put("amount", 15000);
+        totalBudget.put("currency", "USD");
+        ObjectNode terms = mapper.createObjectNode();
+        terms.set("total_budget", totalBudget);
+        proposal.set("commercial_terms", terms);
+
+        String json = """
+                {
+                    "status": "completed",
+                    "results": [{
+                        "source_proposal_id": "src-1",
+                        "outcome": "revised",
+                        "proposal": %s
+                    }],
+                    "products": []
+                }
+                """.formatted(proposal.toString());
+
+        var response = mapper.readValue(json, RefineProposalsResponse.class);
+        List<String> violations = ResponseVerifier.verify(request, response);
+
+        assertTrue(violations.stream().anyMatch(v -> v.contains("above constraint max")));
+    }
+
+    @Test
+    void budget_within_bounds_passes() throws Exception {
+        var budgetConstraint = new TotalBudgetConstraint(
+                new java.math.BigDecimal("5000"), new java.math.BigDecimal("10000"), "USD");
+        var constraints = new RefinementConstraints(budgetConstraint, null, null, null);
+
+        var request = RefineProposalsRequest.builder()
+                .idempotencyKey(key())
+                .addRefinement(ProposalRefinement.reviseWithConstraints("src-1", constraints))
+                .build();
+
+        ObjectNode proposal = draftProposal("new-1", "src-1");
+        ObjectNode totalBudget = mapper.createObjectNode();
+        totalBudget.put("amount", 7500);
+        totalBudget.put("currency", "USD");
+        ObjectNode terms = mapper.createObjectNode();
+        terms.set("total_budget", totalBudget);
+        proposal.set("commercial_terms", terms);
+
+        String json = """
+                {
+                    "status": "completed",
+                    "results": [{
+                        "source_proposal_id": "src-1",
+                        "outcome": "revised",
+                        "proposal": %s
+                    }],
+                    "products": []
+                }
+                """.formatted(proposal.toString());
+
+        var response = mapper.readValue(json, RefineProposalsResponse.class);
+        List<String> violations = new java.util.ArrayList<>();
+        ResponseVerifier.verifyConstraintSatisfaction(request, response, violations);
+
+        assertTrue(violations.isEmpty(), "Expected no constraint violations but got: " + violations);
+    }
+
+    @Test
+    void detects_cpm_ceiling_violation() throws Exception {
+        var cpmConstraint = new CpmConstraint(new java.math.BigDecimal("10.00"), "USD");
+        var constraints = new RefinementConstraints(null, cpmConstraint, null, null);
+
+        var request = RefineProposalsRequest.builder()
+                .idempotencyKey(key())
+                .addRefinement(ProposalRefinement.reviseWithConstraints("src-1", constraints))
+                .build();
+
+        ObjectNode proposal = draftProposal("new-1", "src-1");
+        ObjectNode pricing = mapper.createObjectNode();
+        pricing.put("pricing_model", "cpm");
+        pricing.put("fixed_price", 15.00);
+        pricing.put("currency", "USD");
+        ObjectNode purchase = mapper.createObjectNode();
+        purchase.set("pricing", pricing);
+        ObjectNode terms = mapper.createObjectNode();
+        terms.set("purchases", mapper.createArrayNode().add(purchase));
+        proposal.set("commercial_terms", terms);
+
+        String json = """
+                {
+                    "status": "completed",
+                    "results": [{
+                        "source_proposal_id": "src-1",
+                        "outcome": "revised",
+                        "proposal": %s
+                    }],
+                    "products": []
+                }
+                """.formatted(proposal.toString());
+
+        var response = mapper.readValue(json, RefineProposalsResponse.class);
+        List<String> violations = new java.util.ArrayList<>();
+        ResponseVerifier.verifyConstraintSatisfaction(request, response, violations);
+
+        assertTrue(violations.stream().anyMatch(v -> v.contains("CPM") && v.contains("exceeds")));
+    }
+
     // -- helpers --
 
     private ObjectNode draftProposal(String id, String parentId) {

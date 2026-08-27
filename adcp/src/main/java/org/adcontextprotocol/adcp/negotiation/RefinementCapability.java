@@ -15,12 +15,14 @@ import java.util.Set;
  *
  * @param supportedDimensions the refinement dimensions this seller supports
  * @param maxBatchSize        maximum entries per refinement request (default: 25)
+ * @param maxAlternatives     maximum alternatives.count the seller accepts (default: 10)
  * @param supportsFinalize    whether this seller supports the finalize action
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record RefinementCapability(
         @Nullable @JsonProperty("supported_dimensions") Set<String> supportedDimensions,
         @Nullable @JsonProperty("max_batch_size") Integer maxBatchSize,
+        @Nullable @JsonProperty("max_alternatives") Integer maxAlternatives,
         @Nullable @JsonProperty("supports_finalize") Boolean supportsFinalize) {
 
     /** Protocol default batch size when not declared by the seller. */
@@ -31,5 +33,9 @@ public record RefinementCapability(
 
     public int effectiveMaxBatchSize() {
         return maxBatchSize != null ? maxBatchSize : DEFAULT_MAX_BATCH_SIZE;
+    }
+
+    public int effectiveMaxAlternatives() {
+        return maxAlternatives != null ? maxAlternatives : ProposalRefinement.MAX_ALTERNATIVES;
     }
 }
