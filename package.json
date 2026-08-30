@@ -2,6 +2,16 @@
   "private": true,
   "name": "adcp-sdk-java-tools",
   "description": "Node-side tooling for the AdCP Java SDK repo — commitlint and Changesets. Not published; not the SDK.",
+  "workspaces": [
+    "adcp",
+    "adcp-server",
+    "adcp-testing",
+    "adcp-spring-boot-starter",
+    "adcp-cli",
+    "adcp-reactor",
+    "adcp-mutiny",
+    "adcp-kotlin"
+  ],
   "scripts": {
     "changeset": "changeset",
     "commitlint": "commitlint"

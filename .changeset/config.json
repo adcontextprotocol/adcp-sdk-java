@@ -7,5 +7,9 @@
   "access": "restricted",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["adcp-sdk-java-tools"]
+  "ignore": ["adcp-sdk-java-tools"],
+  "privatePackages": {
+    "version": true,
+    "tag": false
+  }
 }
