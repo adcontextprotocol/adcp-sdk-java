@@ -13,6 +13,7 @@ dependencies {
     api(libs.jackson.datatype.jsr310)
     api(libs.slf4j.api)
     api(libs.jspecify)
+    implementation(libs.jcs)
     implementation(libs.json.schema.validator)
     // MCP SDK client transport — needed for McpClient, StreamableHTTP, SSE fallback.
     // Same artifacts as adcp-server; here they provide the caller/client side.

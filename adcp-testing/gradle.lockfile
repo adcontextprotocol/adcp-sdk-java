@@ -17,6 +17,7 @@ com.google.protobuf:protobuf-java-util:4.33.2=compileClasspath,runtimeClasspath,
 com.google.protobuf:protobuf-java:4.33.2=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.networknt:json-schema-validator:1.5.6=runtimeClasspath
 com.networknt:json-schema-validator:2.0.0=testCompileClasspath,testRuntimeClasspath
+io.github.erdtman:java-json-canonicalization:1.1=runtimeClasspath,testRuntimeClasspath
 io.modelcontextprotocol.sdk:mcp-core:1.1.2=runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.modelcontextprotocol.sdk:mcp-json-jackson2:1.1.2=runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.projectreactor:reactor-core:3.7.0=runtimeClasspath,testCompileClasspath,testRuntimeClasspath

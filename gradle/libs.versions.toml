@@ -13,6 +13,7 @@ jackson = "2.20.1"
 slf4j = "2.0.17"
 jspecify = "1.0.0"
 gson = "2.14.0"
+jcs = "1.1"
 
 # Schema validation (RFC §Schema validation).
 json-schema-validator = "1.5.6"
@@ -50,6 +51,7 @@ jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-dat
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+jcs = { module = "io.github.erdtman:java-json-canonicalization", version.ref = "jcs" }
 
 # Validation
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }

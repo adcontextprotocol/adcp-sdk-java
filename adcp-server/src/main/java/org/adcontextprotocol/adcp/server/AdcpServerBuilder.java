@@ -6,15 +6,25 @@ import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpServerTransportProvider;
 import org.adcontextprotocol.adcp.AdcpVersion;
+import org.adcontextprotocol.adcp.error.ValidationError;
+import org.adcontextprotocol.adcp.negotiation.RefineProposalsRequest;
+import org.adcontextprotocol.adcp.negotiation.RefineProposalsResponse;
+import org.adcontextprotocol.adcp.negotiation.RefinementAction;
+import org.adcontextprotocol.adcp.negotiation.ResponseVerifier;
+import org.adcontextprotocol.adcp.negotiation.UnsupportedRefinementException;
 import org.adcontextprotocol.adcp.schema.AdcpObjectMapperFactory;
+import org.adcontextprotocol.adcp.server.negotiation.ProposalHandler;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Builds and wires an MCP server backed by an {@link AdcpPlatform}.
@@ -40,6 +50,7 @@ public final class AdcpServerBuilder {
     private @Nullable McpServerTransportProvider transport;
     private @Nullable ObjectMapper objectMapper;
     private @Nullable AdcpVersion adcpVersion;
+    private @Nullable ProposalHandler proposalHandler;
     private String serverName = "adcp-java-sdk";
     private String serverVersion = "0.1.0";
 
@@ -82,6 +93,12 @@ public final class AdcpServerBuilder {
         return this;
     }
 
+    /** Registers the typed {@code refine_proposals} seller callback. */
+    public AdcpServerBuilder proposalHandler(ProposalHandler proposalHandler) {
+        this.proposalHandler = Objects.requireNonNull(proposalHandler);
+        return this;
+    }
+
     /**
      * Builds and returns the MCP server. Call {@code initialize()} on the
      * result to start accepting connections.
@@ -96,8 +113,11 @@ public final class AdcpServerBuilder {
                 ? objectMapper
                 : AdcpObjectMapperFactory.create();
 
-        Set<String> tools = platform.supportedTools();
-        Map<String, String> descriptions = platform.toolDescriptions();
+        Set<String> tools = new HashSet<>(platform.supportedTools());
+        if (proposalHandler != null) tools.add("refine_proposals");
+        Map<String, String> descriptions = new LinkedHashMap<>(platform.toolDescriptions());
+        descriptions.putIfAbsent("refine_proposals",
+                "Revise proposal terms or atomically finalize draft proposals");
         Map<String, McpSchema.JsonSchema> schemas = platform.toolSchemas();
         log.info("Building AdCP server with {} tool(s): {}", tools.size(), tools);
 
@@ -147,12 +167,28 @@ public final class AdcpServerBuilder {
 
             AdcpContext ctx = new AdcpContext(version, Map.of(), null);
 
-            Object response = platform.handleTool(toolName, args, ctx);
+            Object response = "refine_proposals".equals(toolName) && proposalHandler != null
+                    ? handleProposalRefinement(om, args, ctx)
+                    : platform.handleTool(toolName, args, ctx);
 
             String json = om.writeValueAsString(response);
             return new McpSchema.CallToolResult(
                     List.of(new McpSchema.TextContent(json)),
                     false, null, Map.of());
+        } catch (UnsupportedRefinementException e) {
+            log.warn("Tool call failed ({}) [UNSUPPORTED_FEATURE]: {}", toolName, e.getMessage());
+            try {
+                String json = om.writeValueAsString(Map.of(
+                        "error", "UNSUPPORTED_FEATURE",
+                        "message", sanitizeErrorMessage(e.getMessage()),
+                        "details", e.details()));
+                return new McpSchema.CallToolResult(
+                        List.of(new McpSchema.TextContent(json)), true, null, Map.of());
+            } catch (Exception ignored) {
+                return new McpSchema.CallToolResult(
+                        List.of(new McpSchema.TextContent("{\"error\":\"UNSUPPORTED_FEATURE\"}")),
+                        true, null, Map.of());
+            }
         } catch (org.adcontextprotocol.adcp.error.AdcpError e) {
             // Known application errors — surface the stable code plus a
             // brief, sanitized message. The full message is logged server-side.
@@ -176,6 +212,63 @@ public final class AdcpServerBuilder {
             return new McpSchema.CallToolResult(
                     List.of(new McpSchema.TextContent("{\"error\":\"internal error\"}")),
                     true, null, Map.of());
+        }
+    }
+
+    private RefineProposalsResponse handleProposalRefinement(
+            ObjectMapper om, Map<String, Object> args, AdcpContext ctx) {
+        ProposalHandler handler = Objects.requireNonNull(proposalHandler);
+        RefineProposalsRequest request;
+        try {
+            request = om.convertValue(args, RefineProposalsRequest.class);
+            request.validateAgainst(handler.capability());
+        } catch (UnsupportedRefinementException e) {
+            throw e;
+        } catch (IllegalArgumentException e) {
+            throw new ValidationError(e.getMessage(), "refinements");
+        }
+
+        String preflightFailure = handler.preflight(
+                request.refinements(), request.idempotencyKey(), ctx);
+        if (preflightFailure != null) {
+            throw new ValidationError(preflightFailure, "refinements");
+        }
+
+        boolean finalize = request.refinements().stream()
+                .allMatch(r -> r.action() == RefinementAction.FINALIZE);
+        Supplier<RefineProposalsResponse> operation = () -> {
+            RefineProposalsResponse candidate = handler.refineResponse(
+                    request.refinements(), request.idempotencyKey(), ctx);
+            validateProposalResponse(request, candidate);
+            return candidate;
+        };
+        RefineProposalsResponse response = finalize
+                ? handler.finalizeAtomically(
+                        request.refinements(), request.idempotencyKey(), ctx, operation)
+                : operation.get();
+        // Exact-replay implementations may return cached results without invoking
+        // operation. Validate those too; newly-created results were already
+        // validated inside the transaction callback before commit.
+        validateProposalResponse(request, response);
+        String version = response.adcpVersion();
+        if (version == null && ctx.adcpVersion() != null) {
+            version = ctx.adcpVersion().minorVersion();
+        }
+        return new RefineProposalsResponse(
+                response.results(), response.products(), response.status(), response.taskId(),
+                response.message(), response.errors(), version,
+                response.context() != null ? response.context() : request.context(),
+                response.ext(), response.replayed());
+    }
+
+    private static void validateProposalResponse(
+            RefineProposalsRequest request,
+            RefineProposalsResponse response) {
+        List<String> violations = ResponseVerifier.verify(request, response);
+        if (!violations.isEmpty()) {
+            throw new ValidationError(
+                    "proposal handler returned an invalid response: " + String.join("; ", violations),
+                    "results");
         }
     }
 
