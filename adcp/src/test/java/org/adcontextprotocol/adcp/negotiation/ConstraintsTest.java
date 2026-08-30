@@ -46,7 +46,7 @@ class ConstraintsTest {
     @Test
     void impressions_constraint_requires_non_negative_min() {
         var ic = new ImpressionsConstraint(100_000);
-        assertEquals(100_000, ic.min());
+        assertEquals(new BigDecimal("100000"), ic.min());
     }
 
     @Test

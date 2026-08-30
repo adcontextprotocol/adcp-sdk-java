@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Sealed result for a single refinement entry in a response.
@@ -40,9 +41,13 @@ public sealed interface RefinementResult {
      */
     record Revised(
             @JsonProperty("source_proposal_id") String sourceProposalId,
-            @JsonProperty("proposal") JsonNode proposal,
+            @JsonProperty("proposals") List<JsonNode> proposals,
             @Nullable @JsonProperty("targeting_resolution") JsonNode targetingResolution
     ) implements RefinementResult {
+        public Revised {
+            proposals = List.copyOf(proposals);
+        }
+
         @Override
         public RefinementOutcome outcome() {
             return RefinementOutcome.REVISED;
@@ -59,12 +64,23 @@ public sealed interface RefinementResult {
      */
     record Partial(
             @JsonProperty("source_proposal_id") String sourceProposalId,
-            @JsonProperty("proposal") JsonNode proposal,
-            @JsonProperty("notes") String notes,
+            @JsonProperty("proposals") List<JsonNode> proposals,
+            @JsonProperty("reason_code") ProposalRefinementReason reasonCode,
+            @JsonProperty("reason") String reason,
             @Nullable @JsonProperty("unsatisfied_constraints") List<String> unsatisfiedConstraints,
+            @Nullable @JsonProperty("unsatisfied_product_changes") Map<String, String> unsatisfiedProductChanges,
             @Nullable @JsonProperty("suggestions") List<String> suggestions,
             @Nullable @JsonProperty("targeting_resolution") JsonNode targetingResolution
     ) implements RefinementResult {
+        public Partial {
+            proposals = List.copyOf(proposals);
+            unsatisfiedConstraints = unsatisfiedConstraints == null
+                    ? null : List.copyOf(unsatisfiedConstraints);
+            unsatisfiedProductChanges = unsatisfiedProductChanges == null
+                    ? null : Map.copyOf(unsatisfiedProductChanges);
+            suggestions = suggestions == null ? null : List.copyOf(suggestions);
+        }
+
         @Override
         public RefinementOutcome outcome() {
             return RefinementOutcome.PARTIAL;
@@ -94,10 +110,20 @@ public sealed interface RefinementResult {
      */
     record Unable(
             @JsonProperty("source_proposal_id") String sourceProposalId,
+            @JsonProperty("reason_code") ProposalRefinementReason reasonCode,
             @JsonProperty("reason") String reason,
-            @Nullable @JsonProperty("notes") String notes,
+            @Nullable @JsonProperty("unsatisfied_constraints") List<String> unsatisfiedConstraints,
+            @Nullable @JsonProperty("unsatisfied_product_changes") Map<String, String> unsatisfiedProductChanges,
             @Nullable @JsonProperty("suggestions") List<String> suggestions
     ) implements RefinementResult {
+        public Unable {
+            unsatisfiedConstraints = unsatisfiedConstraints == null
+                    ? null : List.copyOf(unsatisfiedConstraints);
+            unsatisfiedProductChanges = unsatisfiedProductChanges == null
+                    ? null : Map.copyOf(unsatisfiedProductChanges);
+            suggestions = suggestions == null ? null : List.copyOf(suggestions);
+        }
+
         @Override
         public RefinementOutcome outcome() {
             return RefinementOutcome.UNABLE;

@@ -1,7 +1,5 @@
 package org.adcontextprotocol.adcp.negotiation;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -126,48 +124,36 @@ class RefineProposalsRequestTest {
 
     @Test
     void rejects_alternatives_count_exceeding_protocol_max() {
-        var mapper = new ObjectMapper();
-        ObjectNode alt = mapper.createObjectNode().put("count", 11);
-
         assertThrows(IllegalArgumentException.class, () ->
                 ProposalRefinement.builder("p-1")
                         .action(RefinementAction.REVISE)
                         .ask("give me options")
-                        .alternatives(alt)
+                        .alternatives(11)
                         .build());
     }
 
     @Test
     void rejects_alternatives_count_below_minimum() {
-        var mapper = new ObjectMapper();
-        ObjectNode alt = mapper.createObjectNode().put("count", 1);
-
         assertThrows(IllegalArgumentException.class, () ->
                 ProposalRefinement.builder("p-1")
                         .action(RefinementAction.REVISE)
-                        .alternatives(alt)
+                        .alternatives(1)
                         .build());
     }
 
     @Test
     void accepts_valid_alternatives_count() {
-        var mapper = new ObjectMapper();
-        ObjectNode alt = mapper.createObjectNode().put("count", 5);
-
         var refinement = ProposalRefinement.builder("p-1")
                 .action(RefinementAction.REVISE)
                 .ask("five options")
-                .alternatives(alt)
+                .alternatives(5)
                 .build();
 
-        assertEquals(5, refinement.alternatives().get("count").asInt());
+        assertEquals(5, refinement.alternatives().count());
     }
 
     @Test
     void rejects_alternatives_exceeding_seller_ceiling() {
-        var mapper = new ObjectMapper();
-        ObjectNode alt = mapper.createObjectNode().put("count", 5);
-
         assertThrows(IllegalArgumentException.class, () ->
                 RefineProposalsRequest.builder()
                         .idempotencyKey(validKey())
@@ -175,7 +161,7 @@ class RefineProposalsRequestTest {
                         .addRefinement(ProposalRefinement.builder("p-1")
                                 .action(RefinementAction.REVISE)
                                 .ask("options")
-                                .alternatives(alt)
+                                .alternatives(5)
                                 .build())
                         .build());
     }
@@ -193,18 +179,15 @@ class RefineProposalsRequestTest {
 
     @Test
     void builder_creates_multi_field_refinement() {
-        var mapper = new ObjectMapper();
         var constraints = new RefinementConstraints(
                 new TotalBudgetConstraint(null, new BigDecimal("50000"), "EUR"),
                 new CpmConstraint(new BigDecimal("12.50"), "EUR"),
                 null, null);
-        ObjectNode alt = mapper.createObjectNode().put("count", 3);
-
         var refinement = ProposalRefinement.builder("p-1")
                 .action(RefinementAction.REVISE)
                 .ask("lower CPM with alternatives")
                 .constraints(constraints)
-                .alternatives(alt)
+                .alternatives(3)
                 .build();
 
         assertEquals("p-1", refinement.proposalId());
@@ -215,7 +198,7 @@ class RefineProposalsRequestTest {
 
     @Test
     void idempotency_replay_response() throws Exception {
-        var mapper = new ObjectMapper();
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         String json = """
                 {
                     "status": "completed",
@@ -223,7 +206,7 @@ class RefineProposalsRequestTest {
                     "results": [{
                         "source_proposal_id": "src-1",
                         "outcome": "revised",
-                        "proposal": {"proposal_id": "p-new", "parent_proposal_id": "src-1", "proposal_status": "draft"}
+                        "proposals": [{"proposal_id": "p-new", "parent_proposal_id": "src-1", "proposal_status": "draft"}]
                     }]
                 }
                 """;
@@ -231,5 +214,35 @@ class RefineProposalsRequestTest {
         var response = mapper.readValue(json, RefineProposalsResponse.class);
         assertTrue(response.isCompleted());
         assertEquals(Boolean.TRUE, response.replayed());
+    }
+
+    @Test
+    void rejects_seller_batch_ceiling_above_protocol_max() {
+        assertThrows(IllegalArgumentException.class, () ->
+                RefineProposalsRequest.builder().maxBatchSize(26));
+    }
+
+    @Test
+    void accepts_protocol_maximum_of_25() {
+        var builder = RefineProposalsRequest.builder().idempotencyKey(validKey());
+        for (int i = 0; i < 25; i++) {
+            builder.addRefinement(ProposalRefinement.revise("p-" + i, "change"));
+        }
+        assertEquals(25, builder.build().refinements().size());
+    }
+
+    @Test
+    void capability_rejects_undeclared_dimension_with_typed_details() {
+        var capability = new RefinementCapability(Set.of("total_budget"), null);
+        var exception = assertThrows(UnsupportedRefinementException.class, () ->
+                RefineProposalsRequest.builder()
+                        .idempotencyKey(validKey())
+                        .capability(capability)
+                        .addRefinement(ProposalRefinement.builder("p-1")
+                                .productChanges(java.util.Map.of("prod-1", "include"))
+                                .build())
+                        .build());
+        assertEquals("product_changes", exception.details().unsupportedDimension());
+        assertEquals(List.of("total_budget"), exception.details().supportedDimensions());
     }
 }

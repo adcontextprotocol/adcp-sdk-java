@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.jspecify.annotations.Nullable;
 
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -30,27 +31,37 @@ public record ProposalRefinement(
         @Nullable @JsonProperty("ask") String ask,
         @Nullable @JsonProperty("criteria") JsonNode criteria,
         @Nullable @JsonProperty("constraints") RefinementConstraints constraints,
-        @Nullable @JsonProperty("product_changes") JsonNode productChanges,
-        @Nullable @JsonProperty("alternatives") JsonNode alternatives) {
+        @Nullable @JsonProperty("product_changes") Map<String, String> productChanges,
+        @Nullable @JsonProperty("alternatives") AlternativesRequest alternatives) {
 
     /** Protocol maximum for alternatives.count. */
-    public static final int MAX_ALTERNATIVES = 10;
+    public static final int MAX_ALTERNATIVES = AlternativesRequest.PROTOCOL_MAX;
 
     public ProposalRefinement {
         Objects.requireNonNull(proposalId, "proposal_id is required");
         if (proposalId.isBlank()) {
             throw new IllegalArgumentException("proposal_id must not be blank");
         }
-        if (alternatives != null) {
-            JsonNode count = alternatives.get("count");
-            if (count == null || !count.isInt()) {
-                throw new IllegalArgumentException("alternatives.count must be an integer");
+        if (productChanges != null) {
+            productChanges = Map.copyOf(productChanges);
+            for (var entry : productChanges.entrySet()) {
+                if (entry.getKey().isBlank()
+                        || !("include".equals(entry.getValue()) || "omit".equals(entry.getValue()))) {
+                    throw new IllegalArgumentException(
+                            "product_changes must map non-blank product IDs to include or omit");
+                }
             }
-            int c = count.asInt();
-            if (c < 2 || c > MAX_ALTERNATIVES) {
-                throw new IllegalArgumentException(
-                        "alternatives.count must be 2-" + MAX_ALTERNATIVES + ", got " + c);
+        }
+        RefinementAction effectiveAction = action != null ? action : RefinementAction.REVISE;
+        if (effectiveAction == RefinementAction.FINALIZE) {
+            if (changeKind != null || ask != null || criteria != null || constraints != null
+                    || (productChanges != null && !productChanges.isEmpty()) || alternatives != null) {
+                throw new IllegalArgumentException("finalize cannot change proposal terms");
             }
+        } else if (changeKind != ChangeKind.CANCELLATION
+                && (ask == null || ask.isBlank()) && criteria == null && constraints == null
+                && (productChanges == null || productChanges.isEmpty()) && alternatives == null) {
+            throw new IllegalArgumentException("revise requires at least one requested change");
         }
     }
 
@@ -106,8 +117,8 @@ public record ProposalRefinement(
         private @Nullable String ask;
         private @Nullable JsonNode criteria;
         private @Nullable RefinementConstraints constraints;
-        private @Nullable JsonNode productChanges;
-        private @Nullable JsonNode alternatives;
+        private @Nullable Map<String, String> productChanges;
+        private @Nullable AlternativesRequest alternatives;
 
         private Builder(String proposalId) {
             this.proposalId = Objects.requireNonNull(proposalId);
@@ -138,14 +149,18 @@ public record ProposalRefinement(
             return this;
         }
 
-        public Builder productChanges(JsonNode productChanges) {
+        public Builder productChanges(Map<String, String> productChanges) {
             this.productChanges = productChanges;
             return this;
         }
 
-        public Builder alternatives(JsonNode alternatives) {
+        public Builder alternatives(AlternativesRequest alternatives) {
             this.alternatives = alternatives;
             return this;
+        }
+
+        public Builder alternatives(int count) {
+            return alternatives(new AlternativesRequest(count));
         }
 
         public ProposalRefinement build() {

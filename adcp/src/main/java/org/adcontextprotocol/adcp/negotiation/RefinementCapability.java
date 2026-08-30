@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.jspecify.annotations.Nullable;
 
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -14,25 +15,27 @@ import java.util.Set;
  * (renamed from draft-era {@code product_selection}).
  *
  * @param supportedDimensions the refinement dimensions this seller supports
- * @param maxBatchSize        maximum entries per refinement request (default: 25)
  * @param maxAlternatives     maximum alternatives.count the seller accepts (default: 10)
- * @param supportsFinalize    whether this seller supports the finalize action
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record RefinementCapability(
-        @Nullable @JsonProperty("supported_dimensions") Set<String> supportedDimensions,
-        @Nullable @JsonProperty("max_batch_size") Integer maxBatchSize,
-        @Nullable @JsonProperty("max_alternatives") Integer maxAlternatives,
-        @Nullable @JsonProperty("supports_finalize") Boolean supportsFinalize) {
-
-    /** Protocol default batch size when not declared by the seller. */
-    public static final int DEFAULT_MAX_BATCH_SIZE = 25;
+        @JsonProperty("supported_dimensions") Set<String> supportedDimensions,
+        @Nullable @JsonProperty("max_alternatives") Integer maxAlternatives) {
 
     /** The capability dimension key used in the agent manifest. */
     public static final String DIMENSION_KEY = "product_changes";
 
-    public int effectiveMaxBatchSize() {
-        return maxBatchSize != null ? maxBatchSize : DEFAULT_MAX_BATCH_SIZE;
+    public RefinementCapability {
+        supportedDimensions = Set.copyOf(Objects.requireNonNull(
+                supportedDimensions, "supported_dimensions is required"));
+        if (maxAlternatives != null
+                && (maxAlternatives < 2 || maxAlternatives > AlternativesRequest.PROTOCOL_MAX)) {
+            throw new IllegalArgumentException("max_alternatives must be 2-10");
+        }
+        if (maxAlternatives != null && !supportedDimensions.contains("alternatives")) {
+            throw new IllegalArgumentException(
+                    "max_alternatives requires alternatives in supported_dimensions");
+        }
     }
 
     public int effectiveMaxAlternatives() {

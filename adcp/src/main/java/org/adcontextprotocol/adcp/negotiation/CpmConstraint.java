@@ -16,9 +16,11 @@ public record CpmConstraint(
         @JsonProperty("currency") String currency) {
 
     public CpmConstraint {
-        if (max == null) throw new IllegalArgumentException("cpm max is required");
-        if (currency == null || currency.isBlank()) {
-            throw new IllegalArgumentException("cpm currency is required");
+        if (max == null || max.signum() <= 0) {
+            throw new IllegalArgumentException("cpm max must be positive");
+        }
+        if (currency == null || !currency.matches("^[A-Z]{3}$")) {
+            throw new IllegalArgumentException("cpm currency must be a 3-letter ISO 4217 code");
         }
     }
 }

@@ -27,6 +27,9 @@ public record TotalBudgetConstraint(
         if (min == null && max == null) {
             throw new IllegalArgumentException("budget must specify at least one bound");
         }
+        if ((min != null && min.signum() < 0) || (max != null && max.signum() < 0)) {
+            throw new IllegalArgumentException("budget bounds must be non-negative");
+        }
         if (min != null && max != null && min.compareTo(max) > 0) {
             throw new IllegalArgumentException("budget min must not exceed max");
         }

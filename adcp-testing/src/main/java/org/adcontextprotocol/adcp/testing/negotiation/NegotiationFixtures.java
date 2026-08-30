@@ -9,6 +9,8 @@ import org.adcontextprotocol.adcp.negotiation.ImpressionsConstraint;
 import org.adcontextprotocol.adcp.negotiation.ProposalRefinement;
 import org.adcontextprotocol.adcp.negotiation.RefineProposalsRequest;
 import org.adcontextprotocol.adcp.negotiation.TermsDigest;
+import org.adcontextprotocol.adcp.negotiation.RefinementConstraints;
+import org.adcontextprotocol.adcp.negotiation.TotalBudgetConstraint;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -43,14 +45,22 @@ public final class NegotiationFixtures {
         proposal.put("name", "Test Plan " + proposalId);
 
         ObjectNode terms = MAPPER.createObjectNode();
-        terms.put("total_budget", 50000);
-        terms.put("currency", "USD");
+        terms.set("total_budget", MAPPER.createObjectNode()
+                .put("amount", 50000).put("currency", "USD"));
+        terms.put("start_time", "2026-10-01T00:00:00Z");
+        terms.put("end_time", "2026-12-31T23:59:59Z");
+        ObjectNode pricing = MAPPER.createObjectNode()
+                .put("pricing_model", "cpm")
+                .put("fixed_price", 10)
+                .put("currency", "USD");
+        ObjectNode purchase = MAPPER.createObjectNode()
+                .put("product_id", "prod-1")
+                .put("impressions", 100_000);
+        purchase.set("pricing", pricing);
+        terms.putArray("purchases").add(purchase);
         proposal.set("commercial_terms", terms);
         proposal.put("terms_digest", TermsDigest.compute(terms));
 
-        proposal.putArray("allocations").addObject()
-                .put("product_id", "prod-1")
-                .put("allocation_percentage", 100);
         return proposal;
     }
 
@@ -82,6 +92,22 @@ public final class NegotiationFixtures {
         return builder.build();
     }
 
+    /** A request exactly at the protocol batch ceiling of 25. */
+    public static RefineProposalsRequest maximumBatchRequest() {
+        var builder = RefineProposalsRequest.builder()
+                .idempotencyKey(randomIdempotencyKey());
+        for (int i = 0; i < RefineProposalsRequest.PROTOCOL_MAX_REFINEMENTS; i++) {
+            builder.addRefinement(ProposalRefinement.revise(
+                    "source-" + i, "deterministic fixture revision"));
+        }
+        return builder.build();
+    }
+
+    /** A revision exactly at the protocol alternatives ceiling of 10. */
+    public static ProposalRefinement maximumAlternativesRefinement(String proposalId) {
+        return ProposalRefinement.builder(proposalId).alternatives(10).build();
+    }
+
     // -- Constraints --
 
     public static CpmConstraint standardCpmCeiling() {
@@ -98,6 +124,14 @@ public final class NegotiationFixtures {
                 OffsetDateTime.of(2026, 12, 31, 23, 59, 59, 0, ZoneOffset.UTC));
     }
 
+    /** Composite fixture exercising every typed hard constraint. */
+    public static RefinementConstraints allHardConstraints() {
+        return new RefinementConstraints(
+                new TotalBudgetConstraint(new BigDecimal("1000"),
+                        new BigDecimal("50000"), "USD"),
+                standardCpmCeiling(), minimumImpressions(), q4Flight());
+    }
+
     // -- Response fragments --
 
     /**
@@ -111,7 +145,7 @@ public final class NegotiationFixtures {
         ObjectNode result = MAPPER.createObjectNode();
         result.put("source_proposal_id", sourceProposalId);
         result.put("outcome", "revised");
-        result.set("proposal", proposal);
+        result.putArray("proposals").add(proposal);
 
         ObjectNode response = MAPPER.createObjectNode();
         response.put("status", "completed");
@@ -121,14 +155,50 @@ public final class NegotiationFixtures {
         return response.toString();
     }
 
+    /** Builds a partial response; pass any protocol reason code. */
+    public static String partialResponseJson(String sourceProposalId,
+                                             String newProposalId,
+                                             String reasonCode) {
+        ObjectNode result = MAPPER.createObjectNode();
+        result.put("source_proposal_id", sourceProposalId);
+        result.put("outcome", "partial");
+        result.putArray("proposals").add(draftProposal(newProposalId, sourceProposalId));
+        result.put("reason_code", reasonCode);
+        result.put("reason", "Deterministic fixture counteroffer");
+        if ("constraint_unsatisfiable".equals(reasonCode)) {
+            result.putArray("unsatisfied_constraints").add("total_budget");
+        }
+        ObjectNode response = MAPPER.createObjectNode().put("status", "completed");
+        response.putArray("results").add(result);
+        response.putArray("products");
+        return response.toString();
+    }
+
+    /** Builds a committed finalized response with a future hold. */
+    public static String finalizedResponseJson(String sourceProposalId,
+                                               String newProposalId) {
+        ObjectNode result = MAPPER.createObjectNode();
+        result.put("source_proposal_id", sourceProposalId);
+        result.put("outcome", "finalized");
+        result.set("proposal", committedProposal(newProposalId, sourceProposalId));
+        ObjectNode response = MAPPER.createObjectNode().put("status", "completed");
+        response.putArray("results").add(result);
+        response.putArray("products");
+        return response.toString();
+    }
+
     /**
      * Builds a JSON string for an "unable" result with a given reason.
      */
-    public static String unableResponseJson(String sourceProposalId, String reason) {
+    public static String unableResponseJson(String sourceProposalId, String reasonCode) {
         ObjectNode result = MAPPER.createObjectNode();
         result.put("source_proposal_id", sourceProposalId);
         result.put("outcome", "unable");
-        result.put("reason", reason);
+        result.put("reason_code", reasonCode);
+        result.put("reason", "Deterministic fixture outcome");
+        if ("constraint_unsatisfiable".equals(reasonCode)) {
+            result.putArray("unsatisfied_constraints").add("total_budget");
+        }
 
         ObjectNode response = MAPPER.createObjectNode();
         response.put("status", "completed");

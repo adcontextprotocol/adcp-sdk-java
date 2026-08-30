@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.adcontextprotocol.adcp.negotiation.TermsDigest;
 
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -32,9 +34,9 @@ public final class ProposalSuccessor {
         Objects.requireNonNull(draft, "draft is required");
         Objects.requireNonNull(sourceProposalId, "sourceProposalId is required");
 
-        if (!draft.has("proposal_id") || draft.get("proposal_id").isNull()) {
-            draft.put("proposal_id", UUID.randomUUID().toString());
-        }
+        // A successor is immutable protocol state. Never preserve an ID supplied
+        // by an application draft, since it may be the source proposal's ID.
+        draft.put("proposal_id", UUID.randomUUID().toString());
         draft.put("parent_proposal_id", sourceProposalId);
 
         if (!draft.has("proposal_status")) {
@@ -42,9 +44,10 @@ public final class ProposalSuccessor {
         }
 
         JsonNode terms = draft.get("commercial_terms");
-        if (terms != null && !terms.isNull()) {
-            draft.put("terms_digest", TermsDigest.compute(terms));
+        if (terms == null || !terms.isObject()) {
+            throw new IllegalArgumentException("commercial_terms object is required");
         }
+        draft.put("terms_digest", TermsDigest.compute(terms));
 
         return draft;
     }
@@ -56,6 +59,11 @@ public final class ProposalSuccessor {
     public static ObjectNode stampFinalized(ObjectNode draft, String sourceProposalId,
                                             String expiresAt) {
         Objects.requireNonNull(expiresAt, "expiresAt is required for finalized proposals");
+        try {
+            OffsetDateTime.parse(expiresAt);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("expiresAt must be an RFC 3339 timestamp", e);
+        }
         stamp(draft, sourceProposalId);
         draft.put("proposal_status", "committed");
         draft.put("expires_at", expiresAt);

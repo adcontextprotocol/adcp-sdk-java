@@ -26,13 +26,15 @@ class ProposalSuccessorTest {
     }
 
     @Test
-    void stamp_preserves_existing_proposal_id() {
+    void stamp_always_assigns_fresh_proposal_id() {
         ObjectNode draft = mapper.createObjectNode();
         draft.put("proposal_id", "keep-this");
+        draft.set("commercial_terms", mapper.createObjectNode().put("price", 1));
 
         ProposalSuccessor.stamp(draft, "parent-1");
 
-        assertEquals("keep-this", draft.get("proposal_id").asText());
+        assertNotEquals("keep-this", draft.get("proposal_id").asText());
+        assertNotEquals("parent-1", draft.get("proposal_id").asText());
     }
 
     @Test
@@ -53,5 +55,19 @@ class ProposalSuccessorTest {
         ObjectNode draft = mapper.createObjectNode();
         assertThrows(NullPointerException.class,
                 () -> ProposalSuccessor.stamp(draft, null));
+    }
+
+    @Test
+    void rejects_missing_commercial_terms() {
+        assertThrows(IllegalArgumentException.class,
+                () -> ProposalSuccessor.stamp(mapper.createObjectNode(), "parent-1"));
+    }
+
+    @Test
+    void rejects_invalid_finalized_expiry() {
+        ObjectNode draft = mapper.createObjectNode();
+        draft.set("commercial_terms", mapper.createObjectNode().put("price", 1));
+        assertThrows(IllegalArgumentException.class,
+                () -> ProposalSuccessor.stampFinalized(draft, "parent-1", "tomorrow"));
     }
 }

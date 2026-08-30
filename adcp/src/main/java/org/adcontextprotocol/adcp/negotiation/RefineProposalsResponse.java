@@ -18,6 +18,9 @@ import java.util.List;
  * @param taskId   non-null when status is "submitted"
  * @param message  optional human-readable status message
  * @param errors   optional error array from the response
+ * @param adcpVersion release-precision wire version
+ * @param context opaque correlation context echoed by the seller
+ * @param ext registered extension data
  * @param replayed true when this is a replayed idempotent response
  */
 public record RefineProposalsResponse(
@@ -28,7 +31,15 @@ public record RefineProposalsResponse(
         @Nullable @JsonProperty("message") String message,
         @Nullable @JsonProperty("errors") List<JsonNode> errors,
         @Nullable @JsonProperty("adcp_version") String adcpVersion,
+        @Nullable @JsonProperty("context") JsonNode context,
+        @Nullable @JsonProperty("ext") JsonNode ext,
         @Nullable @JsonProperty("replayed") Boolean replayed) {
+
+    public RefineProposalsResponse {
+        results = results == null ? null : List.copyOf(results);
+        products = products == null ? null : List.copyOf(products);
+        errors = errors == null ? null : List.copyOf(errors);
+    }
 
     /**
      * Whether this is a synchronous completed response.
@@ -41,6 +52,6 @@ public record RefineProposalsResponse(
      * Whether this response was deferred for async processing.
      */
     public boolean isAsync() {
-        return taskId != null;
+        return "submitted".equals(status);
     }
 }

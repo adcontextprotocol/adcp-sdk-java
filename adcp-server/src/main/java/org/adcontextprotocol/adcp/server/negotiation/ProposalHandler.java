@@ -3,10 +3,12 @@ package org.adcontextprotocol.adcp.server.negotiation;
 import org.adcontextprotocol.adcp.negotiation.ProposalRefinement;
 import org.adcontextprotocol.adcp.negotiation.RefinementCapability;
 import org.adcontextprotocol.adcp.negotiation.RefinementResult;
+import org.adcontextprotocol.adcp.negotiation.RefineProposalsResponse;
 import org.adcontextprotocol.adcp.server.AdcpContext;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Server-side handler for proposal refinement operations.
@@ -23,8 +25,7 @@ import java.util.List;
  *     @Override
  *     public RefinementCapability capability() {
  *         return new RefinementCapability(
- *             Set.of("product_changes", "total_budget"),
- *             10, true);
+ *             Set.of("product_changes", "total_budget"), 10);
  *     }
  *
  *     @Override
@@ -77,6 +78,37 @@ public interface ProposalHandler {
      */
     List<RefinementResult> refine(List<ProposalRefinement> refinements,
                                   String idempotencyKey, AdcpContext ctx);
+
+    /**
+     * Full-response hook for sellers that need to return canonical products,
+     * asynchronous submission, context, or exact-replay metadata. The default
+     * wraps {@link #refine} as a synchronous completed response.
+     */
+    default RefineProposalsResponse refineResponse(
+            List<ProposalRefinement> refinements,
+            String idempotencyKey, AdcpContext ctx) {
+        return new RefineProposalsResponse(
+                refine(refinements, idempotencyKey, ctx), List.of(), "completed",
+                null, null, null, null, null, null, null);
+    }
+
+    /**
+     * Applies a homogeneous finalize batch in one transaction.
+     *
+     * <p>The implementation must invoke {@code operation} inside its transaction
+     * and commit only after it returns; the operation includes SDK response
+     * validation. It must create every requested hold or create none and
+     * implement exact idempotent replay for {@code idempotencyKey}.
+     * The default fails closed so a seller cannot accidentally provide partial
+     * finalization by routing finalize through {@link #refine}.
+     */
+    default RefineProposalsResponse finalizeAtomically(
+            List<ProposalRefinement> refinements,
+            String idempotencyKey, AdcpContext ctx,
+            Supplier<RefineProposalsResponse> operation) {
+        throw new UnsupportedOperationException(
+                "finalizeAtomically must be implemented before advertising finalization");
+    }
 
     /**
      * Optional hook called before the batch is dispatched to
