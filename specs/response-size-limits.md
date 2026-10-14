@@ -111,6 +111,10 @@ about bounding a *single call*, and a listening stream is not a call. Every path
 MCP StreamableHTTP POST, A2A `message/send`, A2A streaming POST — is capped cumulatively at
 `maxResponseBytes` as well as per event.
 
+A response that declares a `Content-Length` is held to the per-call cap regardless of its
+content type: a body of known, finite size is a payload, not a listening stream, so it gets no
+share of the larger ceiling.
+
 The multiplier is finite on purpose. Which branch a response takes is decided partly by the
 *peer's* `Content-Type`, so "no cumulative cap at all" would be a decision an attacker gets to make:
 answer any `GET` with `text/event-stream` and a forever-stream of 1 KB events, and the stream never

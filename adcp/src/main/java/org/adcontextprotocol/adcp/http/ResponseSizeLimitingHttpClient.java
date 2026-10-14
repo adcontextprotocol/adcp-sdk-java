@@ -290,15 +290,18 @@ public final class ResponseSizeLimitingHttpClient extends HttpClient {
             HttpRequest request, HttpResponse.BodyHandler<T> delegateHandler) {
         Objects.requireNonNull(delegateHandler, "responseBodyHandler");
         // A GET that comes back as SSE is a long-lived listening stream, not the
-        // response to a single call: cap each event but not the running total.
+        // response to a single call, so its running total gets a larger ceiling.
         boolean listeningStream = "GET".equalsIgnoreCase(request.method());
         URI uri = request.uri();
         long cap = maxResponseBytes;
         return responseInfo -> {
+            // A declared Content-Length is held to the per-call cap even on a
+            // GET event stream: a body of known, finite size is a payload, not a
+            // listening stream, so it gets no share of the larger ceiling.
             long declared = declaredContentLength(responseInfo);
             if (declared > cap) {
                 log.debug("Rejecting response from {}: Content-Length {} exceeds cap {}",
-                        uri, declared, cap);
+                        redact(uri), declared, cap);
                 return new FailedBodySubscriber<>(
                         new ResponseTooLargeError(cap, declared, uri));
             }
@@ -319,6 +322,11 @@ public final class ResponseSizeLimitingHttpClient extends HttpClient {
         return (initiatingRequest, pushPromiseRequest, acceptor) ->
                 delegateHandler.applyPushPromise(initiatingRequest, pushPromiseRequest,
                         handler -> acceptor.apply(limiting(pushPromiseRequest, handler)));
+    }
+
+    /** Keeps credentials in a URI out of log lines. */
+    private static Object redact(@Nullable URI uri) {
+        return uri == null ? "(unknown)" : AdcpHttpClient.redact(uri);
     }
 
     private static long saturatingMultiply(long value, int factor) {
@@ -538,7 +546,7 @@ public final class ResponseSizeLimitingHttpClient extends HttpClient {
                 return;
             }
             ResponseTooLargeError error = new ResponseTooLargeError(limit, bytesRead, uri);
-            log.debug("Aborting response from {}: {}", uri, error.getMessage());
+            log.debug("Aborting response from {}: {}", redact(uri), error.getMessage());
             // Complete our own future first so the delegate's terminal signal
             // cannot overwrite the typed error.
             body.completeExceptionally(error);
