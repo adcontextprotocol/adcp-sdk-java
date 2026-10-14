@@ -12,6 +12,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -64,6 +65,37 @@ class AdcpHttpClientBodyCapTest {
             exchange.sendResponseHeaders(200, body.length);
             try (OutputStream os = exchange.getResponseBody()) {
                 os.write(body);
+            }
+        });
+
+        // Sends headers, then one byte per `delayMs`, forever.
+        server.createContext("/drip", exchange -> {
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, 0);
+            try (OutputStream os = exchange.getResponseBody()) {
+                while (true) {
+                    os.write('x');
+                    os.flush();
+                    Thread.sleep(50);
+                }
+            } catch (IOException | InterruptedException expectedWhenClientGivesUp) {
+                // the client hit its read deadline
+            }
+        });
+
+        // Sends headers and then nothing at all.
+        server.createContext("/stall", exchange -> {
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, 0);
+            try {
+                Thread.sleep(30_000);
+            } catch (InterruptedException expected) {
+                Thread.currentThread().interrupt();
+            }
+            try {
+                exchange.getResponseBody().close();
+            } catch (IOException ignored) {
+                // client already gone
             }
         });
 
@@ -167,6 +199,68 @@ class AdcpHttpClientBodyCapTest {
             assertEquals("identity",
                     client.getForAgentCard(uri, Map.of("Accept-Encoding", "gzip"))
                             .bodyAsString());
+        }
+    }
+
+    @Test
+    void a_dripping_peer_cannot_hold_the_calling_thread_past_the_read_timeout() {
+        // HttpRequest.timeout() only covers the status line and headers. Without
+        // a body deadline, a peer that sends headers and then drips one byte at
+        // a time pins this thread and its socket for as long as it takes to
+        // reach the cap — at 4 MiB, weeks.
+        try (AdcpHttpClient client = AdcpHttpClient.builder()
+                .ssrfPolicy(SsrfPolicy.permissive())
+                .readTimeout(Duration.ofMillis(600))
+                .build()) {
+            URI uri = URI.create(base + "/drip");
+            long start = System.nanoTime();
+
+            assertThrows(IOException.class, () -> client.getForAgentCard(uri, Map.of()));
+
+            assertTrue(Duration.ofNanos(System.nanoTime() - start).toSeconds() < 20,
+                    "the read must give up at the deadline, not run to the 4 MiB cap");
+        }
+    }
+
+    @Test
+    void a_stalled_peer_cannot_hold_the_calling_thread_either() {
+        // Nothing arrives at all, so an in-loop deadline check never runs — the
+        // watchdog has to close the stream out from under the blocked read.
+        try (AdcpHttpClient client = AdcpHttpClient.builder()
+                .ssrfPolicy(SsrfPolicy.permissive())
+                .readTimeout(Duration.ofMillis(600))
+                .build()) {
+            URI uri = URI.create(base + "/stall");
+            long start = System.nanoTime();
+
+            assertThrows(IOException.class, () -> client.getForAgentCard(uri, Map.of()));
+
+            assertTrue(Duration.ofNanos(System.nanoTime() - start).toSeconds() < 20,
+                    "a stalled body read must not block forever");
+        }
+    }
+
+    @Test
+    void agent_card_cap_can_be_overridden_per_fetch() throws Exception {
+        // An agent configured for a bigger cap must get it on discovery too,
+        // not just on the call — otherwise its connection dies on the card.
+        try (AdcpHttpClient client = client()) {
+            URI uri = URI.create(base + "/declared?bytes=" + (32 * 1024));
+
+            assertThrows(ResponseTooLargeError.class,
+                    () -> client.getForAgentCard(uri, Map.of()));
+
+            AdcpHttpResponse response = client.getForAgentCard(uri, Map.of(), 64 * 1024);
+            assertEquals(32 * 1024, response.body().length);
+        }
+    }
+
+    @Test
+    void agent_card_fetch_rejects_a_non_positive_cap() {
+        try (AdcpHttpClient client = client()) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> client.getForAgentCard(URI.create(base + "/chunked?bytes=1"),
+                            Map.of(), 0));
         }
     }
 

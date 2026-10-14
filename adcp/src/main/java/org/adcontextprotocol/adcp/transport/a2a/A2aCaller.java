@@ -18,6 +18,7 @@ import org.a2aproject.sdk.spec.TaskState;
 import org.a2aproject.sdk.spec.TextPart;
 import org.adcontextprotocol.adcp.error.ProtocolError;
 import org.adcontextprotocol.adcp.error.ResponseTooLargeError;
+import org.adcontextprotocol.adcp.http.AdcpHttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,17 +61,33 @@ public final class A2aCaller {
         this.objectMapper.deactivateDefaultTyping();
     }
 
+    /**
+     * Calls an AdCP tool over A2A with no extra headers.
+     *
+     * <p>Uses the SDK's default 4 MiB cap as its content backstop, not the cap
+     * configured on the calling client — the transport's own cap is the
+     * authoritative one. Prefer
+     * {@link #callTool(Client, String, Map, Class, Map, long)}.
+     */
     public <T> T callTool(Client client, String toolName,
                           Map<String, Object> args, Class<T> responseType) {
         return callTool(client, toolName, args, responseType, Map.of(),
-                org.adcontextprotocol.adcp.http.AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES);
+                AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES);
     }
 
+    /**
+     * Calls an AdCP tool over A2A with extra headers.
+     *
+     * <p>Uses the SDK's default 4 MiB cap as its content backstop, not the cap
+     * configured on the calling client — the transport's own cap is the
+     * authoritative one. Prefer
+     * {@link #callTool(Client, String, Map, Class, Map, long)}.
+     */
     public <T> T callTool(Client client, String toolName,
                           Map<String, Object> args, Class<T> responseType,
                           Map<String, String> headers) {
         return callTool(client, toolName, args, responseType, headers,
-                org.adcontextprotocol.adcp.http.AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES);
+                AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES);
     }
 
     /**
@@ -100,7 +117,7 @@ public final class A2aCaller {
                    Map<String, Object> args, Class<T> responseType,
                    Map<String, String> headers) {
         return callTool(client, toolName, args, responseType, headers,
-                org.adcontextprotocol.adcp.http.AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES);
+                AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES);
     }
 
     <T> T callTool(A2aMessageClient client, String toolName,
@@ -260,10 +277,13 @@ public final class A2aCaller {
                     continue;
                 }
                 // UTF-8 is never fewer bytes than chars, so a char count over
-                // the cap is already over the cap — reject without measuring.
-                if (text.length() > maxResponseBytes
-                        || text.getBytes(StandardCharsets.UTF_8).length > maxResponseBytes) {
+                // the cap is already over the cap: reject without encoding.
+                if (text.length() > maxResponseBytes) {
                     throw new ResponseTooLargeError(maxResponseBytes, text.length(), null);
+                }
+                int textBytes = text.getBytes(StandardCharsets.UTF_8).length;
+                if (textBytes > maxResponseBytes) {
+                    throw new ResponseTooLargeError(maxResponseBytes, textBytes, null);
                 }
                 try {
                     return objectMapper.readValue(text, responseType);

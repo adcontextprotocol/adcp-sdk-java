@@ -6,6 +6,7 @@ import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.adcontextprotocol.adcp.error.ProtocolError;
 import org.adcontextprotocol.adcp.error.ResponseTooLargeError;
+import org.adcontextprotocol.adcp.http.AdcpHttpClient;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +30,6 @@ public final class McpCaller {
 
     private static final Logger log = LoggerFactory.getLogger(McpCaller.class);
 
-
     private final ObjectMapper objectMapper;
 
     public McpCaller(ObjectMapper objectMapper) {
@@ -47,6 +47,11 @@ public final class McpCaller {
      * @param client       the connected MCP client
      * @param toolName     the MCP tool name (e.g. "get_products")
      * @param args         the merged arguments (including version envelope)
+     * <p>Uses the SDK's default 4 MiB cap as its content backstop, not the cap
+     * configured on the calling client — the transport's own cap is the
+     * authoritative one. Prefer
+     * {@link #callTool(McpSyncClient, String, Map, Class, long)}.
+     *
      * @param responseType the expected response type
      * @param <T>          response type
      * @return the deserialized response
@@ -55,7 +60,7 @@ public final class McpCaller {
     public <T> T callTool(McpSyncClient client, String toolName,
                           Map<String, Object> args, Class<T> responseType) {
         return callTool(client, toolName, args, responseType,
-                org.adcontextprotocol.adcp.http.AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES);
+                AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES);
     }
 
     /**
@@ -83,8 +88,11 @@ public final class McpCaller {
             if (tooLarge != null) {
                 throw tooLarge;
             }
+            // The MCP SDK's exception messages carry server-supplied text;
+            // strip control characters before it reaches a log or an LLM.
             throw new ProtocolError("mcp",
-                    "MCP callTool failed for " + toolName + ": " + e.getMessage(), e);
+                    "MCP callTool failed for " + toolName + ": "
+                            + sanitizeErrorText(e.getMessage()), e);
         }
     }
 

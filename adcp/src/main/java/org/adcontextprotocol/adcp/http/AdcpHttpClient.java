@@ -13,9 +13,13 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * SSRF-safe HTTP client for AdCP outbound requests.
@@ -243,7 +247,27 @@ public final class AdcpHttpClient implements AutoCloseable {
      */
     public AdcpHttpResponse getForAgentCard(URI uri, Map<String, String> headers)
             throws IOException, InterruptedException {
+        return getForAgentCard(uri, headers, maxCallResponseBytes);
+    }
+
+    /**
+     * Fetches an agent card with an explicit response cap, so a per-agent or
+     * per-call override applies to discovery as well as to the call itself.
+     *
+     * @param uri              target URI (SSRF-validated)
+     * @param headers          headers to forward, including any auth material
+     * @param maxResponseBytes response cap in bytes; must be positive
+     * @throws org.adcontextprotocol.adcp.error.ResponseTooLargeError if the card
+     *         exceeds {@code maxResponseBytes}
+     */
+    public AdcpHttpResponse getForAgentCard(URI uri, Map<String, String> headers,
+                                            long maxResponseBytes)
+            throws IOException, InterruptedException {
         Objects.requireNonNull(uri, "uri");
+        if (maxResponseBytes <= 0) {
+            throw new IllegalArgumentException(
+                    "maxResponseBytes must be positive: " + maxResponseBytes);
+        }
 
         if (requireHttps && "http".equalsIgnoreCase(uri.getScheme())) {
             String host = uri.getHost();
@@ -280,7 +304,7 @@ public final class AdcpHttpClient implements AutoCloseable {
                 HttpResponse.BodyHandlers.ofInputStream());
 
         try {
-            return readBodyWithCap(response, maxCallResponseBytes, true, validatedUri);
+            return readBodyWithCap(response, maxResponseBytes, true, validatedUri);
         } catch (Throwable t) {
             try {
                 response.body().close();
@@ -352,7 +376,11 @@ public final class AdcpHttpClient implements AutoCloseable {
      * {@link ResponseSizeLimitingHttpClient}: every response it reads is
      * counted as it streams and aborted with
      * {@link org.adcontextprotocol.adcp.error.ResponseTooLargeError} once the
-     * cap is crossed.
+     * cap is crossed. One shape is treated specially — a {@code GET} answered
+     * with {@code text/event-stream} is a long-lived listening stream and gets
+     * a larger cumulative budget with the same per-event cap. See
+     * {@link ResponseSizeLimitingHttpClient} for why, and for what that means
+     * if you hand this builder to a transport of your own.
      *
      * @param maxResponseBytes response cap in bytes; must be positive
      */
@@ -443,6 +471,13 @@ public final class AdcpHttpClient implements AutoCloseable {
      * {@link ResponseTooLargeError}; otherwise (probe paths, where the body is
      * not parsed) reading stops at the cap and the result is flagged via
      * {@link AdcpHttpResponse#truncated()}.
+     *
+     * <p>The read is also bounded in <em>time</em>. {@code HttpRequest.timeout}
+     * only covers the status line and headers, so without this a peer that
+     * sends headers and then drips — or stalls outright — would pin the calling
+     * thread and its socket for as long as it liked. A watchdog closes the
+     * stream at {@code readTimeout}, which unblocks a stalled {@code read()},
+     * and the loop checks the same deadline so a drip-feed gets a clear error.
      */
     private AdcpHttpResponse readBodyWithCap(HttpResponse<InputStream> response,
                                              long cap, boolean strict, URI uri)
@@ -456,38 +491,78 @@ public final class AdcpHttpClient implements AutoCloseable {
 
         boolean truncated = false;
         long totalRead = 0;
+        long deadline = System.nanoTime() + readTimeout.toNanos();
 
         try (InputStream is = response.body()) {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream(
-                    (int) Math.min(cap, 8192));
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = is.read(buf)) != -1) {
-                totalRead += n;
-                if (totalRead <= cap) {
-                    baos.write(buf, 0, n);
-                    continue;
+            // Runs on the JDK's shared delayed-task thread; cancelling before it
+            // fires stops it from running at all.
+            CompletableFuture<Void> watchdog = CompletableFuture.runAsync(
+                    () -> closeQuietly(is),
+                    CompletableFuture.delayedExecutor(
+                            readTimeout.toMillis(), TimeUnit.MILLISECONDS));
+            try {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream(
+                        (int) Math.min(cap, 8192));
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = is.read(buf)) != -1) {
+                    if (System.nanoTime() - deadline > 0) {
+                        throw new HttpTimeoutException(
+                                "Response body from " + redact(uri) + " not delivered within "
+                                        + readTimeout + " (read " + totalRead + " bytes)");
+                    }
+                    totalRead += n;
+                    if (totalRead <= cap) {
+                        baos.write(buf, 0, n);
+                        continue;
+                    }
+                    if (strict) {
+                        throw new ResponseTooLargeError(cap, totalRead, uri);
+                    }
+                    // Probe path: keep the bytes up to the cap, flag, stop reading.
+                    int remaining = (int) (cap - (totalRead - n));
+                    if (remaining > 0) {
+                        baos.write(buf, 0, remaining);
+                    }
+                    truncated = true;
+                    log.debug("Probe response body truncated at {} bytes (cap={})",
+                            totalRead, cap);
+                    break;
                 }
-                if (strict) {
-                    throw new ResponseTooLargeError(cap, totalRead, uri);
-                }
-                // Probe path: keep the bytes up to the cap, flag, stop reading.
-                int remaining = (int) (cap - (totalRead - n));
-                if (remaining > 0) {
-                    baos.write(buf, 0, remaining);
-                }
-                truncated = true;
-                log.debug("Probe response body truncated at {} bytes (cap={})",
-                        totalRead, cap);
-                break;
-            }
 
-            return new AdcpHttpResponse(
-                    response.statusCode(),
-                    response.headers(),
-                    baos.toByteArray(),
-                    truncated,
-                    totalRead);
+                return new AdcpHttpResponse(
+                        response.statusCode(),
+                        response.headers(),
+                        baos.toByteArray(),
+                        truncated,
+                        totalRead);
+            } finally {
+                watchdog.cancel(false);
+            }
+        }
+    }
+
+    private static void closeQuietly(InputStream stream) {
+        try {
+            stream.close();
+        } catch (IOException e) {
+            log.debug("Error closing response body on read timeout: {}", e.toString());
+        }
+    }
+
+    /**
+     * Strips userinfo and query from a URI before it lands in an exception
+     * message or a log line — both routinely carry credentials.
+     */
+    static URI redact(URI uri) {
+        if (uri.getRawUserInfo() == null && uri.getRawQuery() == null) {
+            return uri;
+        }
+        try {
+            return new URI(uri.getScheme(), null, uri.getHost(), uri.getPort(),
+                    uri.getPath(), null, null);
+        } catch (URISyntaxException e) {
+            return URI.create(String.valueOf(uri.getScheme()) + "://" + uri.getHost());
         }
     }
 

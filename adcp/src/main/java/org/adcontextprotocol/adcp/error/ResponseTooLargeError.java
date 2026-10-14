@@ -3,6 +3,7 @@ package org.adcontextprotocol.adcp.error;
 import org.jspecify.annotations.Nullable;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 
 /**
  * Response body exceeded the configured maximum size.
@@ -32,11 +33,30 @@ public final class ResponseTooLargeError extends AdcpError {
     public ResponseTooLargeError(long limit, long bytesRead, @Nullable URI url) {
         super("RESPONSE_TOO_LARGE",
                 "Response exceeded " + limit + " bytes (read " + bytesRead + ")"
-                        + (url != null ? " from " + url : ""),
+                        + (url != null ? " from " + redact(url) : ""),
                 null);
         this.limit = limit;
         this.bytesRead = bytesRead;
         this.url = url;
+    }
+
+    /**
+     * Strips userinfo and query before the URL goes into the message.
+     *
+     * <p>This message is logged, surfaced to users and often fed to an LLM, and
+     * agent URIs routinely carry credentials in both places. {@link #url()}
+     * still returns the URI the caller configured.
+     */
+    private static URI redact(URI url) {
+        if (url.getRawUserInfo() == null && url.getRawQuery() == null) {
+            return url;
+        }
+        try {
+            return new URI(url.getScheme(), null, url.getHost(), url.getPort(),
+                    url.getPath(), null, null);
+        } catch (URISyntaxException e) {
+            return URI.create(String.valueOf(url.getScheme()) + "://" + url.getHost());
+        }
     }
 
     /**
@@ -86,7 +106,11 @@ public final class ResponseTooLargeError extends AdcpError {
         return bytesRead;
     }
 
-    /** The URL that produced the oversized response, if known. */
+    /**
+     * The URL that produced the oversized response, if known — as configured,
+     * including any userinfo or query. {@link #getMessage()} carries a redacted
+     * form instead.
+     */
     public @Nullable URI url() {
         return url;
     }

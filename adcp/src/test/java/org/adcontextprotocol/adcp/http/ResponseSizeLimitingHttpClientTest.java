@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -78,13 +79,18 @@ class ResponseSizeLimitingHttpClientTest {
             long size = longParam(exchange, "size", 16);
             exchange.getResponseHeaders().add("Content-Type", "text/event-stream");
             exchange.sendResponseHeaders(200, 0);
+            String eol = switch (stringParam(exchange, "eol", "lf")) {
+                case "cr" -> "\r";
+                case "crlf" -> "\r\n";
+                default -> "\n";
+            };
             byte[] filler = new byte[(int) size];
             Arrays.fill(filler, (byte) 'x');
             try (OutputStream os = exchange.getResponseBody()) {
                 for (long i = 0; i < events; i++) {
                     os.write("data: ".getBytes(StandardCharsets.UTF_8));
                     os.write(filler);
-                    os.write("\n\n".getBytes(StandardCharsets.UTF_8));
+                    os.write((eol + eol).getBytes(StandardCharsets.UTF_8));
                     os.flush();
                 }
             } catch (IOException expectedWhenCapAborts) {
@@ -247,6 +253,54 @@ class ResponseSizeLimitingHttpClientTest {
                 () -> post(client, "/sse?events=1&size=" + (CAP * 4L)));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"lf", "cr", "crlf"})
+    void event_boundaries_reset_the_per_event_counter_for_every_sse_line_terminator(String eol)
+            throws Exception {
+        // SSE accepts CR, LF and CRLF as line terminators, and the JDK's
+        // fromLineSubscriber — which both transports sit behind — splits on all
+        // three. Missing one makes the per-event counter run on forever and
+        // kills a conforming peer's stream with a bogus ResponseTooLargeError.
+        HttpClient client = ResponseSizeLimitingHttpClient.wrap(raw, CAP);
+
+        HttpResponse<String> response =
+                get(client, "/sse?events=8&size=" + (CAP / 4) + "&eol=" + eol);
+
+        assertEquals(200, response.statusCode());
+        assertTrue(response.body().length() > CAP,
+                "8 events of a quarter-cap each is twice the cap in total");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"lf", "cr", "crlf"})
+    void a_single_over_cap_event_is_caught_for_every_line_terminator(String eol) {
+        HttpClient client = ResponseSizeLimitingHttpClient.wrap(raw, CAP);
+
+        IOException thrown = assertThrows(IOException.class,
+                () -> get(client, "/sse?events=1&size=" + (CAP * 4L) + "&eol=" + eol));
+
+        assertNotNull(ResponseTooLargeError.findIn(thrown));
+    }
+
+    @Test
+    void long_lived_get_sse_stream_still_has_a_finite_cumulative_ceiling() {
+        // The listening-stream exemption is triggered by the peer's own
+        // Content-Type, so it must not mean "unbounded": a peer answering a GET
+        // with text/event-stream and a forever-stream of small events still
+        // gets torn down.
+        long tinyCap = 2048;
+        HttpClient client = ResponseSizeLimitingHttpClient.wrap(raw, tinyCap);
+        long ceiling = tinyCap * ResponseSizeLimitingHttpClient.LISTENING_STREAM_MULTIPLIER;
+        long events = (ceiling / 512) + 16;
+
+        IOException thrown = assertThrows(IOException.class,
+                () -> get(client, "/sse?events=" + events + "&size=500"));
+
+        ResponseTooLargeError tooLarge = ResponseTooLargeError.findIn(thrown);
+        assertNotNull(tooLarge, "a listening stream must still have a finite ceiling");
+        assertEquals(ceiling, tooLarge.limit());
+    }
+
     @Test
     void long_lived_get_sse_stream_is_capped_per_event_not_cumulatively() throws Exception {
         HttpClient client = ResponseSizeLimitingHttpClient.wrap(raw, CAP);
@@ -352,6 +406,19 @@ class ResponseSizeLimitingHttpClientTest {
     }
 
     @Test
+    void error_message_redacts_credentials_in_the_url() {
+        URI withSecrets = URI.create("https://svc:s3cr3t@agent.example.com/mcp?api_key=abc123");
+        ResponseTooLargeError error = new ResponseTooLargeError(10, 20, withSecrets);
+
+        assertFalse(error.getMessage().contains("s3cr3t"),
+                "userinfo must not reach a message that gets logged and shown to users");
+        assertFalse(error.getMessage().contains("abc123"),
+                "query strings carry API keys");
+        assertTrue(error.getMessage().contains("agent.example.com/mcp"));
+        assertEquals(withSecrets, error.url(), "url() still returns what was configured");
+    }
+
+    @Test
     void find_in_walks_cause_and_suppressed_chains_without_looping() {
         ResponseTooLargeError error = new ResponseTooLargeError(1, 2, null);
 
@@ -400,6 +467,20 @@ class ResponseSizeLimitingHttpClientTest {
         } catch (IOException expectedWhenCapAborts) {
             // the client cancelled mid-stream
         }
+    }
+
+    private static String stringParam(HttpExchange exchange, String name, String fallback) {
+        String query = exchange.getRequestURI().getQuery();
+        if (query == null) {
+            return fallback;
+        }
+        for (String pair : query.split("&")) {
+            String[] kv = pair.split("=", 2);
+            if (kv.length == 2 && kv[0].equals(name)) {
+                return kv[1];
+            }
+        }
+        return fallback;
     }
 
     private static long longParam(HttpExchange exchange, String name, long fallback) {

@@ -12,9 +12,9 @@ import org.a2aproject.sdk.spec.AgentCard;
 import org.a2aproject.sdk.spec.AgentInterface;
 import org.adcontextprotocol.adcp.AgentConfig;
 import org.adcontextprotocol.adcp.error.ProtocolError;
+import org.adcontextprotocol.adcp.error.ResponseTooLargeError;
 import org.adcontextprotocol.adcp.http.AdcpHttpClient;
 import org.adcontextprotocol.adcp.http.AdcpHttpResponse;
-import org.adcontextprotocol.adcp.error.ResponseTooLargeError;
 import org.adcontextprotocol.adcp.http.ProtectedHeaders;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -25,6 +25,8 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -205,7 +207,7 @@ public final class A2aConnectionManager implements AutoCloseable {
 
     private Client connect(AgentConfig agent, Map<String, String> sanitizedHeaders, long cap) {
         try {
-            AgentCard card = agentCardLoader.load(agent, sanitizedHeaders);
+            AgentCard card = agentCardLoader.load(agent, sanitizedHeaders, cap);
             return clientFactory.create(card, cap);
         } catch (ProtocolError e) {
             throw e;
@@ -335,12 +337,22 @@ public final class A2aConnectionManager implements AutoCloseable {
     }
 
     private void closeQuietly(Client client) {
+        if (client == null) {
+            return;
+        }
         try {
-            if (client != null) {
-                client.close();
-            }
+            client.close();
         } catch (Exception e) {
             log.debug("Error closing A2A client: {}", sanitizeLogText(e.getMessage()));
+        } finally {
+            try {
+                // Client.close() only closes the A2A transport; the JDK HTTP
+                // client underneath it belongs to the factory.
+                clientFactory.release(client);
+            } catch (RuntimeException e) {
+                log.debug("Error releasing A2A transport resources: {}",
+                        sanitizeLogText(e.getMessage()));
+            }
         }
     }
 
@@ -353,31 +365,32 @@ public final class A2aConnectionManager implements AutoCloseable {
     }
 
     interface AgentCardLoader {
-        AgentCard load(AgentConfig agent, Map<String, String> headers);
+        AgentCard load(AgentConfig agent, Map<String, String> headers, long maxResponseBytes);
     }
 
     interface ClientFactory {
         Client create(AgentCard agentCard, long maxResponseBytes) throws A2AClientException;
 
-        /** Releases any HTTP clients the factory owns. */
+        /**
+         * Releases transport resources the factory allocated for {@code client}.
+         * Called once per client, when the connection cache lets it go.
+         */
+        default void release(Client client) {
+        }
+
+        /** Releases anything the factory still owns after every client is gone. */
         default void close() {
         }
     }
 
-    private static final class DefaultClientFactory implements ClientFactory {
-
-        /**
-         * Distinct response caps that get their own pooled HTTP client. Bounded
-         * so a caller that varies {@code maxResponseBytes} per call cannot grow
-         * an unbounded pool of JDK HTTP clients.
-         */
-        private static final int MAX_POOLED_CAPS = 8;
+    static final class DefaultClientFactory implements ClientFactory {
 
         private final AdcpHttpClient adcpHttpClient;
 
         /**
          * SSRF-safe HTTP clients used by the A2A JSON-RPC transport, one per
-         * distinct response cap.
+         * distinct response cap, reference-counted by the {@link Client}s using
+         * them.
          *
          * <p>Each is backed by a {@link java.net.http.HttpClient} built with
          * {@code followRedirects(NEVER)}, the configured connect timeout, and a
@@ -387,9 +400,18 @@ public final class A2aConnectionManager implements AutoCloseable {
          * pinning AgentCard URLs to the validated agent URI, this closes the
          * SSRF bypass that would otherwise exist in the default
          * {@code JdkA2AHttpClient} (which uses {@code Redirect.NORMAL}).
+         *
+         * <p>A JDK HTTP client owns a selector thread and an executor, and
+         * neither {@code JdkA2AHttpClient} nor {@code Client.close()} releases
+         * it — so the factory tracks ownership itself. Clients built for the
+         * same cap share one (the overwhelmingly common case: every agent on
+         * the default), and the last one evicted takes it down. The reference
+         * count, not a fixed pool bound, is what keeps a caller who varies the
+         * cap per call from accumulating HTTP clients.
          */
-        private final ConcurrentHashMap<Long, java.net.http.HttpClient> pooledClients =
-                new ConcurrentHashMap<>();
+        private final Map<Long, PooledHttpClient> pool = new HashMap<>();
+        private final Map<Client, Long> capByClient = new IdentityHashMap<>();
+        private final Object poolLock = new Object();
 
         DefaultClientFactory(AdcpHttpClient adcpHttpClient) {
             this.adcpHttpClient = Objects.requireNonNull(adcpHttpClient, "adcpHttpClient");
@@ -402,40 +424,111 @@ public final class A2aConnectionManager implements AutoCloseable {
                     .setStreaming(true)
                     .setUseClientPreference(true)
                     .build();
-            return Client.builder(agentCard)
-                    .clientConfig(config)
-                    .withTransport(JSONRPCTransport.class,
-                            new JSONRPCTransportConfigBuilder()
-                                    .httpClient(new JdkA2AHttpClient(httpClientFor(maxResponseBytes))))
-                    .build();
+            java.net.http.HttpClient httpClient = acquire(maxResponseBytes);
+            boolean handedOff = false;
+            try {
+                Client client = Client.builder(agentCard)
+                        .clientConfig(config)
+                        .withTransport(JSONRPCTransport.class,
+                                new JSONRPCTransportConfigBuilder()
+                                        .httpClient(new JdkA2AHttpClient(httpClient)))
+                        .build();
+                synchronized (poolLock) {
+                    capByClient.put(client, maxResponseBytes);
+                }
+                handedOff = true;
+                return client;
+            } finally {
+                if (!handedOff) {
+                    release(maxResponseBytes);
+                }
+            }
         }
 
-        private java.net.http.HttpClient httpClientFor(long maxResponseBytes) {
-            java.net.http.HttpClient pooled = pooledClients.get(maxResponseBytes);
-            if (pooled != null) {
-                return pooled;
+        @Override
+        public void release(Client client) {
+            Long cap;
+            synchronized (poolLock) {
+                cap = capByClient.remove(client);
             }
-            if (pooledClients.size() >= MAX_POOLED_CAPS) {
-                log.warn("More than {} distinct A2A response caps in use; "
-                        + "building an unpooled HTTP client for cap {}",
-                        MAX_POOLED_CAPS, maxResponseBytes);
-                return adcpHttpClient.newHttpClientBuilder(maxResponseBytes).build();
+            if (cap != null) {
+                release(cap.longValue());
             }
-            return pooledClients.computeIfAbsent(maxResponseBytes,
-                    cap -> adcpHttpClient.newHttpClientBuilder(cap).build());
         }
 
         @Override
         public void close() {
-            for (java.net.http.HttpClient client : pooledClients.values()) {
-                try {
-                    client.close();
-                } catch (RuntimeException e) {
-                    log.debug("Error closing pooled A2A HTTP client: {}",
-                            sanitizeLogText(e.getMessage()));
+            List<java.net.http.HttpClient> orphaned;
+            synchronized (poolLock) {
+                orphaned = pool.values().stream().map(PooledHttpClient::httpClient).toList();
+                pool.clear();
+                capByClient.clear();
+            }
+            orphaned.forEach(DefaultClientFactory::shutdownQuietly);
+        }
+
+        /** Visible for testing: how many pooled HTTP clients are still alive. */
+        int pooledClientCount() {
+            synchronized (poolLock) {
+                return pool.size();
+            }
+        }
+
+        private java.net.http.HttpClient acquire(long maxResponseBytes) {
+            synchronized (poolLock) {
+                PooledHttpClient pooled = pool.get(maxResponseBytes);
+                if (pooled == null) {
+                    pooled = new PooledHttpClient(
+                            adcpHttpClient.newHttpClientBuilder(maxResponseBytes).build());
+                    pool.put(maxResponseBytes, pooled);
+                }
+                pooled.references++;
+                return pooled.httpClient();
+            }
+        }
+
+        private void release(long maxResponseBytes) {
+            java.net.http.HttpClient unused = null;
+            synchronized (poolLock) {
+                PooledHttpClient pooled = pool.get(maxResponseBytes);
+                if (pooled != null && --pooled.references <= 0) {
+                    pool.remove(maxResponseBytes);
+                    unused = pooled.httpClient();
                 }
             }
-            pooledClients.clear();
+            if (unused != null) {
+                shutdownQuietly(unused);
+            }
+        }
+
+        /**
+         * {@code shutdownNow()} rather than {@code close()}: this can run under
+         * the connection cache lock during LRU eviction, and {@code close()}
+         * blocks until every in-flight exchange finishes. The owning A2A client
+         * has already been closed by then, which matches the existing eviction
+         * contract — an in-flight call on an evicted connection fails with an
+         * IOException and {@code ProtocolClient} retries.
+         */
+        private static void shutdownQuietly(java.net.http.HttpClient httpClient) {
+            try {
+                httpClient.shutdownNow();
+            } catch (RuntimeException e) {
+                log.debug("Error shutting down pooled A2A HTTP client: {}",
+                        sanitizeLogText(e.getMessage()));
+            }
+        }
+
+        private static final class PooledHttpClient {
+            private final java.net.http.HttpClient httpClient;
+            private int references;
+
+            PooledHttpClient(java.net.http.HttpClient httpClient) {
+                this.httpClient = httpClient;
+            }
+
+            java.net.http.HttpClient httpClient() {
+                return httpClient;
+            }
         }
     }
 
@@ -450,14 +543,16 @@ public final class A2aConnectionManager implements AutoCloseable {
         }
 
         @Override
-        public AgentCard load(AgentConfig agent, Map<String, String> headers) {
+        public AgentCard load(AgentConfig agent, Map<String, String> headers,
+                              long maxResponseBytes) {
             URI cardUri = buildAgentCardUri(agent.agentUri());
             try {
                 // Use getForAgentCard so that auth headers (e.g. Authorization) are forwarded
                 // to private agent-card endpoints. Redirect-following is already blocked by
                 // the underlying HttpClient (followRedirects=NEVER) and SSRF validation is
                 // enforced inside getForAgentCard, so header leakage is not possible.
-                AdcpHttpResponse response = adcpHttpClient.getForAgentCard(cardUri, headers);
+                AdcpHttpResponse response = adcpHttpClient.getForAgentCard(
+                        cardUri, headers, maxResponseBytes);
                 if (response.statusCode() >= 200 && response.statusCode() < 300 && !response.truncated()) {
                     AgentCard parsed = objectMapper.readValue(response.body(), AgentCard.class);
                     return normalize(parsed, agent.agentUri());

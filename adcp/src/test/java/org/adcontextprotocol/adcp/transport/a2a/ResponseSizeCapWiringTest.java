@@ -78,7 +78,7 @@ class ResponseSizeCapWiringTest {
     void connections_are_cached_per_cap() {
         RecordingFactory factory = new RecordingFactory();
         try (A2aConnectionManager manager = new A2aConnectionManager(
-                (cfg, headers) -> card(cfg.agentUri()), factory)) {
+                (cfg, headers, cap) -> card(cfg.agentUri()), factory)) {
 
             AgentConfig agent = agent(null);
             Client first = manager.getOrConnect(agent, Map.of(), "hash", 1_000L);
@@ -96,7 +96,7 @@ class ResponseSizeCapWiringTest {
     void evict_removes_every_cap_variant() {
         RecordingFactory factory = new RecordingFactory();
         try (A2aConnectionManager manager = new A2aConnectionManager(
-                (cfg, headers) -> card(cfg.agentUri()), factory)) {
+                (cfg, headers, cap) -> card(cfg.agentUri()), factory)) {
 
             AgentConfig agent = agent(null);
             manager.getOrConnect(agent, Map.of(), "hash", 1_000L);
@@ -110,10 +110,50 @@ class ResponseSizeCapWiringTest {
     }
 
     @Test
+    void transport_http_clients_are_released_when_their_connection_is_evicted() {
+        // Neither JdkA2AHttpClient nor Client.close() releases the JDK HTTP
+        // client underneath, and each one owns a selector thread. A caller that
+        // varies maxResponseBytes per call would otherwise accumulate them
+        // without bound.
+        AdcpHttpClient http = AdcpHttpClient.builder().build();
+        A2aConnectionManager.DefaultClientFactory factory =
+                new A2aConnectionManager.DefaultClientFactory(http);
+        try (http; A2aConnectionManager manager = new A2aConnectionManager(
+                (cfg, headers, cap) -> card(cfg.agentUri()), factory)) {
+
+            AgentConfig agent = agent(null);
+            for (long cap = 1_000; cap <= 20_000; cap += 1_000) {
+                manager.getOrConnect(agent, Map.of(), "hash", cap);
+            }
+            assertTrue(factory.pooledClientCount() > 0);
+
+            manager.evict(agent.agentUri(), "hash");
+            assertEquals(0, factory.pooledClientCount(),
+                    "every cap variant's HTTP client should be released on eviction");
+        }
+    }
+
+    @Test
+    void transport_http_clients_are_shared_while_the_cap_is_shared() {
+        AdcpHttpClient http = AdcpHttpClient.builder().build();
+        A2aConnectionManager.DefaultClientFactory factory =
+                new A2aConnectionManager.DefaultClientFactory(http);
+        try (http; A2aConnectionManager manager = new A2aConnectionManager(
+                (cfg, headers, cap) -> card(cfg.agentUri()), factory)) {
+
+            // Five agents, all on the default cap: one HTTP client between them.
+            for (int i = 0; i < 5; i++) {
+                manager.getOrConnect(agent(null), Map.of(), "hash-" + i, null);
+            }
+            assertEquals(1, factory.pooledClientCount());
+        }
+    }
+
+    @Test
     void a_non_positive_override_is_rejected() {
         RecordingFactory factory = new RecordingFactory();
         try (A2aConnectionManager manager = new A2aConnectionManager(
-                (cfg, headers) -> card(cfg.agentUri()), factory)) {
+                (cfg, headers, cap) -> card(cfg.agentUri()), factory)) {
             AgentConfig agent = agent(null);
             org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
                     () -> manager.getOrConnect(agent, Map.of(), "hash", 0L));
@@ -130,7 +170,7 @@ class ResponseSizeCapWiringTest {
     private static List<Long> capsSeenBy(AgentConfig agent, CallToolOptions options) {
         RecordingFactory factory = new RecordingFactory();
         A2aConnectionManager a2a = new A2aConnectionManager(
-                (cfg, headers) -> card(cfg.agentUri()), factory);
+                (cfg, headers, cap) -> card(cfg.agentUri()), factory);
         try (ProtocolClient client = new ProtocolClient(
                 AdcpObjectMapperFactory.create(), SsrfPolicy.permissive(), null,
                 new McpConnectionManager(Duration.ofSeconds(1)), a2a)) {

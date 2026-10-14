@@ -51,15 +51,11 @@ import javax.net.ssl.SSLParameters;
  *       moment the cap is crossed, so the oversized body is never buffered.</li>
  *   <li><b>SSE per event and per call.</b> For
  *       {@code Content-Type: text/event-stream}, bytes are counted per event
- *       (reset at each blank-line delimiter) so one huge event cannot escape
- *       the cap, <em>and</em> cumulatively for the whole response when the
- *       response answers a single call (any non-{@code GET} request). A
- *       long-lived {@code GET} listening stream — the MCP SSE session channel,
- *       which carries every server-to-client message for the life of the
- *       connection — gets the per-event cap only, because a cumulative cap
- *       there would kill healthy long sessions. Per-event is the cap that
- *       matters for memory: the transports aggregate one event at a time and
- *       discard the bytes in between.</li>
+ *       (reset at each blank-line delimiter, accepting CR, LF and CRLF framing)
+ *       so one huge event cannot escape the cap, <em>and</em> cumulatively for
+ *       the whole response. Answering a call with {@code text/event-stream}
+ *       instead of {@code application/json} therefore buys no extra budget, and
+ *       neither does drip-feeding small events.</li>
  *   <li><b>Decompressed bytes.</b> Outbound requests are rewritten to
  *       {@code Accept-Encoding: identity} so the counted wire bytes are the
  *       bytes the caller will hold. The JDK {@link HttpClient} never
@@ -67,11 +63,37 @@ import javax.net.ssl.SSLParameters;
  *       behind a 1 MiB gzip stream.</li>
  * </ol>
  *
+ * <h2>Long-lived listening streams</h2>
+ *
+ * <p>One response shape gets a larger cumulative budget: a {@code GET} answered
+ * with {@code text/event-stream}. That is the MCP SSE session channel, which
+ * stays open for the life of the connection and carries every server-to-client
+ * message, so holding its running total to a single call's cap would kill
+ * healthy long sessions. Its per-event cap is unchanged — and per-event is the
+ * cap that bounds memory there, because the transports aggregate one event at a
+ * time and discard the bytes in between. Its cumulative budget is
+ * {@code maxResponseBytes * }{@value #LISTENING_STREAM_MULTIPLIER}, finite so
+ * that a peer cannot hold a {@code GET} open indefinitely simply by choosing an
+ * SSE content type.
+ *
+ * <h2>Reporting</h2>
+ *
  * <p>Oversized responses fail the response future with
  * {@link ResponseTooLargeError} — never truncated, never silently dropped.
  * Because the JDK may wrap a body-subscriber failure before it reaches the
  * caller, use {@link ResponseTooLargeError#findIn(Throwable)} to recover the
  * typed error from a cause chain.
+ *
+ * <p>With a <em>streaming</em> body handler ({@code BodyHandlers.ofInputStream},
+ * {@code ofPublisher}) the response future completes normally at the headers and
+ * the error surfaces on the first read past the cap instead. The SDK's own paths
+ * use aggregating handlers; callers wrapping their own client should keep that
+ * in mind.
+ *
+ * <p><b>Scope.</b> The cap is per in-flight response. It bounds what one peer
+ * can make this process hold for one call — it is not a global memory budget,
+ * so a caller fanning out across many agents still has to bound its own
+ * concurrency.
  *
  * @see AdcpHttpClient#newHttpClientBuilder(long)
  * @see ResponseTooLargeError
@@ -80,6 +102,18 @@ public final class ResponseSizeLimitingHttpClient extends HttpClient {
 
     private static final Logger log =
             LoggerFactory.getLogger(ResponseSizeLimitingHttpClient.class);
+
+    /**
+     * How much more cumulative traffic a long-lived {@code GET} event stream may
+     * carry than a single call response, before it is torn down anyway.
+     *
+     * <p>The MCP SSE session channel stays open for the life of the connection,
+     * so capping its running total at the per-call cap would kill healthy long
+     * sessions. It still gets a finite ceiling: without one, a peer could hold
+     * a {@code GET} open forever by answering with {@code text/event-stream},
+     * and that choice would be the peer's to make, not ours.
+     */
+    public static final int LISTENING_STREAM_MULTIPLIER = 256;
 
     private static final String SSE_CONTENT_TYPE = "text/event-stream";
     private static final String ACCEPT_ENCODING = "Accept-Encoding";
@@ -100,6 +134,12 @@ public final class ResponseSizeLimitingHttpClient extends HttpClient {
     /**
      * Wraps {@code delegate} so that every response it produces is capped at
      * {@code maxResponseBytes}.
+     *
+     * <p>The cap applies per response: to the whole body, to each SSE event,
+     * and cumulatively across a response's events. A {@code GET} answered with
+     * {@code text/event-stream} is treated as a long-lived listening stream and
+     * gets {@value #LISTENING_STREAM_MULTIPLIER}× the cumulative budget, with
+     * its per-event cap unchanged — see the class javadoc.
      *
      * @param delegate         the client to decorate
      * @param maxResponseBytes cap in bytes; must be positive
@@ -263,9 +303,11 @@ public final class ResponseSizeLimitingHttpClient extends HttpClient {
                         new ResponseTooLargeError(cap, declared, uri));
             }
             boolean sse = isEventStream(responseInfo);
+            long totalCap = sse && listeningStream
+                    ? saturatingMultiply(cap, LISTENING_STREAM_MULTIPLIER)
+                    : cap;
             return new LimitingBodySubscriber<>(
-                    delegateHandler.apply(responseInfo),
-                    cap, sse, !(sse && listeningStream), uri);
+                    delegateHandler.apply(responseInfo), cap, totalCap, sse, uri);
         };
     }
 
@@ -277,6 +319,14 @@ public final class ResponseSizeLimitingHttpClient extends HttpClient {
         return (initiatingRequest, pushPromiseRequest, acceptor) ->
                 delegateHandler.applyPushPromise(initiatingRequest, pushPromiseRequest,
                         handler -> acceptor.apply(limiting(pushPromiseRequest, handler)));
+    }
+
+    private static long saturatingMultiply(long value, int factor) {
+        try {
+            return Math.multiplyExact(value, (long) factor);
+        } catch (ArithmeticException overflow) {
+            return Long.MAX_VALUE;
+        }
     }
 
     private static long declaredContentLength(HttpResponse.ResponseInfo responseInfo) {
@@ -350,8 +400,8 @@ public final class ResponseSizeLimitingHttpClient extends HttpClient {
 
         private final HttpResponse.BodySubscriber<T> delegate;
         private final long maxBytes;
+        private final long maxTotalBytes;
         private final boolean sse;
-        private final boolean enforceTotal;
         private final @Nullable URI uri;
         private final CompletableFuture<T> body = new CompletableFuture<>();
         private final AtomicBoolean aborted = new AtomicBoolean();
@@ -364,11 +414,11 @@ public final class ResponseSizeLimitingHttpClient extends HttpClient {
         private volatile boolean pendingCr;
 
         LimitingBodySubscriber(HttpResponse.BodySubscriber<T> delegate, long maxBytes,
-                               boolean sse, boolean enforceTotal, @Nullable URI uri) {
+                               long maxTotalBytes, boolean sse, @Nullable URI uri) {
             this.delegate = Objects.requireNonNull(delegate, "delegate");
             this.maxBytes = maxBytes;
+            this.maxTotalBytes = maxTotalBytes;
             this.sse = sse;
-            this.enforceTotal = enforceTotal;
             this.uri = uri;
             delegate.getBody().whenComplete((value, failure) -> {
                 if (failure != null) {
@@ -392,12 +442,12 @@ public final class ResponseSizeLimitingHttpClient extends HttpClient {
             }
             for (ByteBuffer buffer : buffers) {
                 totalBytes += buffer.remaining();
-                if (enforceTotal && totalBytes > maxBytes) {
-                    abort(totalBytes);
+                if (totalBytes > maxTotalBytes) {
+                    abort(maxTotalBytes, totalBytes);
                     return;
                 }
                 if (sse && scanForOversizedEvent(buffer)) {
-                    abort(eventBytes);
+                    abort(maxBytes, eventBytes);
                     return;
                 }
             }
@@ -440,25 +490,38 @@ public final class ResponseSizeLimitingHttpClient extends HttpClient {
             for (int i = buffer.position(); i < buffer.limit(); i++) {
                 byte b = buffer.get(i);
                 bytes++;
+
+                // SSE accepts CR, LF and CRLF as line terminators. A pending CR
+                // always terminated its line; whether the current byte joins it
+                // (LF), starts another terminator (CR), or is content is a
+                // separate question — hence two independent flags.
+                boolean endedLine;
+                boolean contentByte;
                 if (cr) {
-                    cr = false;
-                    runOfTerminators++;         // the CR ended a line
-                    if (b == '\r') {
-                        cr = true;
-                    } else if (b != '\n') {     // CRLF counts as one terminator
-                        runOfTerminators = 0;   // content: the blank-line run is broken
-                    }
+                    cr = b == '\r';
+                    endedLine = true;                 // the pending CR ended a line
+                    contentByte = b != '\n' && b != '\r';
                 } else if (b == '\r') {
                     cr = true;
-                } else if (b == '\n') {
-                    runOfTerminators++;
+                    endedLine = false;                // wait for the next byte
+                    contentByte = false;
                 } else {
+                    endedLine = b == '\n';
+                    contentByte = !endedLine;
+                }
+
+                boolean eventEnded = false;
+                if (endedLine && ++runOfTerminators >= 2) {
+                    // Two terminators in a row is a blank line: end of event.
+                    runOfTerminators = 0;
+                    bytes = contentByte ? 1 : 0;      // the content byte opens the next event
+                    eventEnded = true;
+                }
+                if (contentByte) {
                     runOfTerminators = 0;
                 }
-                if (runOfTerminators >= 2) {    // blank line: end of event
-                    runOfTerminators = 0;
-                    bytes = 0;
-                } else if (bytes > maxBytes) {
+
+                if (!eventEnded && bytes > maxBytes) {
                     oversized = true;
                     break;
                 }
@@ -470,11 +533,11 @@ public final class ResponseSizeLimitingHttpClient extends HttpClient {
             return oversized;
         }
 
-        private void abort(long bytesRead) {
+        private void abort(long limit, long bytesRead) {
             if (!aborted.compareAndSet(false, true)) {
                 return;
             }
-            ResponseTooLargeError error = new ResponseTooLargeError(maxBytes, bytesRead, uri);
+            ResponseTooLargeError error = new ResponseTooLargeError(limit, bytesRead, uri);
             log.debug("Aborting response from {}: {}", uri, error.getMessage());
             // Complete our own future first so the delegate's terminal signal
             // cannot overwrite the typed error.

@@ -379,10 +379,12 @@ public final class McpConnectionManager implements AutoCloseable {
             return false;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            log.debug("StreamableHTTP probe interrupted for {}: {}", agentUri, e.getMessage());
+            log.debug("StreamableHTTP probe interrupted for {}: {}",
+                    agentUri, sanitizeLogText(e.getMessage()));
             return true;
         } catch (IOException e) {
-            log.debug("StreamableHTTP probe failed for {}: {}", agentUri, e.getMessage());
+            log.debug("StreamableHTTP probe failed for {}: {}",
+                    agentUri, sanitizeLogText(e.getMessage()));
             return true;
         }
     }
@@ -437,6 +439,19 @@ public final class McpConnectionManager implements AutoCloseable {
         return s.indexOf('\r') >= 0 || s.indexOf('\n') >= 0;
     }
 
+    /**
+     * Strips control characters and truncates text that originated with the
+     * peer, so an agent cannot inject CR/LF into a log line or into a
+     * {@link ProtocolError} message an adopter may feed to an LLM.
+     */
+    static String sanitizeLogText(@Nullable String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "(no detail)";
+        }
+        String truncated = raw.length() > 256 ? raw.substring(0, 256) + "..." : raw;
+        return truncated.replaceAll("[\\p{Cc}]", "");
+    }
+
     // NOTE: MCP SDK 1.1.2 does not expose HTTP response headers on errors.
     // We work around this by sending a HEAD probe to the agent URI to
     // retrieve the WWW-Authenticate challenge. When the MCP SDK adds
@@ -460,10 +475,10 @@ public final class McpConnectionManager implements AutoCloseable {
         } catch (InterruptedException probeEx) {
             Thread.currentThread().interrupt();
             log.debug("Auth challenge probe interrupted for {}: {}",
-                    agentUri, probeEx.getMessage());
+                    agentUri, sanitizeLogText(probeEx.getMessage()));
         } catch (IOException probeEx) {
             log.debug("Auth challenge probe failed for {}: {}",
-                    agentUri, probeEx.getMessage());
+                    agentUri, sanitizeLogText(probeEx.getMessage()));
         }
         return new AuthenticationRequiredError(agentUri, challenge, null, cause);
     }
@@ -488,8 +503,12 @@ public final class McpConnectionManager implements AutoCloseable {
         }
     }
 
+    /** Depth bound so a cyclic cause chain cannot spin this loop forever. */
+    private static final int MAX_CAUSE_DEPTH = 32;
+
     private boolean isAuthError(Exception e) {
-        for (Throwable t = e; t != null; t = t.getCause()) {
+        Throwable t = e;
+        for (int depth = 0; t != null && depth < MAX_CAUSE_DEPTH; t = t.getCause(), depth++) {
             String msg = t.getMessage();
             if (msg == null) continue;
             // Check MCP SDK's error type first
@@ -497,6 +516,7 @@ public final class McpConnectionManager implements AutoCloseable {
                 if (isAuthMessage(msg)) return true;
             }
             if (isAuthMessage(msg)) return true;
+            if (t.getCause() == t) break;
         }
         return false;
     }
@@ -516,7 +536,7 @@ public final class McpConnectionManager implements AutoCloseable {
                 client.close();
             }
         } catch (Exception e) {
-            log.debug("Error closing MCP client: {}", e.getMessage());
+            log.debug("Error closing MCP client: {}", sanitizeLogText(e.getMessage()));
         }
     }
 }

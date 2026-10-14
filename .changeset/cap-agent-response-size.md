@@ -47,6 +47,10 @@ Also in this change:
   instead of silently truncating — a card over 4 KiB used to be swapped for a synthetic fallback.
 - MCP and A2A connection caches are keyed by the response cap, so a call that overrides it does not
   reuse a connection built for a different one.
+- Agent-card fetches get their own read deadline. `HttpRequest.timeout` only covers status line and
+  headers, so a peer that sends headers and then drips or stalls could otherwise pin a thread for as
+  long as it liked.
 
-Defaults, overrides and the SSE rules are documented in `specs/response-size-limits.md`.
+Defaults, overrides and the SSE rules are documented in `docs/response-size-limits.md`, with the
+design in `specs/response-size-limits.md`.
 Cross-SDK contract: https://github.com/adcontextprotocol/adcp/issues/8190

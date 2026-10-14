@@ -4,6 +4,7 @@
 **Tracks:** [`transport`](../ROADMAP.md#track-3--l0-transport-mcp--a2a)
 **Decisions referenced:** D2 (JDK 21), D9 (MCP SDK pin), D10 (A2A SDK pin), D24
 **Cross-SDK tracking:** [adcontextprotocol/adcp#8190](https://github.com/adcontextprotocol/adcp/issues/8190)
+**Adopter guide:** [`docs/response-size-limits.md`](../docs/response-size-limits.md)
 
 ## Why this exists
 
@@ -82,25 +83,43 @@ decorates a JDK `HttpClient`. `AdcpHttpClient.newHttpClientBuilder(long)` return
    cancelled the instant the cap is crossed. A check after the body is buffered or parsed would not
    prevent the OOM this exists to stop.
 3. **SSE per event and per call.** For `Content-Type: text/event-stream`, bytes are counted per
-   event (reset at each blank-line delimiter) *and* cumulatively for the whole response when the
-   response answers a single call — any non-`GET` request. Answering a POST with
-   `text/event-stream` buys a peer no extra budget.
+   event (reset at each blank-line delimiter, accepting CR, LF and CRLF framing — all three are
+   legal SSE terminators and all three are what the JDK's `fromLineSubscriber` splits on) *and*
+   cumulatively for the whole response. Answering a POST with `text/event-stream` buys a peer no
+   extra budget, and neither does drip-feeding small events.
 4. **Decompressed bytes.** Outbound requests are rewritten to `Accept-Encoding: identity`,
    replacing any caller-supplied value, so a peer cannot hide a 1 GiB payload behind a small gzip
    stream. (The JDK `HttpClient` never decompresses transparently, so wire bytes *are* the bytes the
    caller holds.)
+5. **A bounded read in time, not just in bytes.** `HttpRequest.timeout` covers only the status line
+   and headers — the JDK fires its timer on the response stage, not the body. So `getForAgentCard`
+   gives the body read its own deadline: a watchdog closes the stream at `readTimeout`, which
+   unblocks a stalled `read()`, and the read loop checks the same deadline so a drip-feed gets a
+   clear `HttpTimeoutException`. Without it, moving card fetches from the 4 KiB probe cap to the
+   4 MiB call cap would have widened the slow-loris window by a factor of a thousand.
 
 ### The one deliberate asymmetry: long-lived `GET` SSE streams
 
 The MCP SSE session channel is a `GET` that stays open for the life of the connection and carries
-every server-to-client message. A cumulative cap there would kill healthy long sessions after
-enough legitimate traffic — so that stream gets the **per-event cap only**.
+every server-to-client message. Holding its running total to a single call's cap would kill healthy
+long sessions after enough legitimate traffic — so a `GET` answered with `text/event-stream` gets a
+cumulative budget of `maxResponseBytes × 256` instead, with its per-event cap unchanged.
 
-This is the right trade for the threat being defended against. OOM comes from how much is held at
-once, and the transports aggregate one SSE event at a time, discarding bytes in between: per-event
-is the cap that bounds memory. Cumulative capping is about bounding a *single call*, and a listening
-stream is not a call. Every path that *is* a call — MCP StreamableHTTP POST, A2A
-`message/send`, A2A streaming POST — is capped cumulatively as well as per event.
+Per-event is the cap that matters for memory here. OOM comes from how much is held at once, and the
+transports aggregate one SSE event at a time, discarding bytes in between. Cumulative capping is
+about bounding a *single call*, and a listening stream is not a call. Every path that *is* a call —
+MCP StreamableHTTP POST, A2A `message/send`, A2A streaming POST — is capped cumulatively at
+`maxResponseBytes` as well as per event.
+
+The multiplier is finite on purpose. Which branch a response takes is decided partly by the
+*peer's* `Content-Type`, so "no cumulative cap at all" would be a decision an attacker gets to make:
+answer any `GET` with `text/event-stream` and a forever-stream of 1 KB events, and the stream never
+ends. With the multiplier, the worst case is a long stream that eventually terminates.
+
+One consequence worth knowing when debugging: on a call that *is* capped cumulatively, progress and
+status events count against the same budget as the final payload. A long-running `create_media_buy`
+that emits many status updates can reach `RESPONSE_TOO_LARGE` without any single message being
+large.
 
 ### Probes keep their own, smaller cap
 
@@ -113,15 +132,29 @@ flagging the result via `AdcpHttpResponse.truncated()` — not silent, and no ca
 on the 4 KiB probe cap and an agent card larger than 4 KiB — easily reached with a handful of skills
 — was silently truncated and swapped for a synthetic fallback card.
 
+## What the cap does not bound
+
+The cap is **per in-flight response**. It bounds what one peer can make this process hold for one
+call — it is not a global memory budget. Two things follow:
+
+- Wire bytes are not resident bytes. A 4 MiB body is buffered, copied out of the growing buffer, and
+  then parsed into an object graph; peak RSS for one response is a multiple of the cap.
+- A caller fanning out across many agents multiplies that by its concurrency. The incident this cap
+  exists to prevent was a *batch* grader. Bound your concurrency too.
+
 ## Connection caching
 
 The cap is baked into the transport's `HttpClient` at connect time, so it is part of the connection
 cache key: `agentUrl::tokenHash::maxResponseBytes` (MCP) and `agentUri#cacheHash#maxResponseBytes`
 (A2A). A call that overrides the cap gets a connection built for that cap rather than silently
-reusing one built for another. Varying the cap per call therefore fragments the connection cache —
-prefer setting it once on the `AgentConfig`. `A2aConnectionManager` pools at most 8 distinct capped
-HTTP clients and builds unpooled ones beyond that, so a caller that varies the cap wildly cannot
-grow an unbounded pool.
+reusing one built for another, and the override reaches agent-card discovery as well as the call
+itself. Varying the cap per call therefore fragments the connection cache — prefer setting it once
+on the `AgentConfig`.
+
+`A2aConnectionManager` keeps one JDK `HttpClient` per distinct cap, reference-counted by the A2A
+clients using it. Neither `JdkA2AHttpClient` nor `Client.close()` releases that HTTP client, and
+each one owns a selector thread, so the factory tracks ownership itself: clients on the same cap
+share one (the common case — every agent on the default), and the last one evicted shuts it down.
 
 ## Cross-SDK contract
 

@@ -7,6 +7,7 @@ import org.adcontextprotocol.adcp.AgentConfig;
 import org.adcontextprotocol.adcp.Protocol;
 import org.adcontextprotocol.adcp.auth.AuthTokenResolver;
 import org.adcontextprotocol.adcp.error.ProtocolError;
+import org.adcontextprotocol.adcp.error.ResponseTooLargeError;
 import org.adcontextprotocol.adcp.http.ProtectedHeaders;
 import org.adcontextprotocol.adcp.http.SsrfPolicy;
 import org.adcontextprotocol.adcp.transport.a2a.A2aCaller;
@@ -189,7 +190,7 @@ public final class ProtocolClient implements AutoCloseable {
     private boolean isTransportError(ProtocolError e) {
         // An oversized response surfaces as an IOException from the JDK HTTP
         // stack, but retrying it just re-downloads the same oversized payload.
-        if (org.adcontextprotocol.adcp.error.ResponseTooLargeError.findIn(e) != null) {
+        if (ResponseTooLargeError.findIn(e) != null) {
             return false;
         }
         // Walk the full cause chain — any I/O or timeout failure is transient
