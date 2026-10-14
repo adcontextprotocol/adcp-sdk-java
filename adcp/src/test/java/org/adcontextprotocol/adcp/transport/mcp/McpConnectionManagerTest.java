@@ -50,6 +50,33 @@ class McpConnectionManagerTest {
     }
 
     @Test
+    void default_response_cap_is_the_client_default() {
+        assertEquals(
+                org.adcontextprotocol.adcp.http.AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES,
+                manager.defaultMaxResponseBytes());
+    }
+
+    @Test
+    void custom_http_client_cap_is_propagated() {
+        var http = org.adcontextprotocol.adcp.http.AdcpHttpClient.builder()
+                .maxCallResponseBytes(123_456)
+                .build();
+        try (http; var mgr = new McpConnectionManager(
+                java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1), http)) {
+            assertEquals(123_456, mgr.defaultMaxResponseBytes());
+        }
+    }
+
+    @Test
+    void getOrConnect_rejects_a_non_positive_cap_override() {
+        var uri = java.net.URI.create("https://agent.example.com");
+        assertThrows(IllegalArgumentException.class,
+                () -> manager.getOrConnect(uri, java.util.Map.of(), "hash", 0L));
+        assertThrows(IllegalArgumentException.class,
+                () -> manager.getOrConnect(uri, java.util.Map.of(), "hash", -1L));
+    }
+
+    @Test
     void double_close_is_safe() {
         manager.close();
         assertDoesNotThrow(manager::close);

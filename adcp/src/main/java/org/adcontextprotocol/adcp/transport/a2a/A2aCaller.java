@@ -17,6 +17,7 @@ import org.a2aproject.sdk.spec.Task;
 import org.a2aproject.sdk.spec.TaskState;
 import org.a2aproject.sdk.spec.TextPart;
 import org.adcontextprotocol.adcp.error.ProtocolError;
+import org.adcontextprotocol.adcp.error.ResponseTooLargeError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,11 +34,17 @@ import java.util.function.Consumer;
 
 /**
  * Calls AdCP tools over A2A JSON-RPC + SSE.
+ *
+ * <p>The authoritative response size cap lives in the transport's HTTP client
+ * (see {@link org.adcontextprotocol.adcp.http.ResponseSizeLimitingHttpClient}),
+ * which aborts an oversized body while it streams. The part checks here are a
+ * backstop, and they translate a transport-level
+ * {@link ResponseTooLargeError} back into the typed error instead of burying it
+ * in a {@link ProtocolError}.
  */
 public final class A2aCaller {
 
     private static final Logger log = LoggerFactory.getLogger(A2aCaller.class);
-    private static final int MAX_CONTENT_LENGTH = 10 * 1024 * 1024;
     private static final int MAX_ERROR_LENGTH = 500;
     private static final long RESPONSE_TIMEOUT_SECONDS = 30;
     private static final String TOOL_NAME_KEY = "adcp_tool_name";
@@ -55,12 +62,27 @@ public final class A2aCaller {
 
     public <T> T callTool(Client client, String toolName,
                           Map<String, Object> args, Class<T> responseType) {
-        return callTool(new ClientAdapter(client), toolName, args, responseType, Map.of());
+        return callTool(client, toolName, args, responseType, Map.of(),
+                org.adcontextprotocol.adcp.http.AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES);
     }
 
     public <T> T callTool(Client client, String toolName,
                           Map<String, Object> args, Class<T> responseType,
                           Map<String, String> headers) {
+        return callTool(client, toolName, args, responseType, headers,
+                org.adcontextprotocol.adcp.http.AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES);
+    }
+
+    /**
+     * Calls an AdCP tool over A2A, rejecting response parts larger than
+     * {@code maxResponseBytes}.
+     *
+     * @param maxResponseBytes the effective response size cap for this call
+     * @throws ResponseTooLargeError if the agent's response exceeds the cap
+     */
+    public <T> T callTool(Client client, String toolName,
+                          Map<String, Object> args, Class<T> responseType,
+                          Map<String, String> headers, long maxResponseBytes) {
         for (var entry : headers.entrySet()) {
             String k = entry.getKey();
             String v = entry.getValue();
@@ -70,12 +92,20 @@ public final class A2aCaller {
                         "callTool headers must not contain CR/LF or null: " + k);
             }
         }
-        return callTool(new ClientAdapter(client), toolName, args, responseType, headers);
+        return callTool(new ClientAdapter(client), toolName, args, responseType, headers,
+                maxResponseBytes);
     }
 
     <T> T callTool(A2aMessageClient client, String toolName,
                    Map<String, Object> args, Class<T> responseType,
                    Map<String, String> headers) {
+        return callTool(client, toolName, args, responseType, headers,
+                org.adcontextprotocol.adcp.http.AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES);
+    }
+
+    <T> T callTool(A2aMessageClient client, String toolName,
+                   Map<String, Object> args, Class<T> responseType,
+                   Map<String, String> headers, long maxResponseBytes) {
         // Validate toolName before use — reject rather than silently mutate the outbound request
         if (toolName == null || toolName.isBlank()) {
             throw new IllegalArgumentException("toolName must not be null or blank");
@@ -139,7 +169,8 @@ public final class A2aCaller {
             if (failure.get() != null) {
                 throw wrapFailure(safeToolName, failure.get());
             }
-            return extractResponse(latestMessage.get(), latestTask.get(), responseType);
+            return extractResponse(latestMessage.get(), latestTask.get(), responseType,
+                    maxResponseBytes);
         } catch (ProtocolError e) {
             throw e;
         } catch (A2AClientException e) {
@@ -163,9 +194,10 @@ public final class A2aCaller {
                 .build();
     }
 
-    private <T> T extractResponse(Message message, Task task, Class<T> responseType) {
+    private <T> T extractResponse(Message message, Task task, Class<T> responseType,
+                                  long maxResponseBytes) {
         if (message != null) {
-            return extractFromParts(message.parts(), responseType);
+            return extractFromParts(message.parts(), responseType, maxResponseBytes);
         }
         if (task != null) {
             if (task.status() != null && task.status().state() == TaskState.TASK_STATE_FAILED) {
@@ -179,14 +211,16 @@ public final class A2aCaller {
                         null);
             }
             if (task.status() != null && task.status().message() != null) {
-                return extractFromParts(task.status().message().parts(), responseType);
+                return extractFromParts(task.status().message().parts(), responseType,
+                        maxResponseBytes);
             }
             if (task.history() != null && !task.history().isEmpty()) {
                 int limit = Math.min(task.history().size(), MAX_HISTORY_SCAN);
                 for (int i = task.history().size() - 1; i >= task.history().size() - limit; i--) {
                     Message historyMessage = task.history().get(i);
                     if (historyMessage != null && historyMessage.parts() != null && !historyMessage.parts().isEmpty()) {
-                        return extractFromParts(historyMessage.parts(), responseType);
+                        return extractFromParts(historyMessage.parts(), responseType,
+                                maxResponseBytes);
                     }
                 }
             }
@@ -194,7 +228,8 @@ public final class A2aCaller {
         throw new ProtocolError("a2a", "Empty response from A2A sendMessage", null);
     }
 
-    private <T> T extractFromParts(List<Part<?>> parts, Class<T> responseType) {
+    private <T> T extractFromParts(List<Part<?>> parts, Class<T> responseType,
+                                   long maxResponseBytes) {
         if (parts == null || parts.isEmpty()) {
             throw new ProtocolError("a2a", "A2A response message had no parts", null);
         }
@@ -206,14 +241,11 @@ public final class A2aCaller {
             if (part instanceof DataPart dataPart) {
                 try {
                     byte[] bytes = objectMapper.writeValueAsBytes(dataPart.data());
-                    if (bytes.length > MAX_CONTENT_LENGTH) {
-                        throw new ProtocolError("a2a",
-                                "A2A DataPart response exceeds size limit ("
-                                        + bytes.length + " > " + MAX_CONTENT_LENGTH + ")",
-                                null);
+                    if (bytes.length > maxResponseBytes) {
+                        throw new ResponseTooLargeError(maxResponseBytes, bytes.length, null);
                     }
                     return objectMapper.readValue(bytes, responseType);
-                } catch (ProtocolError e) {
+                } catch (ProtocolError | ResponseTooLargeError e) {
                     throw e;
                 } catch (Exception e) {
                     if (firstParseError == null) {
@@ -227,12 +259,11 @@ public final class A2aCaller {
                 if (text == null) {
                     continue;
                 }
-                int textBytes = text.getBytes(StandardCharsets.UTF_8).length;
-                if (textBytes > MAX_CONTENT_LENGTH) {
-                    throw new ProtocolError("a2a",
-                            "A2A response content exceeds size limit ("
-                                    + textBytes + " > " + MAX_CONTENT_LENGTH + ")",
-                            null);
+                // UTF-8 is never fewer bytes than chars, so a char count over
+                // the cap is already over the cap — reject without measuring.
+                if (text.length() > maxResponseBytes
+                        || text.getBytes(StandardCharsets.UTF_8).length > maxResponseBytes) {
+                    throw new ResponseTooLargeError(maxResponseBytes, text.length(), null);
                 }
                 try {
                     return objectMapper.readValue(text, responseType);
@@ -264,7 +295,14 @@ public final class A2aCaller {
                 && task.status().state().isFinal();
     }
 
-    private ProtocolError wrapFailure(String toolName, Throwable throwable) {
+    private RuntimeException wrapFailure(String toolName, Throwable throwable) {
+        // The cap is enforced inside the JDK body subscriber, so the typed error
+        // arrives wrapped. Surface it rather than hiding it in a ProtocolError,
+        // which the retry path would treat as transient.
+        ResponseTooLargeError tooLarge = ResponseTooLargeError.findIn(throwable);
+        if (tooLarge != null) {
+            return tooLarge;
+        }
         String message = throwable.getMessage();
         return new ProtocolError("a2a",
                 "A2A sendMessage failed for " + toolName + ": " + sanitizeErrorText(message),

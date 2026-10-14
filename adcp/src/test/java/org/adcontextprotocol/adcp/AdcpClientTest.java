@@ -124,4 +124,26 @@ class AdcpClientTest {
                         .adcpVersion(new AdcpVersion(2, null))
                         .build());
     }
+
+    @Test
+    void builder_rejects_a_non_positive_maxResponseBytes() {
+        assertThrows(ConfigurationError.class,
+                () -> AdcpClient.builder()
+                        .agent(AgentConfig.mcp("test", AGENT_URI))
+                        .maxResponseBytes(0));
+        assertThrows(ConfigurationError.class,
+                () -> AdcpClient.builder()
+                        .agent(AgentConfig.mcp("test", AGENT_URI))
+                        .maxResponseBytes(-1));
+    }
+
+    @Test
+    void builder_accepts_a_raised_maxResponseBytes() {
+        try (AdcpClient client = AdcpClient.builder()
+                .agent(AgentConfig.mcp("test", AGENT_URI))
+                .maxResponseBytes(32L * 1024 * 1024)
+                .build()) {
+            assertNotNull(client);
+        }
+    }
 }

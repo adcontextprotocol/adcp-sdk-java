@@ -222,4 +222,35 @@ class AgentConfigTest {
                         .extraHeaders(Map.of("X-Key", "bad\nvalue"))
                         .build());
     }
+
+    @Test
+    void maxResponseBytes_defaults_to_null_meaning_client_default() {
+        AgentConfig config = AgentConfig.builder().id("a1").agentUri(AGENT_URI).build();
+        assertNull(config.maxResponseBytes());
+    }
+
+    @Test
+    void maxResponseBytes_overrides_the_client_default() {
+        AgentConfig config = AgentConfig.builder()
+                .id("a1")
+                .agentUri(AGENT_URI)
+                .maxResponseBytes(8L * 1024 * 1024)
+                .build();
+        assertEquals(8L * 1024 * 1024, config.maxResponseBytes());
+        assertTrue(config.toString().contains("maxResponseBytes=8388608"));
+    }
+
+    @Test
+    void rejects_a_non_positive_maxResponseBytes() {
+        // The cap cannot be disabled — agent responses are untrusted input.
+        assertThrows(org.adcontextprotocol.adcp.error.ConfigurationError.class,
+                () -> AgentConfig.builder().id("a1").agentUri(AGENT_URI)
+                        .maxResponseBytes(0));
+        assertThrows(org.adcontextprotocol.adcp.error.ConfigurationError.class,
+                () -> AgentConfig.builder().id("a1").agentUri(AGENT_URI)
+                        .maxResponseBytes(-1));
+        assertThrows(org.adcontextprotocol.adcp.error.ConfigurationError.class,
+                () -> new AgentConfig("a1", AGENT_URI, Protocol.MCP, null, null, null, null,
+                        null, null, null, java.util.Map.of(), -5L));
+    }
 }

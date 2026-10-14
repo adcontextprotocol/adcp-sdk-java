@@ -41,7 +41,7 @@ class A2aConnectionManagerTest {
                     loaderCalls.incrementAndGet();
                     return testCard(agent.agentUri());
                 },
-                agentCard -> {
+                (agentCard, maxResponseBytes) -> {
                     factoryCalls.incrementAndGet();
                     return testClient(agentCard);
                 });
@@ -69,7 +69,7 @@ class A2aConnectionManagerTest {
                     discoveryHeaders.add(Map.copyOf(headers));
                     return testCard(agent.agentUri());
                 },
-                agentCard -> {
+                (agentCard, maxResponseBytes) -> {
                     factoryCalls.incrementAndGet();
                     return testClient(agentCard);
                 });
@@ -98,7 +98,7 @@ class A2aConnectionManagerTest {
                     discoveryHeaders.add(Map.copyOf(headers));
                     return testCard(agent.agentUri());
                 },
-                A2aConnectionManagerTest::testClient);
+                (card, maxResponseBytes) -> testClient(card));
 
         AgentConfig agent = AgentConfig.builder()
                 .id("a2a-agent")
@@ -126,7 +126,7 @@ class A2aConnectionManagerTest {
         AtomicInteger factoryCalls = new AtomicInteger();
         manager = new A2aConnectionManager(
                 (agent, headers) -> testCard(agent.agentUri()),
-                agentCard -> {
+                (agentCard, maxResponseBytes) -> {
                     factoryCalls.incrementAndGet();
                     return testClient(agentCard);
                 });
@@ -155,7 +155,7 @@ class A2aConnectionManagerTest {
         AtomicInteger factoryCalls = new AtomicInteger();
         manager = new A2aConnectionManager(
                 (agent, headers) -> testCard(agent.agentUri()),
-                agentCard -> {
+                (agentCard, maxResponseBytes) -> {
                     factoryCalls.incrementAndGet();
                     return testClient(agentCard);
                 });
@@ -178,7 +178,7 @@ class A2aConnectionManagerTest {
     void getOrConnect_after_close_throws() {
         manager = new A2aConnectionManager(
                 (agent, headers) -> testCard(agent.agentUri()),
-                A2aConnectionManagerTest::testClient);
+                (card, maxResponseBytes) -> testClient(card));
         manager.close();
 
         AgentConfig agent = AgentConfig.builder()
@@ -203,7 +203,7 @@ class A2aConnectionManagerTest {
                     fetchedUris.add(expected);
                     return testCard(agent.agentUri());
                 },
-                A2aConnectionManagerTest::testClient);
+                (card, maxResponseBytes) -> testClient(card));
 
         AgentConfig agent = AgentConfig.builder()
                 .id("a2a-agent")
@@ -234,7 +234,7 @@ class A2aConnectionManagerTest {
                     capturedHeaders.add(Map.copyOf(headers));
                     return testCard(agent.agentUri());
                 },
-                A2aConnectionManagerTest::testClient);
+                (card, maxResponseBytes) -> testClient(card));
 
         AgentConfig agent = AgentConfig.builder()
                 .id("a2a-agent")

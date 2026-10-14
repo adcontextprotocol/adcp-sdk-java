@@ -10,6 +10,7 @@ import org.adcontextprotocol.adcp.auth.AuthChallengeInfo;
 import org.adcontextprotocol.adcp.auth.WwwAuthenticateParser;
 import org.adcontextprotocol.adcp.error.AuthenticationRequiredError;
 import org.adcontextprotocol.adcp.error.ProtocolError;
+import org.adcontextprotocol.adcp.error.ResponseTooLargeError;
 import org.adcontextprotocol.adcp.http.AdcpHttpClient;
 import org.adcontextprotocol.adcp.http.AdcpHttpResponse;
 import org.jspecify.annotations.Nullable;
@@ -30,7 +31,10 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * Manages cached MCP client connections with LRU eviction.
  *
- * <p>Cache key: {@code agentUrl::tokenHash}. Max {@value #MAX_CACHE_SIZE} entries.
+ * <p>Cache key: {@code agentUrl::tokenHash::maxResponseBytes}. Max
+ * {@value #MAX_CACHE_SIZE} entries. The response cap is part of the key because
+ * it is baked into the transport's {@link java.net.http.HttpClient}: a call that
+ * overrides the cap must not reuse a connection built with a different one.
  * Implements StreamableHTTP → SSE fallback per TS SDK behavior.
  *
  * <p>Thread-safe: cache reads/writes use {@code cacheLock} (short-held, never
@@ -104,10 +108,29 @@ public final class McpConnectionManager implements AutoCloseable {
      */
     public McpSyncClient getOrConnect(URI agentUri, Map<String, String> headers,
                                        String tokenHash) {
+        return getOrConnect(agentUri, headers, tokenHash, null);
+    }
+
+    /**
+     * Gets or creates a cached MCP client connection with an explicit response
+     * size cap.
+     *
+     * @param agentUri          the agent's base URI
+     * @param headers           auth + extra headers to inject into MCP requests
+     * @param tokenHash         hash of the auth token (for cache keying)
+     * @param maxResponseBytes  per-connection response cap, or {@code null} to
+     *                          use the client default
+     *                          ({@link AdcpHttpClient#maxCallResponseBytes()})
+     * @return a connected {@link McpSyncClient}
+     */
+    public McpSyncClient getOrConnect(URI agentUri, Map<String, String> headers,
+                                       String tokenHash,
+                                       @Nullable Long maxResponseBytes) {
         if (closed) {
             throw new IllegalStateException("McpConnectionManager is closed");
         }
-        String cacheKey = agentUri + "::" + tokenHash;
+        long cap = effectiveMaxResponseBytes(maxResponseBytes);
+        String cacheKey = cacheKey(agentUri, tokenHash, cap);
 
         // Fast path: check cache under short lock (no I/O)
         cacheLock.lock();
@@ -147,7 +170,7 @@ public final class McpConnectionManager implements AutoCloseable {
             }
 
             // Network I/O happens here — only blocks threads in the same stripe
-            McpSyncClient client = connectWithFallback(agentUri, headers, cacheKey);
+            McpSyncClient client = connectWithFallback(agentUri, headers, cacheKey, cap);
 
             cacheLock.lock();
             try {
@@ -167,20 +190,45 @@ public final class McpConnectionManager implements AutoCloseable {
     }
 
     /**
-     * Evicts a specific connection from the cache.
+     * Evicts every cached connection for the given agent URI and token hash,
+     * regardless of the response cap it was built with.
      */
     public void evict(URI agentUri, String tokenHash) {
-        String cacheKey = agentUri + "::" + tokenHash;
+        String prefix = agentUri + "::" + tokenHash + "::";
         cacheLock.lock();
         try {
-            McpSyncClient evicted = cache.remove(cacheKey);
-            if (evicted != null) {
-                knownStreamableKeys.remove(cacheKey);
-                closeQuietly(evicted);
+            var it = cache.entrySet().iterator();
+            while (it.hasNext()) {
+                var entry = it.next();
+                if (entry.getKey().startsWith(prefix)) {
+                    it.remove();
+                    knownStreamableKeys.remove(entry.getKey());
+                    closeQuietly(entry.getValue());
+                }
             }
         } finally {
             cacheLock.unlock();
         }
+    }
+
+    /** The response cap applied when a call does not override it. */
+    public long defaultMaxResponseBytes() {
+        return adcpHttpClient.maxCallResponseBytes();
+    }
+
+    private long effectiveMaxResponseBytes(@Nullable Long override) {
+        if (override == null) {
+            return adcpHttpClient.maxCallResponseBytes();
+        }
+        if (override <= 0) {
+            throw new IllegalArgumentException(
+                    "maxResponseBytes must be positive: " + override);
+        }
+        return override;
+    }
+
+    private static String cacheKey(URI agentUri, String tokenHash, long maxResponseBytes) {
+        return agentUri + "::" + tokenHash + "::" + maxResponseBytes;
     }
 
     /**
@@ -241,17 +289,18 @@ public final class McpConnectionManager implements AutoCloseable {
      * legitimate 5xx errors and double-charged every cold connect.
      */
     private McpSyncClient connectWithFallback(URI agentUri, Map<String, String> headers,
-                                               String cacheKey) {
+                                               String cacheKey, long maxResponseBytes) {
         String url = agentUri.toString();
         Map<String, String> safe = sanitizeHeaders(headers);
 
         // Known-good StreamableHTTP endpoints skip the probe
         if (knownStreamableKeys.contains(cacheKey)) {
             try {
-                McpSyncClient client = buildAndInit(url, safe, true);
+                McpSyncClient client = buildAndInit(url, safe, true, maxResponseBytes);
                 log.debug("Reconnected to {} via StreamableHTTP (cached)", agentUri);
                 return client;
             } catch (Exception e) {
+                rethrowIfResponseTooLarge(e);
                 if (isAuthError(e)) {
                     throw probeAndBuildAuthError(agentUri, e);
                 }
@@ -266,7 +315,7 @@ public final class McpConnectionManager implements AutoCloseable {
         boolean useStreamable = probeSupportsStreamableHttp(agentUri, safe);
 
         try {
-            McpSyncClient client = buildAndInit(url, safe, useStreamable);
+            McpSyncClient client = buildAndInit(url, safe, useStreamable, maxResponseBytes);
             if (useStreamable) {
                 knownStreamableKeys.add(cacheKey);
             }
@@ -274,6 +323,7 @@ public final class McpConnectionManager implements AutoCloseable {
                     useStreamable ? "StreamableHTTP" : "SSE");
             return client;
         } catch (Exception e) {
+            rethrowIfResponseTooLarge(e);
             if (isAuthError(e)) {
                 throw probeAndBuildAuthError(agentUri, e);
             }
@@ -282,10 +332,11 @@ public final class McpConnectionManager implements AutoCloseable {
                 log.debug("StreamableHTTP init failed despite probe, trying SSE for {}",
                         agentUri);
                 try {
-                    McpSyncClient client = buildAndInit(url, safe, false);
+                    McpSyncClient client = buildAndInit(url, safe, false, maxResponseBytes);
                     log.debug("Connected to {} via SSE (fallback)", agentUri);
                     return client;
                 } catch (Exception e2) {
+                    rethrowIfResponseTooLarge(e2);
                     if (isAuthError(e2)) {
                         throw probeAndBuildAuthError(agentUri, e2);
                     }
@@ -337,20 +388,20 @@ public final class McpConnectionManager implements AutoCloseable {
     }
 
     private McpSyncClient buildAndInit(String url, Map<String, String> headers,
-                                        boolean useStreamable) {
+                                        boolean useStreamable, long maxResponseBytes) {
         var reqBuilder = java.net.http.HttpRequest.newBuilder().timeout(requestTimeout);
         McpClientTransport transport = useStreamable
                 ? HttpClientStreamableHttpTransport.builder(url)
                         .connectTimeout(connectTimeout)
                         .requestBuilder(reqBuilder)
-                        .clientBuilder(adcpHttpClient.newMcpClientBuilder())
+                        .clientBuilder(adcpHttpClient.newMcpClientBuilder(maxResponseBytes))
                         .httpRequestCustomizer((rb, method, uri, body, ctx) ->
                                 headers.forEach(rb::header))
                         .build()
                 : HttpClientSseClientTransport.builder(url)
                         .connectTimeout(connectTimeout)
                         .requestBuilder(reqBuilder)
-                        .clientBuilder(adcpHttpClient.newMcpClientBuilder())
+                        .clientBuilder(adcpHttpClient.newMcpClientBuilder(maxResponseBytes))
                         .httpRequestCustomizer((rb, method, uri, body, ctx) ->
                                 headers.forEach(rb::header))
                         .build();
@@ -423,6 +474,18 @@ public final class McpConnectionManager implements AutoCloseable {
         }
         String wwwAuth = response.headers().firstValue("WWW-Authenticate").orElse(null);
         return WwwAuthenticateParser.parse(wwwAuth);
+    }
+
+    /**
+     * An oversized response is a hard failure, not a transport hiccup: rethrow
+     * it before the SSE fallback or the auth-probe path can mask it as a
+     * connectivity problem and retry against the same hostile peer.
+     */
+    private static void rethrowIfResponseTooLarge(Exception e) {
+        ResponseTooLargeError tooLarge = ResponseTooLargeError.findIn(e);
+        if (tooLarge != null) {
+            throw tooLarge;
+        }
     }
 
     private boolean isAuthError(Exception e) {
