@@ -77,10 +77,10 @@ JUnit 5. Conventional test layout (`src/test/java/...`). Tests run with `./gradl
 
 ## AI PR review (Argus)
 
-`.github/workflows/ai-review.yml` runs an LLM reviewer on every non-draft PR. Two things to know before you touch it:
+`.github/workflows/ai-review.yml` runs an LLM reviewer on every non-draft, non-dependabot PR. Two things to know before you touch it:
 
 - Its invariants are enforced by `scripts/check-ai-review-workflow.cjs`, run by the `Validate Argus review config` workflow on every PR. Run it locally with `node scripts/check-ai-review-workflow.cjs`. If it fails, read the message — each check exists because that failure mode already shipped once.
-- The workflow, its prompt under `.github/ai-review/`, the validator, `.claude/agents/`, `.agents/roles/` and `CODEOWNERS` are **self-modification guarded**: a PR touching any of them pauses Argus and requires a human reviewer. Expect no bot review on those PRs.
+- The workflow, `.github/workflows/validate-ai-review-config.yml`, the prompt under `.github/ai-review/`, the validator, `.claude/agents/`, `.agents/roles/` and `.github/CODEOWNERS` are **self-modification guarded**: a PR touching any of them pauses Argus and requires a human reviewer. Expect no bot review on those PRs.
 
 ## Picking up work
 
