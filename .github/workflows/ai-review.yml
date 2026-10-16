@@ -85,12 +85,15 @@ jobs:
             echo "::warning::Could not list the changed files for PR #${PR_NUMBER} — pausing Argus and requiring a human reviewer."
             exit 0
           fi
-          # Every file that gates Argus belongs here, including the validator
-          # that enforces this workflow's invariants and the CI job that runs
-          # it — otherwise a PR could delete the guard and have Argus approve
-          # its own defanging.
+          # Every file that gates or shapes Argus belongs here: the workflow,
+          # its prompt, the validator that enforces this workflow's invariants
+          # and the CI job that runs it, plus the subagent definitions and
+          # CODEOWNERS the reviewer leans on. Argus reads all of these from the
+          # base SHA, so a PR editing them is reviewed by the *old* versions —
+          # approve it and every later PR is judged by the weakened ones.
+          # Filenames are anchored; directory prefixes are not.
           TOUCHED="$(printf '%s\n' "$DIFF_FILES" \
-            | grep -E '^(\.github/workflows/ai-review\.yml|\.github/workflows/validate-ai-review-config\.yml|\.github/ai-review/|scripts/check-ai-review-workflow\.cjs)' || true)"
+            | grep -E '^(\.github/workflows/ai-review\.yml$|\.github/workflows/validate-ai-review-config\.yml$|\.github/ai-review/|\.github/CODEOWNERS$|scripts/check-ai-review-workflow\.cjs$|\.claude/agents/|\.agents/roles/)' || true)"
           if [ -n "$TOUCHED" ]; then
             echo "touches=true" >> "$GITHUB_OUTPUT"
             echo "Argus paths touched — pausing Argus on this PR. Files:"
@@ -118,7 +121,9 @@ jobs:
           github-token: ${{ steps.notice-token.outputs.token }}
           script: |
             const marker = '<!-- argus-self-mod-notice -->';
-            const { data: comments } = await github.rest.issues.listComments({
+            // Paginate: a long PR can push the marker past the first page,
+            // which would post a duplicate notice on every `synchronize`.
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
@@ -133,7 +138,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `${marker}\n🛑 **Argus paused on this PR.**\n\nThis PR modifies Argus's own configuration (\`.github/workflows/ai-review.yml\` or \`.github/ai-review/**\`). Argus will not post an approving review on changes to its own gates — a human reviewer must take this PR.\n\n[Workflow run](${runUrl})\n\n<sub>Automated by the Argus self-modification gate.</sub>`,
+              body: `${marker}\n🛑 **Argus paused on this PR.**\n\nEither this PR changes a file that gates or shapes Argus itself — the review workflow, its prompt, its validator, the subagent definitions, or \`CODEOWNERS\` — or the changed-file list could not be read, in which case the gate fails closed. Argus does not review changes to its own gates; a human reviewer must take this PR. The workflow run log names the specific reason.\n\n[Workflow run](${runUrl})\n\n<sub>Automated by the Argus self-modification gate.</sub>`,
             });
 
       - name: Snapshot PR for Argus
@@ -275,7 +280,14 @@ jobs:
                   "NotebookEdit",
                   "MultiEdit",
                   "WebFetch",
-                  "WebSearch"
+                  "WebSearch",
+                  "Read(//proc/**)",
+                  "Read(//etc/**)",
+                  "Read(//root/**)",
+                  "Read(//home/runner/work/_temp/**)",
+                  "Read(//home/runner/.claude/**)",
+                  "Read(//home/runner/.config/**)",
+                  "Read(//home/runner/.docker/**)"
                 ]
               },
               "sandbox": {
@@ -348,6 +360,26 @@ jobs:
               throw new Error(`Review body is too large: ${review.body.length} characters.`);
             }
 
+            // Last line of defence against a prompt injection that talks the
+            // model into quoting a credential: this body is about to be
+            // published on a public PR, where Actions log masking does not
+            // apply. Refuse rather than redact — a body shaped like this is
+            // never a legitimate review, and failing here trips the notice
+            // and the job-failing gate below.
+            const secretShapes = [
+              /sk-ant-[A-Za-z0-9_-]{8}/,
+              /\bgh[pousr]_[A-Za-z0-9]{16}/,
+              /\bgithub_pat_[A-Za-z0-9_]{20}/,
+              /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
+            ];
+            for (const shape of secretShapes) {
+              if (shape.test(review.body)) {
+                throw new Error(
+                  `Review body contains credential-shaped content (${shape}); refusing to post it.`,
+                );
+              }
+            }
+
             await github.rest.pulls.createReview({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -405,7 +437,7 @@ jobs:
             const runUrl = process.env.RUN_URL;
             const headSha = (process.env.HEAD_SHA || '').slice(0, 12);
             const body = `${marker}\n⚠️ **Argus review could not complete**\n\nThe automated review did not post a review on \`${headSha}\` — it may have crashed, reached max turns, timed out, or returned output that failed validation. The workflow run is marked failed. A human reviewer should take this PR.\n\n[View workflow run](${runUrl})\n\n<sub>This is an automated message from the Argus AI review workflow.</sub>`;
-            const { data: comments } = await github.rest.issues.listComments({
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
@@ -427,6 +459,31 @@ jobs:
               repo: context.repo.repo,
               body,
             });
+
+      # Once a later push does get reviewed, the stale "could not complete"
+      # notice from an earlier head would otherwise sit next to the real
+      # review, contradicting it.
+      - name: Clear the failure notice once a review lands
+        if: ${{ !cancelled() && steps.self-mod.outputs.touches != 'true' && steps.review-token.outcome == 'success' && steps.verify.outputs.review_posted == 'true' }}
+        continue-on-error: true
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          github-token: ${{ steps.review-token.outputs.token }}
+          script: |
+            const marker = '<!-- argus-review-failed-notice -->';
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            for (const comment of comments.filter(c => c.body && c.body.includes(marker))) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id,
+              });
+            }
 
       # A review that never happened must not look like a pass. The Claude and
       # post-review steps are `continue-on-error` so the notice comment above

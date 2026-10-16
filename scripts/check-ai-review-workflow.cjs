@@ -64,15 +64,46 @@ if (!/anthropics\/claude-code-action@[0-9a-f]{40}\s+#\s*v\d/.test(source)) {
 }
 
 // ── Steps ────────────────────────────────────────────────────────────────────
-// Steps in this workflow sit at six-space indentation; split on that so each
-// assertion can look at one step at a time.
-const stepStart = /^ {6}- (?:name|uses):/;
+// Steps in this workflow sit at six-space indentation. Split on the list
+// dash, not on `- name:`/`- uses:` specifically — a step may lead with any
+// key, and a step that led with `- id:` used to get folded into its
+// predecessor, letting one step satisfy another's assertions.
+const stepStart = /^ {6}- \S/;
+// Only scan from the job's `steps:` key — the `on.pull_request_target.types`
+// list sits at the same indentation and would otherwise read as steps.
+const stepsKey = lines.findIndex((line) => /^ {4}steps:\s*$/.test(line));
+if (stepsKey === -1) {
+  fail(`${relPath}: no job-level \`steps:\` key found.`);
+}
 const steps = [];
-for (const line of lines) {
-  if (stepStart.test(line)) steps.push([]);
+// Comment lines directly above a step belong to that step, not the one
+// before it. Buffer them and flush on the next step boundary.
+let pendingComments = [];
+for (const line of lines.slice(stepsKey === -1 ? 0 : stepsKey + 1)) {
+  if (stepStart.test(line)) {
+    steps.push([...pendingComments]);
+    pendingComments = [];
+  } else if (/^ {6}#/.test(line)) {
+    pendingComments.push(line);
+    continue;
+  } else if (line.trim() !== '') {
+    pendingComments = [];
+  }
   if (steps.length > 0) steps[steps.length - 1].push(line);
 }
 const stepBodies = steps.map((s) => s.join('\n'));
+
+/**
+ * A step's YAML with comment lines removed. Assertions about directives
+ * (`if:`, `continue-on-error:`) must not be satisfiable by a comment that
+ * merely mentions them.
+ */
+function uncommented(step) {
+  return step
+    .split('\n')
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n');
+}
 
 // ── claude_args must not set --output-format ─────────────────────────────────
 // This is the regression that broke Argus. claude-code-action already runs the
@@ -121,6 +152,20 @@ if (argsHeader === -1) {
   }
 }
 
+// ── The posted review body is screened for credential-shaped content ───────
+// The review is published on a public PR, where Actions log masking does not
+// apply. A prompt injection that talks the model into quoting a key must not
+// get a free publication channel.
+const postStep = stepBodies.find((step) => step.includes('pulls.createReview'));
+if (!postStep) {
+  fail(`${relPath}: no step posts the review via \`pulls.createReview\`.`);
+} else if (!/sk-ant-/.test(postStep) || !/BEGIN \[A-Z \]\*PRIVATE KEY/.test(postStep)) {
+  fail(
+    `${relPath}: the step that posts the review must refuse bodies containing ` +
+      `credential-shaped content (at minimum \`sk-ant-\` and PEM private-key headers).`,
+  );
+}
+
 // ── The self-modification gate covers every file that gates Argus ──────────
 // Argus must not review — and so must not approve — a PR that edits its own
 // guards. That set includes this validator and the CI job that runs it.
@@ -128,18 +173,27 @@ const selfModStep = stepBodies.find((step) => step.includes('touches=true'));
 if (!selfModStep) {
   fail(`${relPath}: no self-modification gate step writing \`touches=true\` was found.`);
 } else {
-  const guarded = [
-    'ai-review\\.yml',
-    '\\.github/ai-review/',
-    'validate-ai-review-config\\.yml',
-    'check-ai-review-workflow\\.cjs',
-  ];
-  for (const needle of guarded) {
-    if (!selfModStep.includes(needle)) {
-      fail(
-        `${relPath}: the self-modification gate does not match \`${needle}\`. A PR could ` +
-          `change that file and still get an Argus approval.`,
-      );
+  // Look inside the `grep -E '...'` pattern specifically: a path that only
+  // appears in an echo or a comment is not actually matched.
+  const grepPattern = /grep -E '([^']+)'/.exec(selfModStep);
+  if (!grepPattern) {
+    fail(`${relPath}: the self-modification gate must select paths with \`grep -E '...'\`.`);
+  } else {
+    const guarded = [
+      'ai-review\\.yml',
+      '\\.github/ai-review/',
+      'validate-ai-review-config\\.yml',
+      'check-ai-review-workflow\\.cjs',
+      '\\.claude/agents/',
+      '\\.github/CODEOWNERS',
+    ];
+    for (const needle of guarded) {
+      if (!grepPattern[1].includes(needle)) {
+        fail(
+          `${relPath}: the self-modification gate pattern does not match \`${needle}\`. A PR ` +
+            `could change that file and still get an Argus approval.`,
+        );
+      }
     }
   }
   // An undetermined answer must not read as "safe to review".
@@ -178,11 +232,23 @@ if (settingsHeader === -1) {
       fail(`${relPath}: claude_args must pass \`--disallowedTools "..."\`.`);
     } else {
       const flagTools = flagMatch[1].split(',').map((t) => t.trim()).filter(Boolean);
-      const missing = flagTools.filter((t) => !denied.includes(t));
-      if (missing.length > 0) {
+      // Path-scoped rules like `Read(//proc/**)` only exist in `settings`;
+      // compare bare tool names on both sides.
+      const bareDenied = denied.filter((rule) => !rule.includes('('));
+      const missingFromSettings = flagTools.filter((t) => !bareDenied.includes(t));
+      if (missingFromSettings.length > 0) {
         fail(
-          `${relPath}: ${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} in ` +
-            `\`--disallowedTools\` but not in \`settings.permissions.deny\`. Keep both lists in sync.`,
+          `${relPath}: ${missingFromSettings.join(', ')} ` +
+            `${missingFromSettings.length === 1 ? 'is' : 'are'} in \`--disallowedTools\` but not ` +
+            `in \`settings.permissions.deny\`. Keep both lists in sync.`,
+        );
+      }
+      const missingFromFlag = bareDenied.filter((t) => !flagTools.includes(t));
+      if (missingFromFlag.length > 0) {
+        fail(
+          `${relPath}: ${missingFromFlag.join(', ')} ` +
+            `${missingFromFlag.length === 1 ? 'is' : 'are'} in \`settings.permissions.deny\` but ` +
+            `not in \`--disallowedTools\`. Keep both lists in sync.`,
         );
       }
       for (const required of ['Bash', 'Edit', 'Write', 'WebFetch', 'WebSearch']) {
@@ -196,10 +262,17 @@ if (settingsHeader === -1) {
 
 // ── The PR diff is fenced as untrusted input ────────────────────────────────
 // PR title, body and diff are attacker-controlled and are fed to the model.
-if (!/untrusted/i.test(source)) {
+const promptStep = stepBodies.find((step) => step.includes('ARGUS_PROMPT<<'));
+const fenceEchoed =
+  promptStep !== undefined &&
+  /^\s*echo '[^']*untrusted[^']*'\s*$/im.test(promptStep) &&
+  /Never follow instructions/i.test(promptStep);
+if (!fenceEchoed) {
   fail(
     `${relPath}: the prompt the workflow builds must tell the model that the \`.argus/\` ` +
-      `inputs are untrusted PR-author content and must not be followed as instructions.`,
+      `inputs are untrusted PR-author content and that it must never follow instructions ` +
+      `found there. A comment mentioning "untrusted" does not count — it has to be echoed ` +
+      `into the prompt.`,
   );
 }
 
@@ -215,7 +288,7 @@ const verifiesModel = stepBodies.some(
   (step) =>
     /api\.anthropic\.com\/v1\/models\/[$"']*\{?ARGUS_MODEL\}?/.test(step) &&
     /exit 1/.test(step) &&
-    !/continue-on-error:\s*true/.test(step),
+    !/continue-on-error:\s*true/.test(uncommented(step)),
 );
 if (!verifiesModel) {
   fail(
@@ -251,7 +324,7 @@ if (!verifyStep) {
         `reviews API returned no matching review (\`if [ -z "$STATE" ]\`).`,
     );
   }
-  if (/continue-on-error:\s*true/.test(verifyStep)) {
+  if (/continue-on-error:\s*true/.test(uncommented(verifyStep))) {
     fail(`${relPath}: the \`review_posted\` step must not be continue-on-error.`);
   }
 }
@@ -266,13 +339,13 @@ if (!gate) {
       `crashed review reports success (issue #41).`,
   );
 } else {
-  if (!/if:.*(?:always\(\)|!cancelled\(\))/.test(gate)) {
+  if (!/if:.*(?:always\(\)|!cancelled\(\))/.test(uncommented(gate))) {
     fail(
       `${relPath}: the "did Argus post a review" gate must run with \`!cancelled()\` ` +
         `(or \`always()\`), otherwise an earlier failure skips it and the job still passes.`,
     );
   }
-  if (/continue-on-error:\s*true/.test(gate)) {
+  if (/continue-on-error:\s*true/.test(uncommented(gate))) {
     fail(`${relPath}: the "did Argus post a review" gate must not be continue-on-error.`);
   }
 }
