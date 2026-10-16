@@ -22,7 +22,7 @@ Read [`ROADMAP.md`](ROADMAP.md) first. It divides v0.1 → v1.0 into 14 claimabl
 
 A single contributor can claim multiple non-conflicting tracks. High-coupling tracks (`async-l3` + `lifecycle`) benefit from a single owner pair.
 
-Before designing anything new, read the [24 confirmed post-RFC decisions](ROADMAP.md#confirmed-decisions). They override the RFC where they differ. D1–D21 are fully locked; D22 and D23 have their framing locked with shape details in linked `specs/` docs, and D24 has shipped.
+Before designing anything new, read the [24 confirmed post-RFC decisions](ROADMAP.md#confirmed-decisions). They override the RFC where they differ. D1–D21 are fully locked; D22's shape is detailed in [`specs/signing-context.md`](specs/signing-context.md), D23 pins the parity target at `3.1.0-beta.5` with the GA bump deferred to the codegen PR, and D24 has shipped.
 
 ## Dev setup
 
