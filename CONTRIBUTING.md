@@ -22,7 +22,7 @@ Read [`ROADMAP.md`](ROADMAP.md) first. It divides v0.1 → v1.0 into 14 claimabl
 
 A single contributor can claim multiple non-conflicting tracks. High-coupling tracks (`async-l3` + `lifecycle`) benefit from a single owner pair.
 
-Before designing anything new, read the [21 confirmed post-RFC decisions](ROADMAP.md#confirmed-decisions). They override the RFC where they differ.
+Before designing anything new, read the [24 confirmed post-RFC decisions](ROADMAP.md#confirmed-decisions). They override the RFC where they differ. D1–D21 are fully locked; D22's shape is detailed in [`specs/signing-context.md`](specs/signing-context.md), D23 pins the parity target at `3.1.0-beta.5` with the GA bump deferred to the codegen PR, and D24 has shipped.
 
 ## Dev setup
 
@@ -59,6 +59,22 @@ rm settings-gradle.lockfile && ./gradlew help --write-locks
 ```
 
 CI verifies lockfiles are up to date on every PR — the `Verify lockfiles are up to date` step will fail if you forget. Commit all updated lockfiles alongside your dependency change.
+
+## Automated PR review
+
+Every non-draft pull request gets an automated review from **Argus**, an LLM reviewer that reads your diff and posts an approve / comment / request-changes review. (Dependabot PRs are skipped.) Two things usually surprise first-time contributors:
+
+- **The review arrives from `aao-ipr-bot[bot]`** — the same GitHub App that handles the IPR signature check. One App covers both, which is why the "IPR bot" appears to be reviewing your Java.
+- **Argus cannot change your branch.** It runs read-only: no shell, no file writes, no network fetches. It reads the diff and repository files and returns a review.
+
+What its verdict does and does not mean:
+
+- An Argus approval **does not** satisfy branch protection. `main` still requires a review from a human code owner (D21), and the bot is not one.
+- If Argus cannot complete — a crash, a timeout, output that fails validation — the check **fails**, and in most cases it posts a comment saying so (the comment needs an App token, so a token-minting failure leaves a red build with no comment). A missing review is a red build, never a silent pass. Re-running the job is worth one try if the log shows a transient API error; if it fails the same way twice, ask a maintainer to review instead.
+
+Argus deliberately skips PRs that change the review system itself (`.github/workflows/ai-review.yml`, `.github/workflows/validate-ai-review-config.yml`, `.github/ai-review/`, `scripts/check-ai-review-workflow.cjs`, `.claude/agents/`, `.agents/roles/`, `.github/CODEOWNERS`). Each of those gates the review in some way — the workflow, prompt and agent definitions are the ones Argus itself loads from the base branch, so it would be judging a change to its own gates using the version that change replaces. Those PRs get a "paused" notice and need a human reviewer.
+
+You can also get that notice on a PR touching none of those paths: the gate fails closed, so if the changed-file list can't be read at all — `gh pr diff` rejects very large diffs — it pauses rather than guess.
 
 ## Code conventions
 
