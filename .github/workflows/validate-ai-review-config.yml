@@ -1,0 +1,31 @@
+name: Validate Argus review config
+
+# The Argus review workflow runs on `pull_request_target`, so a mistake in it
+# is only observable after it merges — and before issue #41 a crashed review
+# still reported success. This check runs on the untrusted `pull_request`
+# event (no secrets, no write token) and asserts the invariants that keep a
+# silent no-review from looking like a pass.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ai-review.yml'
+      - '.github/workflows/validate-ai-review-config.yml'
+      - 'scripts/check-ai-review-workflow.cjs'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: ai-review.yml invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - run: node scripts/check-ai-review-workflow.cjs
