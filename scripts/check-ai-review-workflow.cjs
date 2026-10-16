@@ -9,6 +9,9 @@
 // Deliberately dependency-free string checking rather than a YAML parse — the
 // repo has no YAML library on the Node side, and the properties below are all
 // line-oriented.
+//
+// Scope: these are structural invariants, not a proof that the workflow works.
+// Whether Argus actually reviews a PR is only answered by a real run.
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -83,6 +86,9 @@ if (argsHeader === -1) {
   const headerIndent = /^(\s*)/.exec(lines[argsHeader])[1].length;
   const argLines = [];
   for (const line of lines.slice(argsHeader + 1)) {
+    // Blank lines are skipped rather than treated as terminators: a blank
+    // line inside the block scalar must not hide arguments that follow it.
+    // The dedent below is what actually ends the block.
     if (line.trim() === '') continue;
     const indent = /^(\s*)/.exec(line)[1].length;
     if (indent <= headerIndent) break;
@@ -115,6 +121,88 @@ if (argsHeader === -1) {
   }
 }
 
+// ── The self-modification gate covers every file that gates Argus ──────────
+// Argus must not review — and so must not approve — a PR that edits its own
+// guards. That set includes this validator and the CI job that runs it.
+const selfModStep = stepBodies.find((step) => step.includes('touches=true'));
+if (!selfModStep) {
+  fail(`${relPath}: no self-modification gate step writing \`touches=true\` was found.`);
+} else {
+  const guarded = [
+    'ai-review\\.yml',
+    '\\.github/ai-review/',
+    'validate-ai-review-config\\.yml',
+    'check-ai-review-workflow\\.cjs',
+  ];
+  for (const needle of guarded) {
+    if (!selfModStep.includes(needle)) {
+      fail(
+        `${relPath}: the self-modification gate does not match \`${needle}\`. A PR could ` +
+          `change that file and still get an Argus approval.`,
+      );
+    }
+  }
+  // An undetermined answer must not read as "safe to review".
+  if (!/if ! DIFF_FILES=/.test(selfModStep)) {
+    fail(
+      `${relPath}: the self-modification gate must fail closed — set \`touches=true\` when ` +
+        `listing the PR's changed files fails, rather than leaving the output unset.`,
+    );
+  }
+}
+
+// ── The two tool-deny layers must agree ─────────────────────────────────────
+// `--disallowedTools` is a CLI flag; `settings.permissions.deny` is what
+// subagents launched via Task inherit. A tool denied in only one place is
+// denied by only one mechanism.
+const settingsHeader = lines.findIndex((line) => /^\s*settings:\s*\|/.test(line));
+if (settingsHeader === -1) {
+  fail(`${relPath}: no \`settings: |\` block found on the review step.`);
+} else {
+  const settingsIndent = /^(\s*)/.exec(lines[settingsHeader])[1].length;
+  const jsonLines = [];
+  for (const line of lines.slice(settingsHeader + 1)) {
+    if (line.trim() === '') continue;
+    if (/^(\s*)/.exec(line)[1].length <= settingsIndent) break;
+    jsonLines.push(line);
+  }
+  let denied = null;
+  try {
+    denied = JSON.parse(jsonLines.join('\n')).permissions.deny;
+  } catch {
+    fail(`${relPath}: the \`settings\` block is not parseable JSON with \`permissions.deny\`.`);
+  }
+  if (denied) {
+    const flagMatch = /--disallowedTools\s+"([^"]+)"/.exec(source);
+    if (!flagMatch) {
+      fail(`${relPath}: claude_args must pass \`--disallowedTools "..."\`.`);
+    } else {
+      const flagTools = flagMatch[1].split(',').map((t) => t.trim()).filter(Boolean);
+      const missing = flagTools.filter((t) => !denied.includes(t));
+      if (missing.length > 0) {
+        fail(
+          `${relPath}: ${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} in ` +
+            `\`--disallowedTools\` but not in \`settings.permissions.deny\`. Keep both lists in sync.`,
+        );
+      }
+      for (const required of ['Bash', 'Edit', 'Write', 'WebFetch', 'WebSearch']) {
+        if (!flagTools.includes(required)) {
+          fail(`${relPath}: \`${required}\` must stay in \`--disallowedTools\` for a read-only reviewer.`);
+        }
+      }
+    }
+  }
+}
+
+// ── The PR diff is fenced as untrusted input ────────────────────────────────
+// PR title, body and diff are attacker-controlled and are fed to the model.
+if (!/untrusted/i.test(source)) {
+  fail(
+    `${relPath}: the prompt the workflow builds must tell the model that the \`.argus/\` ` +
+      `inputs are untrusted PR-author content and must not be followed as instructions.`,
+  );
+}
+
 // ── ARGUS_MODEL is declared and verified before the review runs ──────────────
 const modelEnv = /^\s*ARGUS_MODEL:\s*(\S+)\s*$/m.exec(source);
 if (!modelEnv) {
@@ -125,7 +213,7 @@ if (!modelEnv) {
 
 const verifiesModel = stepBodies.some(
   (step) =>
-    step.includes('api.anthropic.com/v1/models/${ARGUS_MODEL}') &&
+    /api\.anthropic\.com\/v1\/models\/[$"']*\{?ARGUS_MODEL\}?/.test(step) &&
     /exit 1/.test(step) &&
     !/continue-on-error:\s*true/.test(step),
 );
@@ -134,6 +222,38 @@ if (!verifiesModel) {
     `${relPath}: no job-failing step checks ARGUS_MODEL against ` +
       `https://api.anthropic.com/v1/models/ before the review runs.`,
   );
+}
+
+// ── The step that answers "was a review posted?" must be able to say no ─────
+// Without this, the gate below can be satisfied by a verify step rewired to
+// report `review_posted=true` unconditionally — the issue-#41 shape again.
+const verifyStep = stepBodies.find((step) => step.includes('review_posted='));
+if (!verifyStep) {
+  fail(`${relPath}: no step writes a \`review_posted\` output.`);
+} else {
+  if (!/pulls\/\$\{PR_NUMBER\}\/reviews/.test(verifyStep)) {
+    fail(
+      `${relPath}: the \`review_posted\` step must read the PR's reviews from the GitHub ` +
+        `API rather than infer success from earlier step outcomes.`,
+    );
+  }
+  if (!/review_posted=false/.test(verifyStep) || !/review_posted=true/.test(verifyStep)) {
+    fail(
+      `${relPath}: the \`review_posted\` step must be able to emit both ` +
+        `\`review_posted=false\` and \`review_posted=true\`.`,
+    );
+  }
+  // The false branch has to be guarded by an emptiness test on what the API
+  // returned, not by something an unrelated failure could flip.
+  if (!/if \[ -z "\$STATE" \]/.test(verifyStep)) {
+    fail(
+      `${relPath}: the \`review_posted\` step must emit \`review_posted=false\` when the ` +
+        `reviews API returned no matching review (\`if [ -z "$STATE" ]\`).`,
+    );
+  }
+  if (/continue-on-error:\s*true/.test(verifyStep)) {
+    fail(`${relPath}: the \`review_posted\` step must not be continue-on-error.`);
+  }
 }
 
 // ── A review that never happened must fail the job ───────────────────────────
@@ -146,10 +266,10 @@ if (!gate) {
       `crashed review reports success (issue #41).`,
   );
 } else {
-  if (!/if:\s*always\(\)/.test(gate)) {
+  if (!/if:.*(?:always\(\)|!cancelled\(\))/.test(gate)) {
     fail(
-      `${relPath}: the "did Argus post a review" gate must run with \`if: always()\`, ` +
-        `otherwise an earlier failure skips it and the job still passes.`,
+      `${relPath}: the "did Argus post a review" gate must run with \`!cancelled()\` ` +
+        `(or \`always()\`), otherwise an earlier failure skips it and the job still passes.`,
     );
   }
   if (/continue-on-error:\s*true/.test(gate)) {

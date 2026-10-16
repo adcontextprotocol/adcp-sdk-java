@@ -6,12 +6,11 @@ name: Validate Argus review config
 # event (no secrets, no write token) and asserts the invariants that keep a
 # silent no-review from looking like a pass.
 
+# Deliberately unfiltered by `paths`: a path-filtered job never reports on
+# PRs that do not touch those files, which makes it unusable as a required
+# status check. It runs in a couple of seconds.
 on:
   pull_request:
-    paths:
-      - '.github/workflows/ai-review.yml'
-      - '.github/workflows/validate-ai-review-config.yml'
-      - 'scripts/check-ai-review-workflow.cjs'
   push:
     branches: [main]
 
