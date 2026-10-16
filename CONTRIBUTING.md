@@ -70,9 +70,11 @@ Every non-draft pull request gets an automated review from **Argus**, an LLM rev
 What its verdict does and does not mean:
 
 - An Argus approval **does not** satisfy branch protection. `main` still requires a review from a human code owner (D21), and the bot is not one.
-- If Argus cannot complete — a crash, a timeout, output that fails validation — the check **fails** and it posts a comment saying so. A missing review is a red build, never a silent pass. Re-running the job is worth one try if the log shows a transient API error; if it fails the same way twice, ask a maintainer to review instead.
+- If Argus cannot complete — a crash, a timeout, output that fails validation — the check **fails**, and in most cases it posts a comment saying so (the comment needs an App token, so a token-minting failure leaves a red build with no comment). A missing review is a red build, never a silent pass. Re-running the job is worth one try if the log shows a transient API error; if it fails the same way twice, ask a maintainer to review instead.
 
-Argus deliberately skips PRs that change the review system itself (`.github/workflows/ai-review.yml`, `.github/workflows/validate-ai-review-config.yml`, `.github/ai-review/`, `scripts/check-ai-review-workflow.cjs`, `.claude/agents/`, `.agents/roles/`, `.github/CODEOWNERS`). It reads all of those from the base branch, so it would be judging a change to its own gates using the version that change replaces. Those PRs get a "paused" notice and need a human reviewer.
+Argus deliberately skips PRs that change the review system itself (`.github/workflows/ai-review.yml`, `.github/workflows/validate-ai-review-config.yml`, `.github/ai-review/`, `scripts/check-ai-review-workflow.cjs`, `.claude/agents/`, `.agents/roles/`, `.github/CODEOWNERS`). Each of those gates the review in some way — the workflow, prompt and agent definitions are the ones Argus itself loads from the base branch, so it would be judging a change to its own gates using the version that change replaces. Those PRs get a "paused" notice and need a human reviewer.
+
+You can also get that notice on a PR touching none of those paths: the gate fails closed, so if the changed-file list can't be read at all — `gh pr diff` rejects very large diffs — it pauses rather than guess.
 
 ## Code conventions
 
