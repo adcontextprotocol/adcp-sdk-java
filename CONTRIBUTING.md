@@ -22,7 +22,7 @@ Read [`ROADMAP.md`](ROADMAP.md) first. It divides v0.1 → v1.0 into 14 claimabl
 
 A single contributor can claim multiple non-conflicting tracks. High-coupling tracks (`async-l3` + `lifecycle`) benefit from a single owner pair.
 
-Before designing anything new, read the [21 confirmed post-RFC decisions](ROADMAP.md#confirmed-decisions). They override the RFC where they differ.
+Before designing anything new, read the [24 confirmed post-RFC decisions](ROADMAP.md#confirmed-decisions). They override the RFC where they differ.
 
 ## Dev setup
 
@@ -59,6 +59,20 @@ rm settings-gradle.lockfile && ./gradlew help --write-locks
 ```
 
 CI verifies lockfiles are up to date on every PR — the `Verify lockfiles are up to date` step will fail if you forget. Commit all updated lockfiles alongside your dependency change.
+
+## Automated PR review
+
+Every non-draft pull request gets an automated review from **Argus**, an LLM reviewer that reads your diff and posts an approve / comment / request-changes review. Two things usually surprise first-time contributors:
+
+- **The review arrives from `aao-ipr-bot[bot]`** — the same GitHub App that handles the IPR signature check. One App covers both, which is why the "IPR bot" appears to be reviewing your Java.
+- **Argus cannot change your branch.** It runs read-only: no shell, no file writes, no network fetches. It reads the diff and repository files and returns a review.
+
+What its verdict does and does not mean:
+
+- An Argus approval **does not** satisfy branch protection. `main` still requires a review from a human code owner (D21), and the bot is not one.
+- If Argus cannot complete — a crash, a timeout, output that fails validation — the check **fails** and it posts a comment saying so. A missing review is a red build, never a silent pass. If you see that comment, ask a maintainer to review rather than re-running the job.
+
+Argus deliberately skips PRs that change the review system itself (`.github/workflows/ai-review.yml`, `.github/ai-review/`, `scripts/check-ai-review-workflow.cjs`, `.claude/agents/`, `.agents/roles/`, `CODEOWNERS`). It reads all of those from the base branch, so it would be judging a change to its own gates using the version that change replaces. Those PRs get a "paused" notice and need a human reviewer.
 
 ## Code conventions
 

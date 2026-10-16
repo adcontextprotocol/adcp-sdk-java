@@ -12,7 +12,7 @@ Status: harness phase. Eight Gradle modules wired and green; most surfaces are p
 
 In order of precedence:
 
-1. **[`ROADMAP.md`](ROADMAP.md) §Confirmed decisions** — 21 numbered decisions (D1–D21) that lock in architecture, build, conventions. **These override the RFC where they differ.**
+1. **[`ROADMAP.md`](ROADMAP.md) §Confirmed decisions** — 24 numbered decisions (D1–D24) that lock in architecture, build, conventions. **These override the RFC where they differ.**
 2. **[`docs/rfc/java-sdk-rfc.md`](docs/rfc/java-sdk-rfc.md)** — the merged RFC.
 3. **[`ROADMAP.md`](ROADMAP.md) §Tracks** — what each module is supposed to contain, in track-claim form.
 4. **[`ROADMAP.md`](ROADMAP.md) §7.x deltas** — what changed in the TS SDK between the RFC's 6.x baseline and the current 7.2.0.
@@ -74,6 +74,13 @@ The SDK generates Java types from JSON Schemas at `https://adcontextprotocol.org
 ## Testing
 
 JUnit 5. Conventional test layout (`src/test/java/...`). Tests run with `./gradlew test`. Storyboard CI lives in `adcp-testing` and hits the `@adcp/sdk/mock-server` sidecar in CI (D8).
+
+## AI PR review (Argus)
+
+`.github/workflows/ai-review.yml` runs an LLM reviewer on every non-draft PR. Two things to know before you touch it:
+
+- Its invariants are enforced by `scripts/check-ai-review-workflow.cjs`, run by the `Validate Argus review config` workflow on every PR. Run it locally with `node scripts/check-ai-review-workflow.cjs`. If it fails, read the message — each check exists because that failure mode already shipped once.
+- The workflow, its prompt under `.github/ai-review/`, the validator, `.claude/agents/`, `.agents/roles/` and `CODEOWNERS` are **self-modification guarded**: a PR touching any of them pauses Argus and requires a human reviewer. Expect no bot review on those PRs.
 
 ## Picking up work
 
