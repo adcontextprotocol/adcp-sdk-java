@@ -22,7 +22,7 @@ Read [`ROADMAP.md`](ROADMAP.md) first. It divides v0.1 → v1.0 into 14 claimabl
 
 A single contributor can claim multiple non-conflicting tracks. High-coupling tracks (`async-l3` + `lifecycle`) benefit from a single owner pair.
 
-Before designing anything new, read the [24 confirmed post-RFC decisions](ROADMAP.md#confirmed-decisions). They override the RFC where they differ.
+Before designing anything new, read the [24 confirmed post-RFC decisions](ROADMAP.md#confirmed-decisions). They override the RFC where they differ. D1–D21 are fully locked; D22 and D23 have their framing locked with shape details in linked `specs/` docs, and D24 has shipped.
 
 ## Dev setup
 
@@ -70,7 +70,7 @@ Every non-draft pull request gets an automated review from **Argus**, an LLM rev
 What its verdict does and does not mean:
 
 - An Argus approval **does not** satisfy branch protection. `main` still requires a review from a human code owner (D21), and the bot is not one.
-- If Argus cannot complete — a crash, a timeout, output that fails validation — the check **fails** and it posts a comment saying so. A missing review is a red build, never a silent pass. If you see that comment, ask a maintainer to review rather than re-running the job.
+- If Argus cannot complete — a crash, a timeout, output that fails validation — the check **fails** and it posts a comment saying so. A missing review is a red build, never a silent pass. Re-running the job is worth one try if the log shows a transient API error; if it fails the same way twice, ask a maintainer to review instead.
 
 Argus deliberately skips PRs that change the review system itself (`.github/workflows/ai-review.yml`, `.github/workflows/validate-ai-review-config.yml`, `.github/ai-review/`, `scripts/check-ai-review-workflow.cjs`, `.claude/agents/`, `.agents/roles/`, `.github/CODEOWNERS`). It reads all of those from the base branch, so it would be judging a change to its own gates using the version that change replaces. Those PRs get a "paused" notice and need a human reviewer.
 
