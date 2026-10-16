@@ -37,11 +37,11 @@ class A2aConnectionManagerTest {
         AtomicInteger loaderCalls = new AtomicInteger();
         AtomicInteger factoryCalls = new AtomicInteger();
         manager = new A2aConnectionManager(
-                (agent, headers) -> {
+                (agent, headers, cap) -> {
                     loaderCalls.incrementAndGet();
                     return testCard(agent.agentUri());
                 },
-                agentCard -> {
+                (agentCard, maxResponseBytes) -> {
                     factoryCalls.incrementAndGet();
                     return testClient(agentCard);
                 });
@@ -65,11 +65,11 @@ class A2aConnectionManagerTest {
         AtomicInteger factoryCalls = new AtomicInteger();
         List<Map<String, String>> discoveryHeaders = new ArrayList<>();
         manager = new A2aConnectionManager(
-                (agent, headers) -> {
+                (agent, headers, cap) -> {
                     discoveryHeaders.add(Map.copyOf(headers));
                     return testCard(agent.agentUri());
                 },
-                agentCard -> {
+                (agentCard, maxResponseBytes) -> {
                     factoryCalls.incrementAndGet();
                     return testClient(agentCard);
                 });
@@ -94,11 +94,11 @@ class A2aConnectionManagerTest {
     void buildCacheKey_does_not_include_authorization_header() {
         List<Map<String, String>> discoveryHeaders = new ArrayList<>();
         manager = new A2aConnectionManager(
-                (agent, headers) -> {
+                (agent, headers, cap) -> {
                     discoveryHeaders.add(Map.copyOf(headers));
                     return testCard(agent.agentUri());
                 },
-                A2aConnectionManagerTest::testClient);
+                (card, maxResponseBytes) -> testClient(card));
 
         AgentConfig agent = AgentConfig.builder()
                 .id("a2a-agent")
@@ -125,8 +125,8 @@ class A2aConnectionManagerTest {
     void evict_exact_cache_hash_removes_only_matching_variant() {
         AtomicInteger factoryCalls = new AtomicInteger();
         manager = new A2aConnectionManager(
-                (agent, headers) -> testCard(agent.agentUri()),
-                agentCard -> {
+                (agent, headers, cap) -> testCard(agent.agentUri()),
+                (agentCard, maxResponseBytes) -> {
                     factoryCalls.incrementAndGet();
                     return testClient(agentCard);
                 });
@@ -154,8 +154,8 @@ class A2aConnectionManagerTest {
     void evict_forces_reconnect() {
         AtomicInteger factoryCalls = new AtomicInteger();
         manager = new A2aConnectionManager(
-                (agent, headers) -> testCard(agent.agentUri()),
-                agentCard -> {
+                (agent, headers, cap) -> testCard(agent.agentUri()),
+                (agentCard, maxResponseBytes) -> {
                     factoryCalls.incrementAndGet();
                     return testClient(agentCard);
                 });
@@ -177,8 +177,8 @@ class A2aConnectionManagerTest {
     @Test
     void getOrConnect_after_close_throws() {
         manager = new A2aConnectionManager(
-                (agent, headers) -> testCard(agent.agentUri()),
-                A2aConnectionManagerTest::testClient);
+                (agent, headers, cap) -> testCard(agent.agentUri()),
+                (card, maxResponseBytes) -> testClient(card));
         manager.close();
 
         AgentConfig agent = AgentConfig.builder()
@@ -196,14 +196,14 @@ class A2aConnectionManagerTest {
         List<URI> fetchedUris = new ArrayList<>();
         // Use the package-private AgentCardLoader interface to capture the URI
         manager = new A2aConnectionManager(
-                (agent, headers) -> {
+                (agent, headers, cap) -> {
                     // Reconstruct what HttpAgentCardLoader would build
                     URI expected = URI.create(agent.agentUri().getScheme() + "://"
                             + agent.agentUri().getAuthority() + "/.well-known/agent-card.json");
                     fetchedUris.add(expected);
                     return testCard(agent.agentUri());
                 },
-                A2aConnectionManagerTest::testClient);
+                (card, maxResponseBytes) -> testClient(card));
 
         AgentConfig agent = AgentConfig.builder()
                 .id("a2a-agent")
@@ -230,11 +230,11 @@ class A2aConnectionManagerTest {
     void authenticated_card_discovery_passes_auth_headers_to_loader() {
         List<Map<String, String>> capturedHeaders = new ArrayList<>();
         manager = new A2aConnectionManager(
-                (agent, headers) -> {
+                (agent, headers, cap) -> {
                     capturedHeaders.add(Map.copyOf(headers));
                     return testCard(agent.agentUri());
                 },
-                A2aConnectionManagerTest::testClient);
+                (card, maxResponseBytes) -> testClient(card));
 
         AgentConfig agent = AgentConfig.builder()
                 .id("a2a-agent")

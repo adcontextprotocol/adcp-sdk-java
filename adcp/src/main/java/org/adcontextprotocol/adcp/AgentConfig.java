@@ -26,6 +26,10 @@ import java.util.Objects;
  *   <li>OAuth auth-code ({@code oauthTokens})</li>
  * </ul>
  *
+ * <p>Responses from this agent are capped at
+ * {@link #maxResponseBytes()} bytes (4 MiB by default) and the cap is enforced
+ * while the body streams in — see {@code specs/response-size-limits.md}.
+ *
  * Use {@link #builder()} to construct instances.
  */
 public record AgentConfig(
@@ -39,7 +43,8 @@ public record AgentConfig(
         @Nullable String webhookUrlTemplate,
         @Nullable String webhookSecret,
         @Nullable AdcpVersion adcpVersion,
-        Map<String, String> extraHeaders
+        Map<String, String> extraHeaders,
+        @Nullable Long maxResponseBytes
 ) {
 
     private static final Logger log = LoggerFactory.getLogger(AgentConfig.class);
@@ -52,6 +57,7 @@ public record AgentConfig(
         validateAuth(authToken, basicAuth, oauthClientCredentials, oauthTokens);
         validateAuthToken(authToken);
         validateExtraHeaders(extraHeaders);
+        validateMaxResponseBytes(maxResponseBytes);
         warnPlaintextAuth(agentUri, authToken, basicAuth, oauthClientCredentials, oauthTokens);
     }
 
@@ -68,7 +74,8 @@ public record AgentConfig(
                 + ", webhookSecret=" + (webhookSecret != null ? "<REDACTED>" : "null")
                 + ", adcpVersion=" + adcpVersion
                 + ", extraHeaders=" + (extraHeaders.isEmpty()
-                        ? "{}" : "<" + extraHeaders.size() + " headers>") + "]";
+                        ? "{}" : "<" + extraHeaders.size() + " headers>")
+                + ", maxResponseBytes=" + maxResponseBytes + "]";
     }
 
     /** Creates a builder for {@code AgentConfig}. */
@@ -137,6 +144,14 @@ public record AgentConfig(
         return s.indexOf('\r') >= 0 || s.indexOf('\n') >= 0;
     }
 
+    private static void validateMaxResponseBytes(@Nullable Long maxResponseBytes) {
+        if (maxResponseBytes != null && maxResponseBytes <= 0) {
+            throw new ConfigurationError(
+                    "maxResponseBytes must be positive: " + maxResponseBytes,
+                    "maxResponseBytes");
+        }
+    }
+
     private static void warnPlaintextAuth(
             URI agentUri,
             @Nullable String authToken,
@@ -166,6 +181,7 @@ public record AgentConfig(
         private @Nullable String webhookSecret;
         private @Nullable AdcpVersion adcpVersion;
         private Map<String, String> extraHeaders = Map.of();
+        private @Nullable Long maxResponseBytes;
 
         private Builder() {}
 
@@ -246,6 +262,29 @@ public record AgentConfig(
             return this;
         }
 
+        /**
+         * Caps this agent's responses at {@code maxResponseBytes}, overriding
+         * the client default (4 MiB, see
+         * {@link org.adcontextprotocol.adcp.http.AdcpHttpClient#DEFAULT_MAX_CALL_RESPONSE_BYTES}).
+         *
+         * <p>Raise it for an agent that legitimately publishes a very large
+         * catalogue. There is no way to disable the cap: agent responses are
+         * untrusted input, and an uncapped read is how one peer memory-DoSes
+         * the caller. A single call can override this again via
+         * {@link org.adcontextprotocol.adcp.transport.CallToolOptions#maxResponseBytes()}.
+         *
+         * @param maxResponseBytes cap in bytes; must be positive
+         */
+        public Builder maxResponseBytes(long maxResponseBytes) {
+            if (maxResponseBytes <= 0) {
+                throw new ConfigurationError(
+                        "maxResponseBytes must be positive: " + maxResponseBytes,
+                        "maxResponseBytes");
+            }
+            this.maxResponseBytes = maxResponseBytes;
+            return this;
+        }
+
         /** Builds the config, validating required fields and auth exclusivity. */
         public AgentConfig build() {
             if (id == null) {
@@ -258,7 +297,7 @@ public record AgentConfig(
                     id, agentUri, protocol,
                     authToken, basicAuth, oauthClientCredentials, oauthTokens,
                     webhookUrlTemplate, webhookSecret, adcpVersion,
-                    extraHeaders);
+                    extraHeaders, maxResponseBytes);
         }
     }
 }

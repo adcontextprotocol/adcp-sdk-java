@@ -7,6 +7,7 @@ import org.adcontextprotocol.adcp.AgentConfig;
 import org.adcontextprotocol.adcp.Protocol;
 import org.adcontextprotocol.adcp.auth.AuthTokenResolver;
 import org.adcontextprotocol.adcp.error.ProtocolError;
+import org.adcontextprotocol.adcp.error.ResponseTooLargeError;
 import org.adcontextprotocol.adcp.http.ProtectedHeaders;
 import org.adcontextprotocol.adcp.http.SsrfPolicy;
 import org.adcontextprotocol.adcp.transport.a2a.A2aCaller;
@@ -86,9 +87,12 @@ public final class ProtocolClient implements AutoCloseable {
         // 1. Validate agent URL against SSRF policy
         validateUrl(agent);
 
-        // 2. Warn if non-default options are passed (not yet enforced in v0.1)
-        if (!options.equals(CallToolOptions.DEFAULT)) {
-            log.debug("CallToolOptions fields are not yet enforced by the MCP transport (v0.1)");
+        // 2. Resolve the response size cap: call override, then agent, then
+        //    the client default baked into the connection managers.
+        Long maxResponseBytes = resolveMaxResponseBytes(agent, options);
+        if (options.timeout() != null) {
+            log.debug("CallToolOptions.timeout is not yet enforced by the transports; "
+                    + "the client-level requestTimeout applies");
         }
 
         // 3. Resolve auth headers
@@ -113,8 +117,22 @@ public final class ProtocolClient implements AutoCloseable {
 
         // 6. Dispatch to transport
         return agent.protocol() == Protocol.A2A
-                ? callViaA2a(agent, toolName, mergedArgs, allHeaders, responseType)
-                : callViaMcp(agent, toolName, mergedArgs, allHeaders, responseType);
+                ? callViaA2a(agent, toolName, mergedArgs, allHeaders, responseType,
+                        maxResponseBytes)
+                : callViaMcp(agent, toolName, mergedArgs, allHeaders, responseType,
+                        maxResponseBytes);
+    }
+
+    /**
+     * Resolves the response size cap for a call: explicit call option, then the
+     * agent's own setting, then {@code null} meaning "use the client default".
+     */
+    private static @Nullable Long resolveMaxResponseBytes(AgentConfig agent,
+                                                          CallToolOptions options) {
+        if (options.maxResponseBytes() != null) {
+            return options.maxResponseBytes();
+        }
+        return agent.maxResponseBytes();
     }
 
     /**
@@ -137,13 +155,17 @@ public final class ProtocolClient implements AutoCloseable {
     private <T> T callViaMcp(AgentConfig agent, String toolName,
                              Map<String, Object> mergedArgs,
                              Map<String, String> headers,
-                             Class<T> responseType) {
+                             Class<T> responseType,
+                             @Nullable Long maxResponseBytes) {
         String cacheHash = computeCacheHash(agent);
         McpSyncClient client = mcpConnectionManager.getOrConnect(
-                agent.agentUri(), headers, cacheHash);
+                agent.agentUri(), headers, cacheHash, maxResponseBytes);
+        long cap = maxResponseBytes != null
+                ? maxResponseBytes
+                : mcpConnectionManager.defaultMaxResponseBytes();
 
         try {
-            return mcpCaller.callTool(client, toolName, mergedArgs, responseType);
+            return mcpCaller.callTool(client, toolName, mergedArgs, responseType, cap);
         } catch (ProtocolError e) {
             if (!isTransportError(e)) {
                 throw e;
@@ -155,9 +177,9 @@ public final class ProtocolClient implements AutoCloseable {
 
             ProtocolError original = e;
             client = mcpConnectionManager.getOrConnect(
-                    agent.agentUri(), headers, cacheHash);
+                    agent.agentUri(), headers, cacheHash, maxResponseBytes);
             try {
-                return mcpCaller.callTool(client, toolName, mergedArgs, responseType);
+                return mcpCaller.callTool(client, toolName, mergedArgs, responseType, cap);
             } catch (ProtocolError retry) {
                 retry.addSuppressed(original);
                 throw retry;
@@ -166,6 +188,11 @@ public final class ProtocolClient implements AutoCloseable {
     }
 
     private boolean isTransportError(ProtocolError e) {
+        // An oversized response surfaces as an IOException from the JDK HTTP
+        // stack, but retrying it just re-downloads the same oversized payload.
+        if (ResponseTooLargeError.findIn(e) != null) {
+            return false;
+        }
         // Walk the full cause chain — any I/O or timeout failure is transient
         for (Throwable t = e.getCause(); t != null; t = t.getCause()) {
             if (t instanceof java.io.IOException
@@ -179,11 +206,16 @@ public final class ProtocolClient implements AutoCloseable {
     private <T> T callViaA2a(AgentConfig agent, String toolName,
                              Map<String, Object> mergedArgs,
                              Map<String, String> headers,
-                             Class<T> responseType) {
+                             Class<T> responseType,
+                             @Nullable Long maxResponseBytes) {
         String cacheHash = computeCacheHash(agent);
-        var client = a2aConnectionManager.getOrConnect(agent, headers, cacheHash);
+        var client = a2aConnectionManager.getOrConnect(
+                agent, headers, cacheHash, maxResponseBytes);
+        long cap = maxResponseBytes != null
+                ? maxResponseBytes
+                : a2aConnectionManager.defaultMaxResponseBytes();
         try {
-            return a2aCaller.callTool(client, toolName, mergedArgs, responseType, headers);
+            return a2aCaller.callTool(client, toolName, mergedArgs, responseType, headers, cap);
         } catch (ProtocolError e) {
             if (!isTransportError(e)) {
                 throw e;
@@ -193,9 +225,11 @@ public final class ProtocolClient implements AutoCloseable {
                     toolName, e.getMessage());
 
             ProtocolError original = e;
-            client = a2aConnectionManager.getOrConnect(agent, headers, cacheHash);
+            client = a2aConnectionManager.getOrConnect(
+                    agent, headers, cacheHash, maxResponseBytes);
             try {
-                return a2aCaller.callTool(client, toolName, mergedArgs, responseType, headers);
+                return a2aCaller.callTool(client, toolName, mergedArgs, responseType,
+                        headers, cap);
             } catch (ProtocolError retry) {
                 retry.addSuppressed(original);
                 throw retry;

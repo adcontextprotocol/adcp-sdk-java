@@ -19,7 +19,7 @@ The Java SDK has to match this baseline on every outbound discovery call — **n
 | Loopback service abuse | `http://localhost:9200/` Elasticsearch, `http://127.0.0.1:8500/v1/agent/services` Consul |
 | DNS rebinding | Domain that resolves to a public IP at TXT-record time and to `127.0.0.1` at connect time |
 | Redirect-to-internal | Public agent returns `Location: http://10.0.0.1/`; client follows |
-| Slow-loris / huge-body | Public agent returns a 10 GB body to exhaust the prober's memory |
+| Slow-loris / huge-body | Public agent returns a 10 GB body to exhaust the prober's memory (see [`response-size-limits.md`](response-size-limits.md)) |
 
 The first four classes target *what we connect to.* The fifth bypasses static URL validation by deferring the attack to redirect-follow time. The sixth weaponizes the prober's resource budget.
 
@@ -28,7 +28,7 @@ The first four classes target *what we connect to.* The fifth bypasses static UR
 1. **Resolve DNS once, validate the full address set.** For an outbound URL whose host is a name, resolve to the full address list, run every address through the address-guard, accept the call **only if all addresses pass**. Defense-in-depth against partial-block lists (host with one public + one private A record).
 2. **Pin the connect to the first validated address.** Bypass `HttpClient`'s implicit re-resolution. Defense against DNS rebinding: even if the name's records change between resolution and connect, we connect to the IP we already validated.
 3. **`redirect: 'manual'`.** No transparent redirect-follow. A 3xx from a probe is a result, not an action. Callers that need a follow re-run validation against the new URL.
-4. **Body cap.** 4 KiB by default on probes (the agent-card / `tools/list` size class). Configurable per call site.
+4. **Body cap.** 4 KiB by default on probes — transport detection and `WWW-Authenticate` challenges, where only the status line and headers are read. Configurable per call site. Paths whose body is *parsed* (agent cards, and every MCP/A2A call response) use the separate, strict 4 MiB cap from [`response-size-limits.md`](response-size-limits.md), which throws rather than truncating.
 
 ## Address guards (block list)
 

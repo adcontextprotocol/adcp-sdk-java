@@ -35,6 +35,15 @@ import java.util.Objects;
  * <p>Named convenience methods (e.g. {@code getProducts()}) are provided
  * for each tool in the TS SDK parity target. All funnel through
  * {@link #callTool(String, Map, Class, CallToolOptions)}.
+ *
+ * <p><b>Response size cap.</b> Every agent response is capped at 4 MiB by
+ * default and the cap is enforced while the body streams in; an over-cap
+ * response throws
+ * {@link org.adcontextprotocol.adcp.error.ResponseTooLargeError}. Raise it with
+ * {@link Builder#maxResponseBytes(long)} (per client),
+ * {@link AgentConfig.Builder#maxResponseBytes(long)} (per agent) or
+ * {@link CallToolOptions.Builder#maxResponseBytes(long)} (per call). See
+ * {@code specs/response-size-limits.md}.
  */
 public final class AdcpClient implements AutoCloseable {
 
@@ -63,6 +72,7 @@ public final class AdcpClient implements AutoCloseable {
 
         this.adcpHttpClient = AdcpHttpClient.builder()
                 .ssrfPolicy(ssrfPolicy)
+                .maxCallResponseBytes(builder.maxResponseBytes)
                 .build();
         McpConnectionManager mcpConnectionManager = new McpConnectionManager(
                 Duration.ofSeconds(10), builder.requestTimeout, adcpHttpClient);
@@ -174,6 +184,7 @@ public final class AdcpClient implements AutoCloseable {
         private @Nullable ObjectMapper objectMapper;
         private @Nullable SsrfPolicy ssrfPolicy;
         private Duration requestTimeout = Duration.ofSeconds(30);
+        private long maxResponseBytes = AdcpHttpClient.DEFAULT_MAX_CALL_RESPONSE_BYTES;
 
         private Builder() {}
 
@@ -222,6 +233,34 @@ public final class AdcpClient implements AutoCloseable {
          */
         public Builder requestTimeout(Duration requestTimeout) {
             this.requestTimeout = Objects.requireNonNull(requestTimeout, "requestTimeout");
+            return this;
+        }
+
+        /**
+         * Caps every agent response at {@code maxResponseBytes}. Default 4 MiB
+         * ({@link AdcpHttpClient#DEFAULT_MAX_CALL_RESPONSE_BYTES}).
+         *
+         * <p>The cap covers MCP tool calls, A2A {@code message/send}, SSE
+         * streams and agent-card fetches, and is enforced while the body
+         * streams in: an over-cap response throws
+         * {@link org.adcontextprotocol.adcp.error.ResponseTooLargeError} and is
+         * never buffered in full. Agent responses are untrusted input, so the
+         * cap cannot be disabled — only raised.
+         *
+         * <p>A single agent can override this via
+         * {@link AgentConfig.Builder#maxResponseBytes(long)}, and a single call
+         * via
+         * {@link org.adcontextprotocol.adcp.transport.CallToolOptions.Builder#maxResponseBytes(long)}.
+         *
+         * @param maxResponseBytes cap in bytes; must be positive
+         */
+        public Builder maxResponseBytes(long maxResponseBytes) {
+            if (maxResponseBytes <= 0) {
+                throw new ConfigurationError(
+                        "maxResponseBytes must be positive: " + maxResponseBytes,
+                        "maxResponseBytes");
+            }
+            this.maxResponseBytes = maxResponseBytes;
             return this;
         }
 
