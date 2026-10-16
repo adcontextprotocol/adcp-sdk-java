@@ -1,0 +1,33 @@
+name: Validate Argus review config
+
+# The Argus review workflow runs on `pull_request_target`, so a mistake in it
+# is only observable after it merges — and before issue #41 a crashed review
+# still reported success. This check runs on the untrusted `pull_request`
+# event (no secrets, read-only token) and asserts the invariants that keep a
+# silent no-review from looking like a pass.
+#
+# Scope: it runs the PR's own copy of the script, so it guards against honest
+# mistakes, not hostile PRs — the self-modification gate in ai-review.yml is
+# what covers that case.
+#
+# Not filtered by `paths`, so it reports on every PR rather than only the ones
+# that touch these files. Adding it to branch protection would change D21's
+# required-check set and needs a ROADMAP decision row first.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: ai-review.yml invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      # ubuntu-latest already ships Node 22, so no setup-node step is needed.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - run: node scripts/check-ai-review-workflow.cjs
