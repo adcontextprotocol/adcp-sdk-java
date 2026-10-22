@@ -106,6 +106,14 @@ Block any PR that hits one of these:
 
 9. **Build / lockfile drift** — a `gradle/libs.versions.toml` or `build.gradle.kts` change that fails `./gradlew updateLocks --write-locks && git diff --exit-code -- '**/gradle.lockfile' settings-gradle.lockfile`. CI catches this; if it's red, do not approve. Hand-edits to `**/build/generated/**` already covered in (6).
 
+10. **3.x wire change with no pathway back** (adcontextprotocol/adcp DR-0033). A PR that adds or changes support for a 3.x wire field, enum value, task, union variant or semantic rule must also handle the previous minor release. The four options:
+    - **droppable:** never on a mutation where dropping changes spend, targeting, caps or account identity;
+    - **moves:** to an exact older equivalent, in the version-translation layer;
+    - **refused:** before sending, with a typed unsupported-feature error;
+    - **identity-bearing:** one-to-one account-key reduction, never merging two buyer accounts (DR-0032).
+
+    Block when the pathway is missing, or when a mutation-side field is dropped where it must be refused. A missing pathway test on a wire-touching PR is a block too, an exception to the "missing tests" rule above. Translation that drops or rewrites without reporting it is a block.
+
 ## FOLLOW-UP (note but approve)
 
 Flag as `## Follow-ups` and approve. Do NOT block for:
