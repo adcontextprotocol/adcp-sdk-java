@@ -106,7 +106,7 @@ Block any PR that hits one of these:
 
 9. **Build / lockfile drift** — a `gradle/libs.versions.toml` or `build.gradle.kts` change that fails `./gradlew updateLocks --write-locks && git diff --exit-code -- '**/gradle.lockfile' settings-gradle.lockfile`. CI catches this; if it's red, do not approve. Hand-edits to `**/build/generated/**` already covered in (6).
 
-10. **3.x wire change with no pathway back** (adcontextprotocol/adcp DR-0033). A PR that adds or changes support for a 3.x wire field, enum value, task, union variant or semantic rule must also handle the previous minor release. The four options:
+10. **Minor-release wire change with no pathway back** (adcontextprotocol/adcp DR-0033). Minor releases are non-breaking and backward compatible, on 3.x now and in each later major's minors from 4.1 onward. A PR that adds or changes support for a wire field, enum value, task, union variant or semantic rule in a minor release must also handle the previous minor of the same major. The four options:
     - **droppable:** never on a mutation where dropping changes spend, targeting, caps or account identity;
     - **moves:** to an exact older equivalent, in the version-translation layer;
     - **refused:** before sending, with a typed unsupported-feature error;
